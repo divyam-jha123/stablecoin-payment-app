@@ -1,0 +1,17 @@
+{
+  "expo": {
+    "name": "Traveller Pay",
+    "slug": "tempo-traveller-payments",
+    "scheme": "travellerpay",
+    "version": "0.0.1",
+    "plugins": [
+      "expo-router"
+    ],
+    "android": {
+      "package": "com.travellerpay.hackathon"
+    },
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
