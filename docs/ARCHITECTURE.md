@@ -2,17 +2,17 @@
 
 Canonical engineering specification. Build window: **September 15–October 4, 2026 (20 calendar days)**. Changes to scope must also update [ROADMAP.md](ROADMAP.md). This is a hackathon prototype, not a production payment service.
 
-**Active scope — supersedes earlier scaffolding instructions:** infrastructure/architecture discussion and Markdown documentation only. The user has explicitly stopped code work. Do not create, modify, delete, install, build or test application code until the user authorizes resuming implementation. Existing scaffold files are unfinished and unverified, and are not evidence that an architectural proposal has been accepted. The user owns the mobile design/theme and will provide it later.
+**Active scope — supersedes the earlier documentation-only pause:** the user resumed implementation. QR scanning and backend parsing are merged. The next authorized build connects MetaMask Mobile to Tempo testnet and exposes developer-wallet faucet funding and balances. Keep the existing scanner design unchanged; no broader visual redesign is in scope.
 
-**Existing work, now paused:** a Node standard-library health-only bootstrap, mobile placeholders, shared modules and provider contracts were written before the stop instruction. Startup and checks have not been verified. This is not a decision to replace the proposed Express service. Prisma/database wiring and wallet/token selection remain pending the user's architecture answers. No payment route or live provider is connected.
+**Implementation status:** the Node standard-library API exposes health and QR parsing. MetaMask connection and a public Tempo RPC balance/faucet adapter are implemented in the mobile app. Physical Android wallet compatibility and live funding still require acceptance testing. Backend authentication, payment submission/verification and database wiring remain unfinished. This is not a decision to replace the proposed Express service.
 
-**Approved settlement mode — September 15, 2026:** continue the MVP in test mode using the settlement/payout black box. The intended blockchain leg is a real Tempo testnet transaction with independent backend verification. Stablecoin-to-INR conversion and merchant UPI payout remain mock or provider-sandbox operations; they move no real INR. This decision does not authorize application-code work yet—the documentation-only pause remains active until the user explicitly resumes implementation.
+**Approved settlement mode — September 15, 2026:** continue the MVP in test mode using the settlement/payout black box. The intended blockchain leg is a real Tempo testnet transaction with independent backend verification. Stablecoin-to-INR conversion and merchant UPI payout remain mock or provider-sandbox operations; they move no real INR. The current account/faucet increment does not implement those payment operations.
 
 **Approved local-development funding path — September 15, 2026:** use a disposable developer-controlled wallet funded with free Tempo testnet faucet assets. The wallet signs a real Tempo testnet transfer, which the backend independently verifies before the mock/sandbox settlement flow runs. No team member needs to own mainnet Tempo assets, and faucet assets have no monetary value. Wallet secrets remain only in the selected wallet application and must never enter this repository, the mobile app source or the backend.
 
 ### Decision approval policy
 
-Requirements explicitly fixed in the product brief remain constraints: Tempo-first, Android-first, React Native/TypeScript, no custom custody, no production INR movement, no multichain implementation, and the September 15–October 4 window. Recommendations below are discussion material until explicitly accepted by the user. In particular, the wallet approach/vendor, first test token, fee-payer strategy, backend/database choice, receiving-account arrangement and pricing approach are **not yet approved**. Present each important choice with its reason, alternatives and trade-offs; record the answer here before implementation. A scaffold file or elapsed time does not count as approval.
+Requirements explicitly fixed in the product brief remain constraints: Tempo-first, Android-first, React Native/TypeScript, no custom custody, no production INR movement, no multichain implementation, and the September 15–October 4 window. The user selected MetaMask Mobile and a disposable developer-controlled faucet-funded wallet. This increment uses pathUSD solely for the initial faucet/balance test; final payment-token selection, fee-payer strategy, backend/database choice, receiving-account arrangement and pricing remain pending. Record material user decisions here; a scaffold file or elapsed time does not count as approval.
 
 ## 1. Product goal
 
@@ -72,8 +72,8 @@ Status legend: **Required** = selected in the user brief; **Proposed** = awaitin
 | React Native, TypeScript, Expo, Expo Router | Required | Shared mobile code and fast iteration | Bare React Native; separate native apps | Native wallet modules may require development builds |
 | Android first; internal APK/dev build | Required | October 4 deadline | Equal platform effort; public store launch | iOS and store approval deferred |
 | TanStack Query; minimal Context state; Zod | Required/implementation rule | Server authority and runtime boundaries | Global client cache/custom validators | Local state only for transient scan/draft data |
-| Existing wallet connection first, Android spike gates vendor choice | Proposed | Reuses traveller balance without creating another funded account | Privy embedded wallet; direct Tempo passkeys | External approval/deep links; actual wallet must prove support |
-| pathUSD as first USD test asset; USDC/USDT identifiers retained, disabled | Proposed | Official faucet documents pathUSD; desired assets unconfirmed | AlphaUSD; invent USDC aliases | Honest test label; not claiming issuer USDC/USDT support |
+| MetaMask Mobile via MetaMask Connect EVM | Approved by user; device validation pending | Developer-controlled wallet, direct native deep links, no app custody | Reown connector; embedded wallet; direct Tempo passkeys | Physical Android connect/switch/return/signing must still be proven |
+| pathUSD for the initial faucet/balance test | Scoped implementation assumption; payment-token decision pending | Official faucet test asset; metadata checked at runtime | Other faucet test tokens | Test asset only; no claim of issuer USDC/USDT support |
 | Stablecoin-paid fees first; sponsorship after core transfer | Proposed | Removes separate gas token without sponsor infrastructure | Managed sponsor immediately | Reserve funds for fees; wallet might still show fee details |
 | REST, Express and one backend service | Proposed from recommended stack | Familiar TypeScript and minimal operations | Fastify; GraphQL; microservices | Some background processing lives in same deployment |
 | PostgreSQL + Prisma | Proposed from recommended stack | Durable uniqueness, transactions, restart recovery | SQLite; in-memory database | Local DB setup; schema/migration discipline |
@@ -136,19 +136,19 @@ Use the maintained **viem / viem/tempo** TypeScript integration inside infrastru
 
 ### Account options and Android acceptance gate
 
-#### MetaMask and Phantom — researched, not an approved wallet selection
+#### MetaMask Mobile selected; Android acceptance pending
 
-The user asked whether familiar wallets can be used. **MetaMask is a viable first candidate; Phantom is not currently a direct Tempo wallet option based on its published support.** This records compatibility evidence and a proposal only; no connector is selected or implemented.
+The user selected **MetaMask Mobile**. The mobile app uses MetaMask Connect EVM for connection and Tempo network switching; public RPC reads and faucet requests do not use a signer. Physical-device signing compatibility is not established by this increment. Phantom is not offered.
 
 - **MetaMask:** its official support page lists Tempo and documents custom-network setup on Mobile and Extension. This does not prove Moderato is preconfigured in every installed version. [MetaMask networks](https://support.metamask.io/configure/networks/how-to-add-a-custom-network-rpc).
-- **Mobile connection:** MetaMask Connect documents React Native EVM support and native-app deep links to MetaMask Mobile. Its current documentation replaces the legacy SDK. Connector selection must still compare this with Reown and prove Moderato signing, app return and reconnect on Android before acceptance. [MetaMask Connect platforms](https://docs.metamask.io/metamask-connect/supported-platforms/), [current connector](https://docs.metamask.io/metamask-connect/).
+- **Mobile connection:** MetaMask Connect documents React Native EVM support and native-app deep links to MetaMask Mobile. Its current documentation replaces the legacy SDK. This connector is implemented; Moderato signing, app return and reconnect must still be proven on Android. [MetaMask Connect platforms](https://docs.metamask.io/metamask-connect/supported-platforms/), [current connector](https://docs.metamask.io/metamask-connect/).
 - **Phantom:** official documentation excludes Tempo from its supported networks and says arbitrary/custom networks cannot be added. An EVM address or a wallet connection alone does not establish Tempo transaction capability. Do not offer Phantom as a working Tempo option or assume WalletConnect adds unsupported chain capability. [Phantom network support](https://help.phantom.com/articles/what-blockchain-networks-does-phantom-support-41372840389651), [custom-network limitation](https://help.phantom.com/articles/can-i-manually-add-a-network-to-phantom-46595961428627).
 
-Proposed user journey: connect MetaMask → app reads the approved token balance on Tempo → scan/quote → approve in MetaMask → return to app → backend verifies Tempo. Funds must already exist on Tempo; connecting a wallet does not move USDC from Ethereum or SOL from Solana. Network-add/switch approvals and wallet fee details may still be visible, so this option reduces custody/onboarding work but cannot guarantee the fully blockchain-hidden UX. Native Tempo sponsorship/passkeys must not be inferred from ordinary EVM signing support. The first wallet target still requires the user's approval; implementation remains paused.
+Target journey: connect MetaMask → read the test token balance on Tempo → scan/quote → approve in MetaMask → return to app → backend verifies Tempo. Only connection, balance and faucet functionality are part of this increment. Connecting a wallet does not move USDC from Ethereum or SOL from Solana. Network-add/switch approvals and wallet fee details may remain visible. Native Tempo sponsorship/passkeys must not be inferred from ordinary EVM signing support.
 
 | Option | Evidence | Implication |
 | --- | --- | --- |
-| Existing EVM-compatible wallet via Reown React Native | Tempo documents wallet connections; Reown documents RN/Expo connectors, native dependencies, and project ID setup | Recommended proposal for existing balances; must prove deep-link return, chain support, signing and reconnect on a real Android device |
+| Existing EVM-compatible wallet via Reown React Native | Tempo documents wallet connections; Reown documents RN/Expo connectors, native dependencies, and project ID setup | Alternative considered; direct MetaMask Connect selected for this increment |
 | Established embedded provider (Privy) | Privy documents RN chain configuration including Tempo and requires an Expo development build | Smoother authentication; new-account funding and vendor setup conflict with effortless access to existing funds unless solved |
 | Direct Tempo passkey account | Official Tempo examples use WebAuthn and domain-bound accounts | Attractive UX, but browser code is not a ready RN integration; native credential/domain setup is a delivery risk |
 
@@ -156,7 +156,7 @@ Sources: [Tempo accounts](https://docs.tempo.xyz/guide/use-accounts), [Tempo pas
 
 Privy's Tempo-specific transaction documentation currently demonstrates its React web API. It does not establish that the same API is available in RN; standard EVM transaction support and native Tempo envelopes must be tested separately. [Privy Tempo transaction guide](https://docs.privy.io/wallets/using-wallets/tempo/send-a-transaction).
 
-By September 18, demonstrate connect → balance → sign → return to app → reconnect with the selected wallet on Android. The actual app-specific wallet remains unselected until this evidence exists. Never implement raw private-key handling to work around a compatibility issue. Request a material decision change if the recommended model fails.
+By September 18, demonstrate connect → balance → sign → return to app → reconnect with MetaMask Mobile on Android. The vendor is selected, but physical acceptance and signing remain outstanding. Never implement raw private-key handling to work around a compatibility issue. Request a material decision change if this model fails.
 
 ## 6. Security and engineering rules
 
@@ -247,7 +247,7 @@ The black box may later be replaced by regulated production adapters without cha
 | Interface | Responsibilities | Scaffold / planned implementations |
 | --- | --- | --- |
 | `TempoProvider` | Get approved token balance; verify expected payment with independently read chain evidence | Fail-closed placeholder; `TempoTestnetProvider` real RPC implementation in Week 2 |
-| Mobile account provider | Connect, disconnect, get account, request user-approved Tempo transfer | Unconfigured placeholder; selected established wallet infrastructure in Week 1 |
+| Mobile account provider | Connect, disconnect, get account, request user-approved Tempo transfer | MetaMask connection and public balance/faucet implemented; transfer contract remains unimplemented |
 | `PricingProvider` | Create server-owned expiring quote | `MockPricingProvider` first; live provider only if needed |
 | `FiatSettlementProvider` | Initiate mock conversion with stable idempotency key; explicit simulation mode | `MockFiatSettlementProvider` |
 | `PayoutProvider` | `createPayout(input): Promise<PayoutResult>`; `getPayoutStatus(id): Promise<PayoutStatus>` | `MockPayoutProvider`; credentialled sandbox optional |
