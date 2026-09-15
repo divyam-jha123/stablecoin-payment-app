@@ -8,6 +8,8 @@ Latest user steering supersedes the earlier scaffold request: only discuss infra
 
 Approved decision on September 15, 2026: the MVP will use a real Tempo testnet transaction plus independent verification, followed by a test-mode settlement/payout black box. Conversion and UPI payout are simulated and move no INR. A provider sandbox may replace the local mock while preserving this disclosure. Production off-ramp work stays outside the build while partner discussions proceed.
 
+Approved local-development path on September 15, 2026: use a disposable developer-controlled wallet funded by the official Tempo testnet faucet. This exercises a real testnet transaction without purchasing mainnet assets. The wallet holds no valuable assets, its secrets never enter the repository or backend, and the completed demo continues to identify INR conversion and UPI payout as simulated.
+
 ## Week 1 — Foundation, Tempo and UPI scanning
 
 **September 15–20 (6 calendar days)**
@@ -19,6 +21,7 @@ Goal: connect a Tempo account, show supported stablecoin balances, scan a real U
 - [ ] Define payment state transitions, provider contracts, database schema and REST contract.
 - [ ] Create the ten route shells: Welcome, Connect/Sign In, Home, Scanner, Confirmation, Processing, Success, Failed, Activity, Details.
 - [ ] Prove Android wallet connection and signing compatibility by September 18; document actual wallet and version. Escalate a failed gate promptly rather than inventing custody.
+- [ ] Create a disposable account in the selected wallet application, fund it from the official Tempo testnet faucet and confirm the approved test asset metadata on chain.
 - [ ] Implement authenticated backend session, wallet connect/disconnect/reconnect and safe persistence.
 - [ ] Read approved Tempo test-stablecoin balances; verify metadata/network configuration.
 - [ ] Camera permission and QR detection; parse `pa`, `pn`, `am`, `cu`; handle missing amount and invalid payloads.

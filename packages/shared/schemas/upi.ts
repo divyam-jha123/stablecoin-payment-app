@@ -10,7 +10,10 @@ export const vpaSchema = z
 export const inrAmountSchema = z
   .string()
   .max(12)
-  .regex(/^(0|[1-9]\d{0,8})(\.\d{1,2})?$/, 'Use an INR amount with up to two decimals')
+  .regex(
+    /^(0|[1-9]\d{0,8})(\.\d{1,2})?$/,
+    'Use an INR amount with up to two decimals',
+  )
   .refine((value) => /[1-9]/.test(value), 'Amount must be greater than zero');
 
 export const upiQrSchema = z.object({
@@ -34,8 +37,12 @@ function parseFields(input: string): {
   merchantName: string;
   amountText: string | undefined;
 } {
+  // Control characters are deliberately rejected at this untrusted QR boundary.
+  // eslint-disable-next-line no-control-regex
   if (input.length > 4096 || /[\u0000-\u0020\u007f]/u.test(input)) {
-    throw new InvalidUpiQrError('QR contains invalid characters or is too long');
+    throw new InvalidUpiQrError(
+      'QR contains invalid characters or is too long',
+    );
   }
   // URLSearchParams tolerates broken escapes. Reject them before URL parsing.
   try {
@@ -70,13 +77,15 @@ function parseFields(input: string): {
   }
 
   const vpa = vpaSchema.safeParse(params.get('pa'));
-  if (!vpa.success) throw new InvalidUpiQrError('QR has an invalid UPI address');
+  if (!vpa.success)
+    throw new InvalidUpiQrError('QR has an invalid UPI address');
 
   const name = params.get('pn');
   const merchantName = name === null ? vpa.data : name.trim();
   if (
     merchantName.length === 0 ||
     merchantName.length > 120 ||
+    // eslint-disable-next-line no-control-regex
     /[\u0000-\u001f\u007f\u200e\u200f\u202a-\u202e\u2066-\u2069]/u.test(
       merchantName,
     )
@@ -90,8 +99,13 @@ function parseFields(input: string): {
   }
 
   const amountText = params.get('am') ?? undefined;
-  if (amountText !== undefined && !inrAmountSchema.safeParse(amountText).success) {
-    throw new InvalidUpiQrError('QR amount must be positive INR with up to two decimals');
+  if (
+    amountText !== undefined &&
+    !inrAmountSchema.safeParse(amountText).success
+  ) {
+    throw new InvalidUpiQrError(
+      'QR amount must be positive INR with up to two decimals',
+    );
   }
   return { vpa: vpa.data, merchantName, amountText };
 }

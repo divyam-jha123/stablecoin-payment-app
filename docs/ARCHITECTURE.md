@@ -8,6 +8,8 @@ Canonical engineering specification. Build window: **September 15–October 4, 2
 
 **Approved settlement mode — September 15, 2026:** continue the MVP in test mode using the settlement/payout black box. The intended blockchain leg is a real Tempo testnet transaction with independent backend verification. Stablecoin-to-INR conversion and merchant UPI payout remain mock or provider-sandbox operations; they move no real INR. This decision does not authorize application-code work yet—the documentation-only pause remains active until the user explicitly resumes implementation.
 
+**Approved local-development funding path — September 15, 2026:** use a disposable developer-controlled wallet funded with free Tempo testnet faucet assets. The wallet signs a real Tempo testnet transfer, which the backend independently verifies before the mock/sandbox settlement flow runs. No team member needs to own mainnet Tempo assets, and faucet assets have no monetary value. Wallet secrets remain only in the selected wallet application and must never enter this repository, the mobile app source or the backend.
+
 ### Decision approval policy
 
 Requirements explicitly fixed in the product brief remain constraints: Tempo-first, Android-first, React Native/TypeScript, no custom custody, no production INR movement, no multichain implementation, and the September 15–October 4 window. Recommendations below are discussion material until explicitly accepted by the user. In particular, the wallet approach/vendor, first test token, fee-payer strategy, backend/database choice, receiving-account arrangement and pricing approach are **not yet approved**. Present each important choice with its reason, alternatives and trade-offs; record the answer here before implementation. A scaffold file or elapsed time does not count as approval.
@@ -77,6 +79,7 @@ Status legend: **Required** = selected in the user brief; **Proposed** = awaitin
 | PostgreSQL + Prisma | Proposed from recommended stack | Durable uniqueness, transactions, restart recovery | SQLite; in-memory database | Local DB setup; schema/migration discipline |
 | Integer monetary units; decimal strings over REST | Proposed | Exact arithmetic and JSON-safe amounts | JavaScript floating-point arithmetic | Explicit conversion at boundaries |
 | Test-only configured receiver, one transfer per payment | Proposed | No new customer deposit wallet; simple reconciliation | Escrow contract; per-payment receiver | Irreversible test transfer; no automatic refunds |
+| Disposable developer wallet funded by the Tempo faucet for local development | **Approved — September 15, 2026** | Exercises a real Tempo testnet transaction without purchasing or owning mainnet assets | Mock blockchain receipt; mainnet assets; backend signer | Faucet availability and testnet resets can interrupt testing; wallet must contain no valuable assets |
 | Narrow Tempo/pricing/settlement/payout interfaces | Required | Domain independent of SDK/vendors | SDK calls in business services; universal provider framework | Small mapping layer |
 | Test-mode settlement/payout black box | **Approved — September 15, 2026** | Delivers a repeatable end-to-end test without regulated money movement while partner discussions continue | Live off-ramp plus UPI provider; prefunded live payout; provider sandbox | No stablecoin sale or INR transfer occurs; every result must be labelled simulated |
 | Mock pricing initially | Proposed | No pricing credentials needed during foundation work | Live FX provider | Fixed demo FX is illustrative, not a market execution rate |
@@ -96,6 +99,30 @@ The [official faucet](https://docs.tempo.xyz/quickstart/faucet) lists:
 | BetaUSD | `0x20c0000000000000000000000000000000000002` | TIP-20 / 6 | Not enabled |
 | ThetaUSD | `0x20c0000000000000000000000000000000000003` | TIP-20 / 6 | Not enabled |
 | USDC / USDT | Not confirmed for this test environment | Must verify issuer, contract and metadata | No invented addresses or relabelling |
+
+### Approved local-development transaction path
+
+```mermaid
+flowchart TD
+    Wallet[Disposable developer wallet]
+    Faucet[Tempo testnet faucet]
+    Transaction[Real Tempo testnet transaction]
+    Verification[Independent backend verification]
+    Conversion[Mock / sandbox INR conversion]
+    Payout[Mock / sandbox UPI payout]
+    Success[Test workflow completed]
+
+    Faucet -->|Free test stablecoins| Wallet
+    Wallet -->|Signs and submits| Transaction
+    Transaction --> Verification
+    Verification --> Conversion
+    Conversion --> Payout
+    Payout --> Success
+```
+
+The disposable wallet is a dedicated test account created and controlled through the approved wallet application. It must never hold mainnet funds or be reused as a production, treasury or personal wallet. The application does not generate, import, export or store its private key. Developers obtain faucet assets only from the official Tempo testnet faucet and verify the network, asset contract and chain ID before testing.
+
+The Tempo leg is real within the testnet: a transaction is signed, broadcast, included and independently verified from chain evidence. Everything after `ONCHAIN_CONFIRMED` is simulated or uses a provider sandbox and moves no INR. The final screen must say **“Tempo test payment confirmed — INR settlement simulated”**; it must not claim that the merchant received money. Testnet resets, faucet rate limits and asset unavailability are expected development constraints and must not be bypassed with fabricated Tempo success.
 
 [TIP-20](https://docs.tempo.xyz/protocol/tip20/overview) provides payment-specific stablecoin infrastructure and token policies. [pathUSD metadata](https://docs.tempo.xyz/protocol/exchange/pathUSD) confirms its six decimals. Runtime integration must check chain ID, contract code, symbol, decimals and USD currency against the approved allowlist before enabling an asset. “USD stablecoin (test)” is the friendly label; token details retain the actual symbol. A test asset must never be silently called USDC or USDT.
 
@@ -253,7 +280,7 @@ Errors have `{ error: { code, message } }`; validation `400`, unauthenticated `4
 
 | Environment | Network | Settlement | Purpose |
 | --- | --- | --- | --- |
-| development | Tempo testnet; unconfigured signer initially | mock | Local scaffold and integration |
+| development | Tempo testnet; disposable developer wallet funded by official faucet | mock | Local integration using real testnet chain evidence and no valuable assets |
 | test | Offline deterministic chain fixtures | isolated mock | Money-critical unit tests |
 | hackathon-demo | Real Tempo testnet transactions | visibly mock/sandbox | APK and hosted backend |
 | production-future | Not accepted by runtime configuration | Not implemented | Separate partner/compliance project |
@@ -270,6 +297,203 @@ Week 2/3 adds a bounded in-process polling/recovery loop driven by persisted pen
 
 UPI payout is simulated; no real INR conversion, production KYC/AML or banking integration exists. Normal `upi://pay` QR parsing does not guarantee every proprietary QR format, active VPA, merchant authenticity or provider eligibility. The merchant display name comes from untrusted QR data; the user confirms it. One USD test stablecoin is enough. Tempo-only; SOL/Solana unsupported. No public store release. External wallets may expose technical approval details the app cannot control. Current research is documentation evidence, not a successful Android signing or RPC verification test.
 
-## 15. Future (not implemented)
+## 15. Future architecture / post-MVP plan — Pay from Anywhere
 
-Source assets on Solana, Ethereum and Base may eventually route to a USD stablecoin on Tempo before entering the same payment service. Additional assets, cross-chain routing, regulated off-ramp/UPI partners, other countries/payment rails, refunds and merchant reconciliation require separate scope decisions after the hackathon. `source-chains/README.md` is the only source-chain extension artifact needed now.
+After the Tempo-first MVP is stable, the product may evolve into a multi-chain source payment layer. The long-term product vision is:
+
+> **Pay from anywhere. Settle through Tempo. Spend anywhere UPI works.**
+
+Users should not need to already hold assets on Tempo. They should be able to pay with supported assets from the chains where they already keep their funds.
+
+```mermaid
+flowchart LR
+    Solana[USDC on Solana]
+    Base[USDC on Base]
+    Ethereum[USDT on Ethereum]
+    Routing[Source routing layer]
+    Tempo[Tempo]
+    Settlement[Stablecoin settlement]
+    OffRamp[Fiat / off-ramp]
+    INR[INR]
+    UPI[UPI]
+    Merchant[Merchant]
+
+    Solana --> Routing
+    Base --> Routing
+    Ethereum --> Routing
+    Routing --> Tempo
+    Tempo --> Settlement
+    Settlement --> OffRamp
+    OffRamp --> INR
+    INR --> UPI
+    UPI --> Merchant
+```
+
+The user-facing experience remains:
+
+```text
+Scan UPI QR
+↓
+₹850
+↓
+Choose available balance
+↓
+Pay
+↓
+Done
+```
+
+The user should not need to manually bridge funds, swap assets, move funds to Tempo, select a destination chain, calculate gas, understand routing or understand cross-chain messaging. The product abstraction should handle those operations.
+
+### Future source chains and assets
+
+Potential source networks include Solana, Base, Ethereum and other high-liquidity chains where travellers commonly hold stablecoins. Potential assets include USDC, USDT, SOL, ETH and additional major assets where reliable routing and liquidity exist.
+
+Arbitrary token support is not promised. Every supported asset must have sufficient liquidity, reliable pricing, safe routing, predictable execution and supported bridging or swapping infrastructure.
+
+### Future architectural model
+
+Tempo remains the normalized payment and settlement layer. Source-chain details must not leak into the rest of the payment domain.
+
+```ts
+interface SourceAssetProvider {
+  getBalances(account: string): Promise<AssetBalance[]>;
+
+  getRoute(
+    input: SourcePaymentRouteInput,
+  ): Promise<SourcePaymentRoute>;
+
+  executeRoute(
+    input: ExecuteSourcePaymentInput,
+  ): Promise<SourcePaymentResult>;
+}
+```
+
+Potential future implementations are `SolanaSourceProvider`, `BaseSourceProvider` and `EthereumSourceProvider`. Each provider normalizes a source asset into the settlement asset required on Tempo:
+
+```text
+Source-chain asset
+↓
+Swap, if required
+↓
+Bridge or route, if required
+↓
+Supported USD stablecoin on Tempo
+↓
+Tempo payment / settlement
+```
+
+The rest of the system continues operating on the same payment model regardless of where the user's funds originated. These interfaces and implementations are conceptual only; they must not be implemented during the initial 20-day MVP. `source-chains/README.md` remains the only source-chain extension artifact needed during the MVP.
+
+### Future UX principle
+
+The application may initially show supported balances with their source networks:
+
+```text
+Available to spend
+$2,480
+
+USDC · Solana       $820
+USDC · Base         $600
+USDT · Ethereum     $740
+SOL                 $320
+
+[ Scan to Pay ]
+```
+
+After scanning:
+
+```text
+Coffee Shop
+
+₹850
+
+Pay using
+
+USDC · Solana
+USDC · Base
+USDT · Ethereum
+SOL
+
+[ Pay ₹850 ]
+```
+
+Network names may move under advanced details after the system can select routes safely and automatically. The eventual target is:
+
+```text
+Coffee Shop
+
+₹850
+
+Available balance: $2,480
+
+[ Pay ₹850 ]
+```
+
+### Future routing engine
+
+A future routing layer may evaluate user balance, conversion rate, swap fees, bridge fees, network fees, execution time, liquidity, route reliability and Tempo settlement requirements. It should select the cheapest reliable route automatically.
+
+```text
+User assets
+↓
+Route discovery
+↓
+Best route
+↓
+Source-asset conversion
+↓
+Cross-chain movement
+↓
+Tempo settlement
+↓
+INR payout
+```
+
+This generalized routing engine is prohibited during the initial 20-day MVP.
+
+### Future architectural rule
+
+Tempo must not depend on any one source chain. The intended model is:
+
+```text
+Solana  ──┐
+Base     ──┼──► Tempo ─► INR ─► UPI
+Ethereum ──┤
+Future   ──┘
+```
+
+Tempo is the common settlement and payment layer. Source chains are interchangeable funding sources rather than separate Tempo-specific applications.
+
+### Post-MVP implementation order
+
+After the core Tempo-to-UPI MVP is reliable, expand in this order:
+
+1. USDC on Solana
+2. USDC on Base
+3. USDT on Ethereum
+4. Automatic source balance discovery
+5. Automatic swap and bridge routing
+6. SOL support
+7. ETH support
+8. Additional networks only when justified by real user demand
+
+Add one source integration at a time and preserve the existing Tempo payment flow. Do not attempt all source chains simultaneously.
+
+### Long-term product vision
+
+The product should behave more like an international spending account than a crypto wallet. The traveller should think:
+
+> “I have money in crypto.”
+
+rather than:
+
+> “I have USDC on Base, USDT on Ethereum and SOL on Solana.”
+
+The product should handle where the money is, what asset it is, how it must be routed, how it reaches Tempo, how it converts to INR and how the merchant gets paid without exposing those steps during checkout.
+
+The long-term product promise is:
+
+> **Bring the crypto you already own. Scan any supported local payment QR. We handle the rest.**
+
+Regulated off-ramp and UPI partners, other countries and payment rails, refunds and merchant reconciliation remain separate post-MVP scope decisions.
