@@ -8,6 +8,8 @@ Tempo is the core payment network. Its stablecoin payments, transfer memos and s
 
 Approved MVP settlement mode: a real Tempo testnet payment is independently verified, then a mock or provider-sandbox black box simulates fiat conversion and UPI payout. No stablecoin is sold and no INR reaches a merchant. Receipts must state this explicitly.
 
+Local development uses a disposable developer-controlled wallet funded with free assets from the official Tempo testnet faucet. The wallet contains no valuable assets and signs the real testnet transaction; its private key or recovery phrase must never be placed in this repository, application configuration or the backend.
+
 ## Prerequisites and setup
 
 - Node.js 24.13+ (24.x), pnpm 12.3.4.
