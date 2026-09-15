@@ -2,9 +2,9 @@
 
 **Hard build window: September 15–October 4, 2026, inclusive.** Canonical architecture: [ARCHITECTURE.md](ARCHITECTURE.md).
 
-Current phase: **Week 1 — architecture discussion and documentation only; implementation paused by the user**. This document tracks delivered evidence, not calendar-based claims of completion. Architectural proposals awaiting user answers remain marked in the architecture document.
+Current phase: **Week 1 — QR scanning merged; MetaMask Mobile connection and Tempo testnet funding implementation**. This document tracks delivered evidence, not calendar-based claims of completion. Architectural proposals awaiting user answers remain marked in the architecture document.
 
-Latest user steering supersedes the earlier scaffold request: only discuss infrastructure/architecture and update Markdown files for now. Do not continue code, dependency installation, builds or tests until explicitly authorized. The weekly implementation plan below is retained as future work, not authorization to execute it now. Mobile design and theme will be supplied by the user later.
+Latest user steering resumes implementation and selects MetaMask Mobile. The account increment covers connect/disconnect, testnet switching, pathUSD balances and manual faucet requests. Physical Android acceptance and live network checks remain pending; see [wallet testing](WALLET_TESTING.md). Payment signing and backend authentication are separate unfinished work. No scanner redesign is included.
 
 Approved decision on September 15, 2026: the MVP will use a real Tempo testnet transaction plus independent verification, followed by a test-mode settlement/payout black box. Conversion and UPI payout are simulated and move no INR. A provider sandbox may replace the local mock while preserving this disclosure. Production off-ramp work stays outside the build while partner discussions proceed.
 

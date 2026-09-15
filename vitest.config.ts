@@ -10,7 +10,11 @@ export default defineConfig({
     },
   },
   test: {
-    include: ['packages/**/*.test.ts', 'apps/api/**/*.test.ts'],
+    include: [
+      'packages/**/*.test.ts',
+      'apps/api/**/*.test.ts',
+      'apps/mobile/src/**/*.test.ts',
+    ],
     environment: 'node',
   },
 });
