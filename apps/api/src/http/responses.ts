@@ -2,6 +2,9 @@ import type { ServerResponse } from 'node:http';
 
 export type ApiErrorCode =
   | 'INTERNAL_ERROR'
+  | 'UNAUTHORIZED'
+  | 'AUTHENTICATION_FAILED'
+  | 'CHALLENGE_EXPIRED'
   | 'INVALID_JSON'
   | 'INVALID_REQUEST'
   | 'INVALID_UPI_QR'

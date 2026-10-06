@@ -11,6 +11,7 @@ export interface WalletAdapter {
   switchToTempo(): Promise<void>;
   disconnect(): Promise<void>;
   account(): Promise<WalletAccount | null>;
+  signMessage(message: string): Promise<`0x${string}`>;
   subscribe(listener: () => void): () => void;
 }
 
@@ -91,6 +92,10 @@ export function createWalletStore(adapter: WalletAdapter) {
       return unsubscribe;
     },
     refresh,
+    signMessage: adapter.signMessage,
+    setError(error: string) {
+      update({ error });
+    },
     connect: () =>
       run(async () => {
         disconnected = false;

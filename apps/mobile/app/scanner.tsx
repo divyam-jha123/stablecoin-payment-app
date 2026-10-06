@@ -17,6 +17,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Defs, Mask, Rect } from 'react-native-svg';
 import { parsedQrResponseSchema } from '@traveller/shared';
+import { uiPreviewEnabled } from '../src/ui-preview';
 
 const REQUEST_TIMEOUT_MS = 10_000;
 const RETRY_DELAY_MS = 1_500;
@@ -168,6 +169,17 @@ export default function Scanner() {
         }
 
         setMessage('QR code detected');
+        const { merchant, payment } = parsedResponse.data.data;
+        router.replace({
+          pathname: '/confirmation',
+          params: {
+            merchantName: merchant.name,
+            merchantVpa: merchant.vpa,
+            ...(payment.inrAmount === null
+              ? {}
+              : { inrAmount: payment.inrAmount }),
+          },
+        });
       } catch (error) {
         resumeScanning(
           error instanceof Error && error.name === 'AbortError'
@@ -200,6 +212,34 @@ export default function Scanner() {
     const { height, width } = event.nativeEvent.layout;
     setCameraLayout({ height, width });
   }, []);
+
+  if (uiPreviewEnabled) {
+    return (
+      <SafeAreaView style={styles.permissionScreen}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <Text style={styles.permissionText}>QR scanner preview</Text>
+        <Text style={styles.permissionText}>
+          Camera scanning is skipped in UI preview. Open a sample merchant to
+          review the next screen.
+        </Text>
+        <Button
+          title="Use sample merchant QR"
+          color="#ffffff"
+          onPress={() =>
+            router.push({
+              pathname: '/confirmation',
+              params: {
+                merchantName: 'Sample merchant',
+                merchantVpa: 'sample@upi',
+                inrAmount: '250',
+              },
+            })
+          }
+        />
+        <Button title="Back" color="#ffffff" onPress={() => router.back()} />
+      </SafeAreaView>
+    );
+  }
 
   if (!permission) {
     return (

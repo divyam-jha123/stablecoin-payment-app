@@ -2,7 +2,7 @@
 
 An Android-first hackathon payment app for international travellers in India: scan an existing UPI QR, pay a USD stablecoin on Tempo, and demonstrate simulated INR merchant settlement.
 
-**Active scope: infrastructure discussion and Markdown documentation only.** Code work is paused at the user's request. Existing scaffold files are unfinished and unverified; the commands below describe their intended use when implementation resumes. No account connection, live balances, quotes, Tempo transfer, database workflow or INR money movement is enabled.
+The current prototype includes an Expo mobile interface, MetaMask sign-in, a Tempo testnet balance, QR scanning and payment review. Payment submission and real INR settlement are not enabled.
 
 Tempo is the core payment network. Its stablecoin payments, transfer memos and stablecoin fees underpin the planned verification and reconciliation flow. See the research and pending architecture choices in [ARCHITECTURE.md](docs/ARCHITECTURE.md), and the hard **September 15–October 4, 2026** build window in [ROADMAP.md](docs/ROADMAP.md).
 
@@ -13,7 +13,7 @@ Local development uses a disposable developer-controlled wallet funded with free
 ## Prerequisites and setup
 
 - Node.js 24.13+ (24.x), pnpm 12.3.4.
-- Android device with compatible Expo Go for the screen scaffold, or an Android emulator. Wallet integration will receive a separate native-build compatibility check.
+- Android device with compatible Expo Go, or an Android emulator. Wallet handoff still needs physical-device verification.
 
 ```sh
 pnpm install
@@ -26,17 +26,29 @@ The repository pins the current Expo 57 template dependency family. Do not indep
 ## Run
 
 ```sh
-# Terminal 1: health-only Node bootstrap on port 3000
+# Terminal 1: local API on port 3000
 pnpm dev:api
 
-# Terminal 2: Expo Router mobile screen scaffold
+# Terminal 2: Expo Router mobile app
 pnpm dev:mobile
 
 # Or start both
 pnpm dev
 ```
 
-Open the Expo terminal QR on an Android device, or press `a` with a configured emulator. Expo Go can preview these shells; it does not prove the later wallet SDK works. `pnpm --filter @traveller/mobile android` opens the scaffold on Android.
+Open the Expo terminal QR on an Android device, or press `a` with a configured emulator.
+
+### Preview the dashboard without a wallet
+
+From the repository root, start Expo with the UI preview flag:
+
+```sh
+EXPO_PUBLIC_UI_PREVIEW=1 pnpm dev:mobile
+```
+
+Open the app in Expo Go and tap **Get Started**, then **Continue to dashboard**. The **UI pages** control lets you switch between the other screens. If Expo is already running, restart it with the command above so it picks up the environment variable.
+
+This mode is for visual review in development. It does not connect a wallet, read a balance, scan a live QR, or submit a payment. Start normally with `pnpm dev:mobile` to use the wallet flow.
 
 ```sh
 curl http://localhost:3000/health
@@ -50,7 +62,7 @@ The standalone shared QR parser is tested with payloads such as:
 upi://pay?pa=merchant@upi&pn=Coffee%20Shop&am=250&cu=INR
 ```
 
-Mobile routes are neutral placeholders. The user will supply the design and theme; no palette, typography system, sample balances or interactive payment preview is included. Camera integration and manual amount entry remain Week 1 tasks.
+The mobile app has the supplied TravelPe design on its onboarding, sign-in, dashboard and payment review screens. The QR scanner keeps its existing design. Activity and funding screens show development states where payment services are not connected.
 
 ## Checks
 
@@ -66,14 +78,14 @@ pnpm build
 
 ## Structure and boundaries
 
-- `apps/mobile`: ten neutral Expo Router screen placeholders and an account-provider interface; design/theme deferred to the user.
+- `apps/mobile`: Expo Router app with wallet sign-in, testnet balance, QR scanning, payment review and local UI preview.
 - `apps/api`: health bootstrap and Tempo/pricing/fiat/payout provider contracts. Mocks are isolated helpers, not connected payment services.
 - `packages/shared`: Zod domain schemas, central payment statuses, QR parser and tests.
 - `docs`: canonical architecture and weekly roadmap.
 
 ## Limitations and next phase
 
-Current phase is **Week 1: architecture discussion/documentation; implementation paused**. The account model, first test stablecoin and proposed backend architecture still need the user's architecture answer. Faucet research confirms USD test-token options; USDC/USDT addresses are deliberately not invented or enabled.
+The prototype uses Tempo test funds. Payment submission, durable transaction history and real INR settlement remain future work.
 
 Mock fiat settlement and payout return explicitly simulated results and remember idempotency only within one instance. They do not provide durable duplicate-payment protection; database orchestration must precede any real payment wiring. Tempo/pricing placeholders reject operations. No real INR, production off-ramp, KYC/AML, banking or UPI provider is implemented. SOL/Solana and public app-store releases are out of scope.
 

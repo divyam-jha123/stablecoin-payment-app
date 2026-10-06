@@ -1,0 +1,25 @@
+# Traveller Pay mobile interface
+
+The Figma TravelPe frames guide the onboarding, sign-in, dashboard, payment review, activity, and processing previews. The QR scanner retains its existing design.
+
+## Layout
+
+Safe-area screens use scrollable content and compact side padding. The dashboard uses 20dp side padding and keeps its navigation outside the scroll area. Payment actions and navigation have at least 48dp targets. Artwork is bundled locally. The onboarding and processing illustrations come from the supplied Figma file.
+
+## Visual roles
+
+White `#ffffff` and pale blue surfaces support navy ink `#081332`, secondary slate `#5b6b85`, and primary blue `#005ae1`. The wallet balance sits on dark navy. Cards use 16dp corners and main buttons use broad pill shapes. The sign-in screen uses a black hero and deep blue bottom panel.
+
+## Hierarchy and content
+
+Entry: travel illustration, oversized sign-in headline, MetaMask sign-in, install link, development notice.
+
+Dashboard: greeting and testnet status, actual pathUSD balance and refresh, four quick actions (Scan & Pay, Send, Receive, Add Money), scan banner, This Month summary, and activity. Unavailable monthly metrics show dashes. The fixed bottom bar follows Figma's five positions: Home, Payments, raised Scan action, Activity, Profile. Profile contains the connected wallet and disconnect action. Payments provides merchant scanning and the receive address, with unavailable contact transfers clearly identified. Activity uses search and filter controls with an empty state until transactions exist. Payment review follows the Figma merchant, amount, source wallet, estimate, and secure payment hierarchy.
+
+Add Money and Review Payment mirror the supplied funding flow for visual preview. They label rates as illustrative and do not submit fiat funding. Payment success remains unavailable until a real funding or settlement flow exists.
+
+Use real RPC balances only. Loading and RPC failures are distinct from zero. Sign-in errors stay near the primary action. Fixed and QR-entered amounts remain on the existing confirmation route. Never show invented transactions or settlement success.
+
+## Verification limits
+
+Native screenshots and physical MetaMask approval still require an Android device. Build and static checks do not verify native rendering or wallet handoff.

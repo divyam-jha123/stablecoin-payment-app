@@ -20,6 +20,7 @@ function fixture() {
       account = null;
     }),
     account: vi.fn(async () => account),
+    signMessage: vi.fn(async () => '0xsignature' as `0x${string}`),
     subscribe: (listener) => {
       changed = listener;
       return () => {

@@ -7,6 +7,12 @@
     "plugins": [
       "expo-router",
       [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#000000"
+        }
+      ],
+      [
         "expo-camera",
         {
           "cameraPermission": "Allow Traveller Pay to scan merchant UPI QR codes."
