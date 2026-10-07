@@ -1,14 +1,17 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Image,
+  Modal,
+  AppState,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
-import { Redirect, router, Stack } from 'expo-router';
+import { Redirect, router, Stack, useFocusEffect } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -16,14 +19,19 @@ import {
   AppIcon,
   colors,
   PaymentScreen,
-  ScanIcon,
   ui,
 } from '../src/components/payment-ui';
 import { useAccount } from '../src/features/account/use-account';
 import { walletStore } from '../src/features/account/metamask';
 import { TEMPO_CHAIN, tempoService } from '../src/features/account/tempo';
 import { walletError } from '../src/features/account/wallet-store';
+import { previewDashboard, previewTransactions } from '../src/preview-data';
+import { PreviewTransactions } from '../src/components/preview-transactions';
 import { uiPreviewEnabled } from '../src/ui-preview';
+import { HomeBalanceCard } from '../src/components/home-balance-card';
+import { HomeQuickActions } from '../src/components/home-quick-actions';
+import { HomeGreeting } from '../src/components/home-greeting';
+import { homeTheme } from '../src/theme/home';
 import { DashboardNav } from '../src/components/dashboard-nav';
 
 // Metro bundles this static Figma asset at build time.
@@ -33,6 +41,23 @@ const merchantBanner = require('../assets/figma/home-merchant-banner.png');
 export default function Home() {
   const { wallet, onTempo, session, foreground } = useAccount();
   const address = wallet.account?.address;
+  const [balanceVisible, setBalanceVisible] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  useFocusEffect(
+    useCallback(() => {
+      setBalanceVisible(false);
+      return () => setBalanceVisible(false);
+    }, []),
+  );
+  useEffect(() => {
+    setBalanceVisible(false);
+  }, [address]);
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state !== 'active') setBalanceVisible(false);
+    });
+    return () => subscription.remove();
+  }, []);
   const [funding, setFunding] = useState(false);
   const [cooldown, setCooldown] = useState(0);
   const [notice, setNotice] = useState<{
@@ -101,6 +126,21 @@ export default function Home() {
     }
   }
 
+  const paymentActions = {
+    onAddMoney: () =>
+      uiPreviewEnabled ? router.push('/add-money') : void fund(),
+    onSend: () => router.push('/payments'),
+    onReceive: () =>
+      router.push({ pathname: '/payments', params: { mode: 'receive' } }),
+    disabled: navigatingDisabled,
+    fundingDisabled: fundingUnavailable,
+    fundingLabel: funding
+      ? 'Requesting…'
+      : cooldown
+        ? `Wait ${cooldown}s`
+        : 'Add Money',
+  };
+
   if (
     !uiPreviewEnabled &&
     (!address || !onTempo || session.data === false || session.isError)
@@ -122,56 +162,55 @@ export default function Home() {
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
       >
-        <View style={styles.header}>
-          <View style={styles.headerCopy}>
-            <Text style={styles.greeting}>Hi, traveller 👋</Text>
-            <Text style={styles.subGreeting}>Good to see you back!</Text>
-          </View>
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>TESTNET</Text>
-          </View>
-        </View>
-        <View style={styles.balance}>
-          <View style={styles.balanceMetaRow}>
-            <Text style={styles.balanceLabel}>Total Balance</Text>
-            <Text style={styles.token}>◉ pathUSD</Text>
-          </View>
-          <Text
-            selectable
-            numberOfLines={1}
-            adjustsFontSizeToFit
-            accessibilityLiveRegion="polite"
-            style={styles.amount}
-          >
-            {uiPreviewEnabled
-              ? '—'
+        <HomeGreeting
+          name={uiPreviewEnabled ? 'Rupesh' : 'traveller'}
+          showMockPhoto={uiPreviewEnabled}
+          unread={uiPreviewEnabled}
+          onProfile={() => router.push('/profile')}
+          onNotifications={() => setNotificationsOpen(true)}
+        />
+        <HomeBalanceCard
+          {...paymentActions}
+          balance={
+            uiPreviewEnabled
+              ? previewDashboard.displayBalance
               : balance.isError
                 ? 'Unavailable'
-                : (balance.data ?? 'Checking…')}
-          </Text>
-          <View style={styles.balanceMetaRow}>
-            <Text style={styles.network}>Tempo Moderato · test funds</Text>
-            {!uiPreviewEnabled && (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Refresh balance"
-                accessibilityState={{
-                  disabled: balance.isFetching || wallet.busy,
-                }}
-                disabled={balance.isFetching || wallet.busy}
-                onPress={() => void balance.refetch()}
-                style={[
-                  styles.refresh,
-                  (balance.isFetching || wallet.busy) && styles.disabledAction,
-                ]}
-              >
-                <Text style={styles.refreshText}>
-                  {balance.isFetching ? 'Refreshing…' : 'Refresh'}
-                </Text>
-              </Pressable>
-            )}
-          </View>
-        </View>
+                : (balance.data ?? 'Checking…')
+          }
+          equivalent={
+            uiPreviewEnabled
+              ? previewDashboard.displayEquivalent
+              : 'Tempo Moderato · test funds'
+          }
+          currency={uiPreviewEnabled ? 'USDC' : 'pathUSD'}
+          visible={balanceVisible}
+          onToggleVisibility={() => setBalanceVisible((visible) => !visible)}
+          onCurrencyPress={() =>
+            Alert.alert(
+              'Currency',
+              uiPreviewEnabled
+                ? 'USDC is selected for this design preview. Currency switching is not available yet.'
+                : 'This wallet uses pathUSD on Tempo Moderato testnet.',
+            )
+          }
+          onActivity={() => router.push('/activity')}
+          monthlyChange={uiPreviewEnabled ? '12.4%' : undefined}
+        />
+        {!uiPreviewEnabled && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Refresh balance"
+            accessibilityState={{ disabled: balance.isFetching || wallet.busy }}
+            disabled={balance.isFetching || wallet.busy}
+            onPress={() => void balance.refetch()}
+            style={styles.refresh}
+          >
+            <Text style={styles.link}>
+              {balance.isFetching ? 'Refreshing…' : 'Refresh balance'}
+            </Text>
+          </Pressable>
+        )}
         {!uiPreviewEnabled && balance.isError && (
           <Text accessibilityRole="alert" style={ui.error}>
             Could not read your balance. {walletError(balance.error)} Use
@@ -183,80 +222,12 @@ export default function Home() {
             {notice?.text}
           </Text>
         )}
-        <View style={styles.quickActions}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Scan and pay"
-            accessibilityState={{ disabled: navigatingDisabled }}
-            disabled={navigatingDisabled}
-            onPress={() => router.push('/scanner')}
-            style={[
-              styles.quickAction,
-              navigatingDisabled && styles.disabledAction,
-            ]}
-          >
-            <View style={styles.quickIcon}>
-              <ScanIcon color="#fff" size={25} />
-            </View>
-            <Text style={styles.quickTitle}>Scan & Pay</Text>
-            <Text style={styles.quickHint}>Pay anywhere</Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Send to contacts"
-            onPress={() => router.push('/payments')}
-            style={[styles.quickAction, styles.quickDivider]}
-          >
-            <View style={styles.quickIconSoft}>
-              <AppIcon name="send" color={colors.accent} />
-            </View>
-            <Text style={styles.quickTitle}>Send</Text>
-            <Text style={styles.quickHint}>To contacts</Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Receive funds"
-            onPress={() =>
-              router.push({
-                pathname: '/payments',
-                params: { mode: 'receive' },
-              })
-            }
-            style={[styles.quickAction, styles.quickDivider]}
-          >
-            <View style={styles.quickIconSoft}>
-              <AppIcon name="person" color={colors.accent} />
-            </View>
-            <Text style={styles.quickTitle}>Receive</Text>
-            <Text style={styles.quickHint}>Get paid</Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityState={{ disabled: fundingUnavailable }}
-            disabled={fundingUnavailable}
-            onPress={() =>
-              uiPreviewEnabled ? router.push('/add-money') : void fund()
-            }
-            style={[
-              styles.quickAction,
-              styles.quickDivider,
-              fundingUnavailable && styles.disabledAction,
-            ]}
-          >
-            <View style={styles.quickIconSoft}>
-              <AppIcon name="plus" color={colors.accent} />
-            </View>
-            <Text style={styles.quickTitle}>
-              {funding
-                ? 'Requesting…'
-                : cooldown
-                  ? `Wait ${cooldown}s`
-                  : 'Add Money'}
-            </Text>
-            <Text style={styles.quickHint}>
-              {uiPreviewEnabled ? 'Design preview' : 'Test faucet'}
-            </Text>
-          </Pressable>
+        <View style={uiPreviewEnabled ? styles.quickActionsSpacing : undefined}>
+          <HomeQuickActions
+            {...paymentActions}
+            onScan={() => router.push('/scanner')}
+            fundingHint={uiPreviewEnabled ? 'From bank' : 'Test faucet'}
+          />
         </View>
         <Pressable
           accessibilityRole="button"
@@ -281,7 +252,11 @@ export default function Home() {
         </Pressable>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="This month: spending, payments, and network fees are not available yet. View activity."
+          accessibilityLabel={
+            uiPreviewEnabled
+              ? `Sample monthly activity: ${previewDashboard.spent} spent, ${previewDashboard.payments} payments, ${previewDashboard.networkFees} pathUSD network fees. View activity.`
+              : 'This month: spending, payments, and network fees are not available yet. View activity.'
+          }
           onPress={() => router.push('/activity')}
           style={styles.monthBar}
         >
@@ -294,15 +269,21 @@ export default function Home() {
             <Text style={styles.monthTitle}>This Month</Text>
           </View>
           <View style={styles.monthMetric}>
-            <Text style={styles.monthValue}>—</Text>
+            <Text style={styles.monthValue}>
+              {uiPreviewEnabled ? previewDashboard.spent : '—'}
+            </Text>
             <Text style={styles.monthLabel}>Spent</Text>
           </View>
           <View style={styles.monthMetric}>
-            <Text style={styles.monthValue}>—</Text>
+            <Text style={styles.monthValue}>
+              {uiPreviewEnabled ? previewDashboard.payments : '—'}
+            </Text>
             <Text style={styles.monthLabel}>Payments</Text>
           </View>
           <View style={styles.monthMetric}>
-            <Text style={styles.monthValue}>—</Text>
+            <Text style={styles.monthValue}>
+              {uiPreviewEnabled ? previewDashboard.networkFees : '—'}
+            </Text>
             <Text style={styles.monthLabel}>Network fees</Text>
           </View>
           <AppIcon name="arrow" size={14} color={colors.muted} />
@@ -318,13 +299,19 @@ export default function Home() {
               <Text style={styles.link}>See All ›</Text>
             </Pressable>
           </View>
-          <View style={styles.emptyActivity}>
-            <AppIcon name="activity" color={colors.accent} size={30} />
-            <Text style={styles.emptyTitle}>No payments yet</Text>
-            <Text style={styles.emptyCopy}>
-              Your transactions will appear here when payments are available.
-            </Text>
-          </View>
+          {uiPreviewEnabled ? (
+            <PreviewTransactions
+              transactions={previewTransactions.slice(0, 3)}
+            />
+          ) : (
+            <View style={styles.emptyActivity}>
+              <AppIcon name="activity" color={colors.accent} size={30} />
+              <Text style={styles.emptyTitle}>No payments yet</Text>
+              <Text style={styles.emptyCopy}>
+                Your transactions will appear here when payments are available.
+              </Text>
+            </View>
+          )}
         </View>
         {uiPreviewEnabled && (
           <Action
@@ -343,106 +330,78 @@ export default function Home() {
           />
         )}
         <Text style={styles.disclosure}>
-          Tempo testnet · pathUSD has no monetary value. INR settlement is
-          simulated.
+          {uiPreviewEnabled
+            ? 'Sample data for design preview only. No funds moved.'
+            : 'Tempo testnet · pathUSD has no monetary value. INR settlement is simulated.'}
         </Text>
       </ScrollView>
-      <DashboardNav disabled={navigatingDisabled} />
+      <Modal
+        visible={notificationsOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setNotificationsOpen(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.notificationPanel} accessibilityViewIsModal>
+            <AppIcon name="bell" size={32} color={colors.accent} />
+            <Text accessibilityRole="header" style={styles.sectionTitle}>
+              Notifications
+            </Text>
+            <Text style={styles.emptyCopy}>
+              {uiPreviewEnabled
+                ? 'No sample notifications yet.'
+                : 'Notifications are not available yet.'}
+            </Text>
+            <Action title="Close" onPress={() => setNotificationsOpen(false)} />
+          </View>
+        </View>
+      </Modal>
+      <View style={styles.navArea}>
+        <DashboardNav disabled={navigatingDisabled} floating />
+      </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.surface },
-  scroll: { flex: 1 },
+  screen: { flex: 1, backgroundColor: homeTheme.colors.background },
+  scroll: { flex: 1, backgroundColor: homeTheme.colors.background },
   content: {
     width: '100%',
-    maxWidth: 600,
+    maxWidth: homeTheme.layout.maxWidth,
     alignSelf: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 20,
-    gap: 16,
+    paddingHorizontal: homeTheme.layout.pageGutter,
+    paddingTop: homeTheme.spacing.sm,
+    paddingBottom: homeTheme.spacing.section,
+    gap: homeTheme.spacing.lg,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: 12,
+  quickActionsSpacing: { marginTop: -28 },
+  navArea: {
+    backgroundColor: homeTheme.colors.background,
+    paddingHorizontal: homeTheme.layout.pageGutter,
+    paddingBottom: homeTheme.spacing.sm,
   },
-  headerCopy: { flexShrink: 1 },
-  greeting: { color: colors.ink, fontSize: 19, fontWeight: '700' },
-  subGreeting: { color: colors.muted, fontSize: 13, marginTop: 3 },
-  badge: {
-    backgroundColor: '#e9f2ff',
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    borderRadius: 16,
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(8,19,50,0.45)',
+    justifyContent: 'center',
+    padding: 24,
   },
-  badgeText: { color: colors.accent, fontSize: 11, fontWeight: '700' },
-  balance: {
-    backgroundColor: '#002967',
-    borderRadius: 17,
-    padding: 18,
-    gap: 8,
-  },
-  balanceMetaRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: 8,
-  },
-  balanceLabel: { color: '#d9e9ff', fontSize: 14 },
-  token: { color: '#fff', fontSize: 13, fontWeight: '700' },
-  amount: {
-    color: '#fff',
-    fontSize: 34,
-    fontWeight: '700',
-    fontVariant: ['tabular-nums'],
-  },
-  network: { color: '#c4d8ff', fontSize: 12, flexShrink: 1 },
-  refresh: { minHeight: 48, justifyContent: 'center', paddingHorizontal: 8 },
-  refreshText: { color: '#fff', fontSize: 12, fontWeight: '600' },
-  quickActions: {
-    flexDirection: 'row',
+  notificationPanel: {
+    width: '100%',
+    maxWidth: 440,
+    alignSelf: 'center',
     backgroundColor: '#fff',
-    borderRadius: 17,
-    justifyContent: 'space-between',
-    paddingVertical: 12,
+    borderRadius: 16,
+    padding: 24,
+    gap: 20,
+  },
+  refresh: {
+    minHeight: homeTheme.layout.touchTarget,
+    justifyContent: 'center',
+    alignSelf: 'flex-end',
   },
   disabledAction: { opacity: 0.5 },
-  quickAction: {
-    alignItems: 'center',
-    flex: 1,
-    minHeight: 78,
-    justifyContent: 'center',
-    gap: 4,
-    paddingHorizontal: 2,
-  },
-  quickDivider: { borderLeftWidth: 1, borderLeftColor: '#dce8ff' },
-  quickIcon: {
-    height: 48,
-    width: 48,
-    borderRadius: 24,
-    backgroundColor: colors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  quickIconSoft: {
-    height: 48,
-    width: 48,
-    borderRadius: 24,
-    backgroundColor: '#e0efff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  quickTitle: {
-    color: colors.ink,
-    fontSize: 11,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  quickHint: { color: colors.muted, fontSize: 9, textAlign: 'center' },
   banner: {
     width: '100%',
     height: 116,

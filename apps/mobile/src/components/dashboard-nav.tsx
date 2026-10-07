@@ -16,12 +16,21 @@ const tabs = [
   { label: 'Profile', href: '/profile', icon: 'person' },
 ] as const;
 
-export function DashboardNav({ disabled = false }: { disabled?: boolean }) {
+export function DashboardNav({
+  disabled = false,
+  floating = false,
+}: {
+  disabled?: boolean;
+  floating?: boolean;
+}) {
   const pathname = usePathname();
   const { width } = useWindowDimensions();
   const scanSize = Math.min(72, (Math.min(width, 600) - 24) / 5);
   return (
-    <View accessibilityRole="tablist" style={styles.bar}>
+    <View
+      accessibilityRole="tablist"
+      style={[styles.bar, floating && styles.floatingBar]}
+    >
       {tabs.map((tab) => {
         const selected = pathname === tab.href;
         return (
@@ -87,8 +96,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingTop: 8,
     paddingBottom: 8,
-    borderTopColor: '#edf2fa',
-    borderTopWidth: 1,
+  },
+  floatingBar: {
+    borderRadius: 20,
+    minHeight: 66,
+    paddingVertical: 4,
   },
   item: {
     flex: 1,

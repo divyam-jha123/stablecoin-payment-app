@@ -23,3 +23,9 @@ Use real RPC balances only. Loading and RPC failures are distinct from zero. Sig
 ## Verification limits
 
 Native screenshots and physical MetaMask approval still require an Android device. Build and static checks do not verify native rendering or wallet handoff.
+
+## Home reference and local preview
+
+The supplied Home screenshot is saved at `assets/home-design-reference.png` in the repository root. Home follows its avatar and notification header, blue gradient balance card, currency control, secondary equivalent, monthly indicator, and in-card Add Money, Send, and Receive actions. Balance and equivalent start masked and hide again on navigation or app backgrounding.
+
+Explicit local UI preview may use clearly labeled illustrative balances and transactions, including Starbucks, Blinkit, and Received from Priya from the reference. The preview balance card displays the supplied reference values ₹12,450.75 and ≈ 148.32 USDC; these are fixed design fixtures, not a live conversion quote. Its currency selector identifies the selected preview token; switching currencies awaits integration. The connected wallet continues to show actual Tempo pathUSD only; sample history, conversion rates, and monthly growth are preview-only.

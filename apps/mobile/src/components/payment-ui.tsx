@@ -114,11 +114,27 @@ export function AppIcon({
     | 'arrow'
     | 'back'
     | 'send'
+    | 'bell'
+    | 'eye'
+    | 'eye-off'
+    | 'chevron-down'
+    | 'trend-up'
+    | 'arrow-up-right'
+    | 'currency'
     | 'receive';
   color?: string;
   size?: number;
 }) {
   const paths: Record<typeof name, string> = {
+    'chevron-down': 'M6 9l6 6 6-6',
+    'trend-up': 'M3 18l6-6 4 4 8-11 M15 5h6v6',
+    'arrow-up-right': 'M5 19 19 5 M7 5h12v12',
+    currency:
+      'M9 3a9 9 0 0 0 0 18 M15 3a9 9 0 0 1 0 18 M15 8h-4a2 2 0 0 0 0 4h2a2 2 0 0 1 0 4H9 M12 6v12',
+    bell: 'M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9 M10 21h4',
+    eye: 'M2 12s3-7 10-7 10 7 10 7-3 7-10 7S2 12 2 12z M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0',
+    'eye-off':
+      'M3 3l18 18 M10 5h2c7 0 10 7 10 7a19 19 0 0 1-3 4 M6 6a20 20 0 0 0-4 6s3 7 10 7c2 0 3-1 4-1 M9 9a4 4 0 0 0 6 6',
     home: 'M3 10.5 12 3l9 7.5V21h-6v-7H9v7H3z',
     wallet: 'M3 6h17v13H3z M3 9h17 M16 14h4',
     activity: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z M12 7v5l3 2',

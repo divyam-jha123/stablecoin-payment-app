@@ -12,11 +12,27 @@ import { useState } from 'react';
 import { AppIcon, colors } from '../src/components/payment-ui';
 import { DashboardNav } from '../src/components/dashboard-nav';
 
+import { uiPreviewEnabled } from '../src/ui-preview';
+import { previewInr, previewTransactions } from '../src/preview-data';
+import { PreviewTransactions } from '../src/components/preview-transactions';
+
 const filters = ['All', 'Sent', 'Received', 'Travel', 'Bills'];
 
 export default function Activity() {
   const [filter, setFilter] = useState('All');
   const [search, setSearch] = useState('');
+  const query = search.trim().toLowerCase();
+  const transactions = uiPreviewEnabled
+    ? previewTransactions.filter(
+        (transaction) =>
+          (filter === 'All' ||
+            transaction.direction === filter ||
+            transaction.category === filter) &&
+          `${transaction.name} ${transaction.category} ${transaction.amount} ${previewInr(transaction.amount)}`
+            .toLowerCase()
+            .includes(query),
+      )
+    : [];
   return (
     <SafeAreaView style={styles.screen}>
       <Stack.Screen options={{ headerShown: false }} />
@@ -64,25 +80,37 @@ export default function Activity() {
           ))}
         </View>
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Today</Text>
-          <Text style={styles.count}>0 transactions</Text>
+          <Text style={styles.sectionTitle}>
+            {uiPreviewEnabled ? 'Sample activity' : 'Today'}
+          </Text>
+          <Text style={styles.count}>
+            {transactions.length}{' '}
+            {transactions.length === 1 ? 'transaction' : 'transactions'}
+          </Text>
         </View>
-        <View style={styles.empty}>
-          <View style={styles.emptyIcon}>
-            <AppIcon name="activity" color={colors.accent} size={34} />
+        {transactions.length > 0 ? (
+          <PreviewTransactions transactions={transactions} />
+        ) : (
+          <View style={styles.empty}>
+            <View style={styles.emptyIcon}>
+              <AppIcon name="activity" color={colors.accent} size={34} />
+            </View>
+            <Text style={styles.emptyTitle}>
+              {search || uiPreviewEnabled
+                ? 'No matching transactions'
+                : 'No transactions yet'}
+            </Text>
+            <Text style={styles.emptyText}>
+              {search || uiPreviewEnabled
+                ? 'Try another search term or filter.'
+                : 'Your payment activity will appear here when payments are available.'}
+            </Text>
           </View>
-          <Text style={styles.emptyTitle}>
-            {search ? 'No matching transactions' : 'No transactions yet'}
-          </Text>
-          <Text style={styles.emptyText}>
-            {search
-              ? 'Try another search term.'
-              : 'Your payment activity will appear here when payments are available.'}
-          </Text>
-        </View>
+        )}
         <Text style={styles.notice}>
-          Payment submission is not enabled yet. Your test balance is read from
-          Tempo Moderato.
+          {uiPreviewEnabled
+            ? 'Sample data for design preview only. No funds moved.'
+            : 'Payment submission is not enabled yet. Your test balance is read from Tempo Moderato.'}
         </Text>
       </ScrollView>
       <DashboardNav />
