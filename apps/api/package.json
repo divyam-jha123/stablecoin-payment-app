@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@traveller/shared": "workspace:*",
+    "viem": "^2.56.5",
     "zod": "^4.1.0"
   }
 }

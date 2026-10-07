@@ -60,11 +60,11 @@ async function getClient() {
   return initializing;
 }
 
-async function walletRequest(action: () => Promise<unknown>) {
+async function walletRequest<T>(action: () => Promise<T>): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   let rejectLink: ((error: Error) => void) | undefined;
   try {
-    await Promise.race([
+    return await Promise.race([
       action(),
       new Promise<never>((_, reject) => {
         rejectLink = reject;
@@ -139,6 +139,21 @@ const adapter: WalletAdapter = {
     const address = client?.getAccount();
     const chain = client?.getChainId();
     return address && chain ? { address, chainId: Number(chain) } : null;
+  },
+  async signMessage(message) {
+    const sdk = await getClient();
+    const address = sdk.getAccount();
+    if (!address) throw new Error('Connect a wallet before signing in.');
+    const signature = await walletRequest(() =>
+      sdk.getProvider().request({
+        method: 'personal_sign',
+        params: [message, address],
+      }),
+    );
+    if (typeof signature !== 'string' || !/^0x[0-9a-f]+$/i.test(signature)) {
+      throw new Error('MetaMask returned an invalid signature.');
+    }
+    return signature as `0x${string}`;
   },
   subscribe(listener) {
     listeners.add(listener);

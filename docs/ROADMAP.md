@@ -16,17 +16,17 @@ Approved local-development path on September 15, 2026: use a disposable develope
 
 Goal: connect a Tempo account, show supported stablecoin balances, scan a real UPI QR, and reach confirmation.
 
-- [ ] Confirm material architecture decisions; record official Tempo network, token, fee, memo and account findings.
-- [ ] Scaffold mobile/API/shared workspace, environment, TypeScript, lint, formatting and meaningful tests.
-- [ ] Define payment state transitions, provider contracts, database schema and REST contract.
-- [ ] Create the ten route shells: Welcome, Connect/Sign In, Home, Scanner, Confirmation, Processing, Success, Failed, Activity, Details.
-- [ ] Prove Android wallet connection and signing compatibility by September 18; document actual wallet and version. Escalate a failed gate promptly rather than inventing custody.
-- [ ] Create a disposable account in the selected wallet application, fund it from the official Tempo testnet faucet and confirm the approved test asset metadata on chain.
+- [x] Confirm material architecture decisions; record official Tempo network, token, fee, memo and account findings.
+- [x] Scaffold mobile/API/shared workspace, environment, TypeScript, lint, formatting and meaningful tests.
+- [x] Define payment state transitions, provider contracts, database schema and REST contract.
+- [x] Create the ten route shells: Welcome, Connect/Sign In, Home, Scanner, Confirmation, Processing, Success, Failed, Activity, Details.
+- [x] Prove Android wallet connection and signing compatibility by September 18; document actual wallet and version. Escalate a failed gate promptly rather than inventing custody.
+- [x] Create a disposable account in the selected wallet application, fund it from the official Tempo testnet faucet and confirm the approved test asset metadata on chain.
 - [ ] Implement authenticated backend session, wallet connect/disconnect/reconnect and safe persistence.
-- [ ] Read approved Tempo test-stablecoin balances; verify metadata/network configuration.
-- [ ] Camera permission and QR detection; parse `pa`, `pn`, `am`, `cu`; handle missing amount and invalid payloads.
-- [ ] Unit-test URI/VPA/amount/currency parsing and malformed inputs.
-- [ ] Produce Android development build and test on a physical device.
+- [x] Read approved Tempo test-stablecoin balances; verify metadata/network configuration.
+- [x] Camera permission and QR detection; parse `pa`, `pn`, `am`, `cu`; handle missing amount and invalid payloads.
+- [x] Unit-test URI/VPA/amount/currency parsing and malformed inputs.
+- [x] Produce Android development build and test on a physical device.
 
 **Definition of done:** Open → connect/authenticate Tempo account → see actual test balances → scan existing UPI QR → see merchant → see/enter INR → confirmation. Real payment need not yet be wired. If this is broken, do not begin secondary features. Freeze fundamental architecture after Week 1 unless evidence forces a correction.
 

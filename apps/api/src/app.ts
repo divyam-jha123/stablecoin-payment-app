@@ -1,6 +1,12 @@
 import { createServer, type RequestListener, type Server } from 'node:http';
 import { sendError, sendJson } from './http/responses.js';
 import { handleQrParse } from './routes/qr.js';
+import {
+  handleAuthChallenge,
+  handleAuthLogout,
+  handleAuthSession,
+  handleAuthVerify,
+} from './routes/auth.js';
 
 export const apiHandler: RequestListener = (request, response) => {
   void handleApiRequest(request, response).catch(() => {
@@ -36,6 +42,41 @@ export async function handleApiRequest(
       paymentsEnabled: false,
       settlementMode: 'mock',
     });
+    return;
+  }
+
+  if (pathname === '/v1/auth/challenge' || pathname === '/v1/auth/verify') {
+    if (request.method !== 'POST') {
+      sendError(response, 405, 'METHOD_NOT_ALLOWED', 'Method not allowed', {
+        Allow: 'POST',
+      });
+      return;
+    }
+    await (pathname.endsWith('challenge')
+      ? handleAuthChallenge(request, response)
+      : handleAuthVerify(request, response));
+    return;
+  }
+
+  if (pathname === '/v1/auth/session') {
+    if (request.method !== 'GET') {
+      sendError(response, 405, 'METHOD_NOT_ALLOWED', 'Method not allowed', {
+        Allow: 'GET',
+      });
+      return;
+    }
+    handleAuthSession(request, response);
+    return;
+  }
+
+  if (pathname === '/v1/auth/logout') {
+    if (request.method !== 'POST') {
+      sendError(response, 405, 'METHOD_NOT_ALLOWED', 'Method not allowed', {
+        Allow: 'POST',
+      });
+      return;
+    }
+    handleAuthLogout(request, response);
     return;
   }
 

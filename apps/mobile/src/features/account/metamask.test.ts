@@ -13,6 +13,7 @@ const uri = 'metamask://connect?test-pairing=one';
 async function fixture() {
   const handlers = new Map<string, Set<(value: string) => void>>();
   const provider = {
+    request: vi.fn(async () => '0xabcd'),
     on(event: string, handler: (value: string) => void) {
       const listeners = handlers.get(event) ?? new Set();
       listeners.add(handler);
@@ -31,7 +32,7 @@ async function fixture() {
     }),
     switchChain: vi.fn(async () => {}),
     disconnect: vi.fn(async () => {}),
-    getAccount: () => undefined,
+    getAccount: vi.fn<() => string | undefined>(() => undefined),
     getChainId: () => undefined,
   };
   mocks.createEVMClient.mockResolvedValue(sdk);
@@ -50,6 +51,24 @@ afterEach(() => {
 });
 
 describe('MetaMask native connection wiring', () => {
+  it('returns the wallet signature to backend sign-in', async () => {
+    const { walletStore, sdk } = await fixture();
+    await walletStore.connect();
+    sdk.getAccount.mockReturnValue(
+      '0x1234567890123456789012345678901234567890',
+    );
+    await expect(walletStore.signMessage('Sign in to Traveller')).resolves.toBe(
+      '0xabcd',
+    );
+    expect(sdk.getProvider().request).toHaveBeenCalledWith({
+      method: 'personal_sign',
+      params: [
+        'Sign in to Traveller',
+        '0x1234567890123456789012345678901234567890',
+      ],
+    });
+  });
+
   it('removes the pairing listener on timeout and ignores subsequent events', async () => {
     const { walletStore, sdk, emit, handlers } = await fixture();
     vi.useFakeTimers();
