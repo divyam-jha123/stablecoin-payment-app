@@ -17,6 +17,7 @@ import { walletStore } from '../src/features/account/metamask';
 import { authenticateWallet } from '../src/features/account/session';
 import { TEMPO_CHAIN } from '../src/features/account/tempo';
 import { walletError } from '../src/features/account/wallet-store';
+import { walletFlowLog } from '../src/features/account/wallet-flow-log';
 import { uiPreviewEnabled } from '../src/ui-preview';
 
 export default function Connect() {
@@ -34,23 +35,36 @@ export default function Connect() {
       return;
     }
     if (lock.current || walletStore.getSnapshot().busy) return;
+    walletFlowLog.begin();
     lock.current = true;
     setSigning(true);
     setError(null);
     try {
-      if (!walletStore.getSnapshot().account) await walletStore.connect();
-      else if (walletStore.getSnapshot().account?.chainId !== TEMPO_CHAIN.id)
+      if (!walletStore.getSnapshot().account) {
+        walletFlowLog.info('Starting MetaMask connection');
+        await walletStore.connect();
+      } else if (
+        walletStore.getSnapshot().account?.chainId !== TEMPO_CHAIN.id
+      ) {
+        walletFlowLog.info('Wallet connected; requesting Tempo network');
         await walletStore.switchToTempo();
+      } else {
+        walletFlowLog.info('Wallet already connected on Tempo');
+      }
       const current = walletStore.getSnapshot();
       if (!current.account || current.account.chainId !== TEMPO_CHAIN.id) {
         throw new Error(
           current.error ?? 'Connect MetaMask on Tempo testnet to continue.',
         );
       }
+      walletFlowLog.info('Wallet account confirmed on Tempo testnet');
       const account = current.account;
       // Cancel a pending restore so it cannot overwrite this sign-in result.
+      walletFlowLog.info('Cancelling any pending session check');
       await queryClient.cancelQueries({ queryKey: ['session'] });
+      walletFlowLog.info('Starting backend wallet sign-in');
       await authenticateWallet(account, walletStore.signMessage);
+      walletFlowLog.info('Backend wallet sign-in completed');
       await walletStore.refresh();
       const after = walletStore.getSnapshot().account;
       if (
@@ -61,11 +75,15 @@ export default function Connect() {
           'Your wallet changed during sign-in. Please try again.',
         );
       }
+      walletFlowLog.info('Wallet still matches signed-in account');
       queryClient.setQueryData(
         ['session', account.address, account.chainId],
         true,
       );
+      walletFlowLog.info('Session marked ready; dashboard navigation pending');
     } catch (cause) {
+      walletFlowLog.error('Sign-in stopped', cause);
+      walletFlowLog.stop();
       setError(walletError(cause));
     } finally {
       setSigning(false);

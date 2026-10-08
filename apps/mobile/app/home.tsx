@@ -33,6 +33,7 @@ import { HomeQuickActions } from '../src/components/home-quick-actions';
 import { HomeGreeting } from '../src/components/home-greeting';
 import { homeTheme } from '../src/theme/home';
 import { DashboardNav } from '../src/components/dashboard-nav';
+import { walletFlowLog } from '../src/features/account/wallet-flow-log';
 
 // Metro bundles this static Figma asset at build time.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -67,6 +68,19 @@ export default function Home() {
   const fundingLock = useRef(false);
   const authorized =
     uiPreviewEnabled || Boolean(address && onTempo && session.data === true);
+  const dashboardLogged = useRef(false);
+  useEffect(() => {
+    if (
+      !uiPreviewEnabled &&
+      authorized &&
+      foreground &&
+      !dashboardLogged.current
+    ) {
+      dashboardLogged.current = true;
+      walletFlowLog.info('Dashboard opened with an authenticated Tempo wallet');
+      walletFlowLog.stop();
+    }
+  }, [authorized, foreground]);
   const navigatingDisabled = wallet.busy;
   const fundingUnavailable =
     !uiPreviewEnabled && (funding || navigatingDisabled || cooldown > 0);

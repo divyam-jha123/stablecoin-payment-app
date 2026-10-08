@@ -6,6 +6,7 @@ import { walletStore } from './metamask';
 import { restoreSession } from './session';
 import { TEMPO_CHAIN } from './tempo';
 import { uiPreviewEnabled } from '../../ui-preview';
+import { walletFlowLog } from './wallet-flow-log';
 
 export function useAccount() {
   const wallet = useSyncExternalStore(
@@ -26,6 +27,7 @@ export function useAccount() {
   );
   useEffect(() => {
     const listener = AppState.addEventListener('change', (state) => {
+      walletFlowLog.appState(state);
       setActive(state === 'active');
       if (state === 'active' && !uiPreviewEnabled) void walletStore.refresh();
     });

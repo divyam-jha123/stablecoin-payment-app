@@ -1,6 +1,7 @@
 import * as SecureStore from 'expo-secure-store';
 import Constants from 'expo-constants';
 import type { WalletAccount } from './wallet-store';
+import { walletFlowLog } from './wallet-flow-log';
 
 const tokenKey = 'traveller.auth.session.v1';
 function getApiUrl() {
@@ -67,17 +68,24 @@ export async function authenticateWallet(
   account: WalletAccount,
   signMessage: (message: string) => Promise<`0x${string}`>,
 ) {
-  if (await restoreSession(account)) return;
+  walletFlowLog.info('Checking for an existing backend session');
+  if (await restoreSession(account)) {
+    walletFlowLog.info('Existing backend session is valid');
+    return;
+  }
+  walletFlowLog.info('Requesting sign-in challenge from backend');
   const challenge = await request<{
     data: { nonce: string; message: string; expiresAt: number };
   }>('/v1/auth/challenge', {
     method: 'POST',
     body: JSON.stringify({ address: account.address }),
   });
+  walletFlowLog.info('Sign-in challenge received');
   if (challenge.data.expiresAt <= Date.now()) {
     throw new Error('The sign-in request expired. Please try again.');
   }
   const signature = await signMessage(challenge.data.message);
+  walletFlowLog.info('Submitting signature for backend verification');
   const result = await request<{
     data: { token: string; address: string; expiresAt: number };
   }>('/v1/auth/verify', {
@@ -88,7 +96,9 @@ export async function authenticateWallet(
       signature,
     }),
   });
+  walletFlowLog.info('Backend verified wallet signature');
   await SecureStore.setItemAsync(tokenKey, result.data.token);
+  walletFlowLog.info('Backend session saved on device');
 }
 
 export async function logoutSession() {

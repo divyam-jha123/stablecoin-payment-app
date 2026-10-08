@@ -1,4 +1,5 @@
 import { accountAddress, TEMPO_CHAIN } from './tempo';
+import { walletFlowLog } from './wallet-flow-log';
 
 export type WalletAccount = { address: string; chainId: number };
 export type WalletSnapshot = {
@@ -58,7 +59,13 @@ export function createWalletStore(adapter: WalletAdapter) {
     try {
       await action();
       if (version !== operation) return;
+      walletFlowLog.info('Reading account and active chain from MetaMask');
       await refresh();
+      walletFlowLog.info(
+        snapshot.account
+          ? `Wallet state updated; chain ID ${snapshot.account.chainId}`
+          : 'Wallet state updated; no account returned',
+      );
       if (
         version === operation &&
         snapshot.account?.chainId !== TEMPO_CHAIN.id
@@ -68,6 +75,7 @@ export function createWalletStore(adapter: WalletAdapter) {
         });
       }
     } catch (error) {
+      walletFlowLog.error('Wallet connection or network step failed', error);
       if (version === operation) {
         await refresh();
         if (version === operation) update({ error: walletError(error) });
@@ -101,7 +109,12 @@ export function createWalletStore(adapter: WalletAdapter) {
         disconnected = false;
         const version = operation;
         await adapter.connect();
-        if (version === operation) await adapter.switchToTempo();
+        if (version === operation) {
+          walletFlowLog.info(
+            'Connection complete; starting Tempo network step',
+          );
+          await adapter.switchToTempo();
+        }
       }),
     switchToTempo: () => run(() => adapter.switchToTempo()),
     async disconnect() {

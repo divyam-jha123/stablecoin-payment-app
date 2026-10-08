@@ -1,0 +1,44 @@
+let attempt = 0;
+let step = 0;
+let tracking = false;
+const enabled = typeof __DEV__ !== 'undefined' && __DEV__;
+
+function prefix() {
+  return `[MetaMask flow #${attempt || '-'} step ${++step}]`;
+}
+
+function safeError(error: unknown) {
+  if (typeof error !== 'object' || error === null) return 'Unknown error';
+  const name = 'name' in error ? String(error.name) : 'Error';
+  const code = 'code' in error ? String(error.code) : undefined;
+  const message =
+    'message' in error
+      ? String(error.message)
+          .replace(/https?:\/\/\S+|metamask:\/\/\S+/gi, '[link]')
+          .replace(/0x[\da-f]{8,}/gi, '[hex]')
+      : undefined;
+  return [name, code && `code=${code}`, message].filter(Boolean).join(': ');
+}
+
+export const walletFlowLog = {
+  begin() {
+    if (!enabled) return;
+    attempt += 1;
+    step = 0;
+    tracking = true;
+    console.info(`${prefix()} Connect button pressed`);
+  },
+  appState(state: string) {
+    if (enabled && tracking)
+      console.info(`${prefix()} Traveller Pay app state: ${state}`);
+  },
+  stop() {
+    tracking = false;
+  },
+  info(message: string) {
+    if (enabled) console.info(`${prefix()} ${message}`);
+  },
+  error(message: string, cause: unknown) {
+    if (enabled) console.error(`${prefix()} ${message}: ${safeError(cause)}`);
+  },
+};

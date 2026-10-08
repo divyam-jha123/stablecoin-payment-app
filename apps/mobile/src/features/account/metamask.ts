@@ -5,6 +5,7 @@ import {
 import { Linking } from 'react-native';
 import { TEMPO_CHAIN, TEMPO_CHAIN_HEX } from './tempo';
 import { createWalletStore, type WalletAdapter } from './wallet-store';
+import { walletFlowLog } from './wallet-flow-log';
 
 let client: MetamaskConnectEVM | undefined;
 let initializing: Promise<MetamaskConnectEVM> | undefined;
@@ -15,16 +16,21 @@ const listeners = new Set<() => void>();
 function openMetaMaskLink(url: string) {
   // Capture the active request: a late OS failure must not reject a newer one.
   const reject = linkFailure;
-  void Linking.openURL(url).catch(() =>
-    reject?.(
-      new Error(
-        'Could not open MetaMask. Install MetaMask Mobile, then try again.',
-      ),
-    ),
-  );
+  walletFlowLog.info('Opening MetaMask app via deep link');
+  void Linking.openURL(url)
+    .then(() => walletFlowLog.info('Android accepted MetaMask deep link'))
+    .catch((cause: unknown) => {
+      walletFlowLog.error('Android could not open MetaMask', cause);
+      reject?.(
+        new Error(
+          'Could not open MetaMask. Install MetaMask Mobile, then try again.',
+        ),
+      );
+    });
 }
 
 async function getClient() {
+  if (!initializing) walletFlowLog.info('Initializing MetaMask Connect SDK');
   initializing ??= createEVMClient({
     dapp: {
       name: 'Traveller Pay',
@@ -45,6 +51,7 @@ async function getClient() {
     debug: false,
   })
     .then((value) => {
+      walletFlowLog.info('MetaMask Connect SDK ready');
       client = value;
       const changed = () => listeners.forEach((listener) => listener());
       const provider = value.getProvider();
@@ -54,6 +61,7 @@ async function getClient() {
       return value;
     })
     .catch((error: unknown) => {
+      walletFlowLog.error('MetaMask Connect SDK initialization failed', error);
       initializing = undefined;
       throw error;
     });
@@ -69,15 +77,17 @@ async function walletRequest<T>(action: () => Promise<T>): Promise<T> {
       new Promise<never>((_, reject) => {
         rejectLink = reject;
         linkFailure = rejectLink;
-        timer = setTimeout(
-          () =>
-            reject(
-              new Error(
-                'MetaMask did not respond. Open MetaMask to finish or reject the pending request, then retry.',
-              ),
+        timer = setTimeout(() => {
+          walletFlowLog.error(
+            'MetaMask request timed out',
+            new Error('90 seconds elapsed'),
+          );
+          reject(
+            new Error(
+              'MetaMask did not respond. Open MetaMask to finish or reject the pending request, then retry.',
             ),
-          90_000,
-        );
+          );
+        }, 90_000);
       }),
     ]);
   } finally {
@@ -99,6 +109,7 @@ const adapter: WalletAdapter = {
         const onPairingUri = (uri: string) => {
           if (version !== generation || opened.has(uri)) return;
           opened.add(uri);
+          walletFlowLog.info('MetaMask pairing request created');
           openMetaMaskLink(uri);
         };
         // Headless mode emits this event instead of calling preferredOpenLink.
@@ -106,28 +117,45 @@ const adapter: WalletAdapter = {
         provider.on('display_uri', onPairingUri);
         removePairingListener = () =>
           provider.removeListener('display_uri', onPairingUri);
+        walletFlowLog.info('Waiting for MetaMask connection approval');
         await sdk.connect({ chainIds: [TEMPO_CHAIN_HEX] });
+        walletFlowLog.info('MetaMask connection approved');
       });
+    } catch (cause) {
+      walletFlowLog.error('MetaMask connection failed', cause);
+      throw cause;
     } finally {
       // Also clean up on timeout/OS failure while the SDK promise is pending.
       if (version === generation) ++generation;
       removePairingListener?.();
     }
   },
-  switchToTempo: () =>
-    walletRequest(async () => {
-      const sdk = await getClient();
-      await sdk.switchChain({
-        chainId: TEMPO_CHAIN_HEX,
-        chainConfiguration: {
+  async switchToTempo() {
+    try {
+      await walletRequest(async () => {
+        const sdk = await getClient();
+        walletFlowLog.info(
+          'Requesting Tempo network switch or addition in MetaMask',
+        );
+        await sdk.switchChain({
           chainId: TEMPO_CHAIN_HEX,
-          chainName: TEMPO_CHAIN.name,
-          nativeCurrency: TEMPO_CHAIN.nativeCurrency,
-          rpcUrls: [...TEMPO_CHAIN.rpcUrls.default.http],
-          blockExplorerUrls: [TEMPO_CHAIN.blockExplorers.default.url],
-        },
+          chainConfiguration: {
+            chainId: TEMPO_CHAIN_HEX,
+            chainName: TEMPO_CHAIN.name,
+            // MetaMask requires 18 here when adding an EVM network. Tempo's
+            // pathUSD token remains 6 decimals on-chain and in balance reads.
+            nativeCurrency: { ...TEMPO_CHAIN.nativeCurrency, decimals: 18 },
+            rpcUrls: [...TEMPO_CHAIN.rpcUrls.default.http],
+            blockExplorerUrls: [TEMPO_CHAIN.blockExplorers.default.url],
+          },
+        });
+        walletFlowLog.info('MetaMask accepted Tempo network request');
       });
-    }),
+    } catch (cause) {
+      walletFlowLog.error('Tempo network switch or addition failed', cause);
+      throw cause;
+    }
+  },
   async disconnect() {
     ++generation;
     await walletRequest(async () => {
@@ -144,6 +172,7 @@ const adapter: WalletAdapter = {
     const sdk = await getClient();
     const address = sdk.getAccount();
     if (!address) throw new Error('Connect a wallet before signing in.');
+    walletFlowLog.info('Requesting sign-in signature from MetaMask');
     const signature = await walletRequest(() =>
       sdk.getProvider().request({
         method: 'personal_sign',
@@ -153,6 +182,7 @@ const adapter: WalletAdapter = {
     if (typeof signature !== 'string' || !/^0x[0-9a-f]+$/i.test(signature)) {
       throw new Error('MetaMask returned an invalid signature.');
     }
+    walletFlowLog.info('MetaMask returned sign-in signature');
     return signature as `0x${string}`;
   },
   subscribe(listener) {

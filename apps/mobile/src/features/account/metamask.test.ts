@@ -87,6 +87,13 @@ describe('MetaMask native connection wiring', () => {
     await walletStore.connect();
     expect(mocks.openURL).toHaveBeenCalledExactlyOnceWith(uri);
     expect(sdk.switchChain).toHaveBeenCalledOnce();
+    expect(sdk.switchChain).toHaveBeenCalledWith(
+      expect.objectContaining({
+        chainConfiguration: expect.objectContaining({
+          nativeCurrency: expect.objectContaining({ decimals: 18 }),
+        }),
+      }),
+    );
     expect(handlers.get('display_uri')?.size).toBe(0);
   });
 
