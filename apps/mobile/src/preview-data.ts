@@ -6,50 +6,57 @@ import {
 } from './features/payment/simulated-payments';
 
 /** Illustrative fixtures for the explicitly enabled local UI preview only. */
-export const previewTransactions = [
+export const previewTransactions: readonly TransactionItem[] = [
   {
     id: 'coffee',
     name: 'Starbucks',
-    category: 'Coffee & Beverages',
+    category: 'Cafe & Beverages',
     direction: 'Sent',
     amount: 480,
     time: 'Today · 11:24 AM',
+    token: 'USDC',
+    brand: { mark: 'S', background: '#00704A', color: '#ffffff' },
   },
   {
-    id: 'ride',
+    id: 'grocery',
     name: 'Blinkit',
     category: 'Online Shopping',
     direction: 'Sent',
     amount: 320,
-    time: 'Today · 9:12 AM',
+    time: 'Today · 09:12 AM',
+    token: 'USDC',
+    brand: { mark: 'blinkit', background: '#F8CB46', color: '#0c831f' },
   },
   {
     id: 'topup',
-    name: 'Received from Priya',
+    name: 'Received from Archita',
     category: 'UPI Transfer',
     direction: 'Received',
     amount: 1000,
-    time: 'Today · 7:45 AM',
+    time: 'Today · 07:45 AM',
+    token: 'USDC',
   },
   {
-    id: 'hotel',
-    name: 'Taj Hotel',
-    category: 'Travel',
+    id: 'ride',
+    name: 'Uber',
+    category: 'Transport',
     direction: 'Sent',
-    amount: 4500,
-    time: 'Yesterday · 3:20 PM',
+    amount: 250,
+    time: 'Yesterday · 10:18 PM',
+    token: 'USDC',
+    brand: { mark: 'Uber', background: '#000000', color: '#ffffff' },
   },
   {
-    id: 'mobile',
-    name: 'Airtel Recharge',
-    category: 'Bills',
+    id: 'dinner',
+    name: 'Zomato',
+    category: 'Food & Dining',
     direction: 'Sent',
-    amount: 299,
-    time: 'Yesterday · 11:05 AM',
+    amount: 640,
+    time: 'Yesterday · 08:11 PM',
+    token: 'USDC',
+    brand: { mark: 'zomato', background: '#E23744', color: '#ffffff' },
   },
-] as const;
-
-export type PreviewTransaction = (typeof previewTransactions)[number];
+];
 
 export function previewInr(amount: number) {
   return `₹${amount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;

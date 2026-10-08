@@ -588,7 +588,12 @@ export default function Confirmation() {
             ]}
           >
             <Text style={styles.primaryButtonText}>
-              Pay ₹{amountResult.success ? amountResult.data : amount || '480'}
+              Pay ₹
+              {amountResult.success
+                ? Number(amountResult.data).toLocaleString('en-IN', {
+                    maximumFractionDigits: 2,
+                  })
+                : amount || '480'}
             </Text>
             <Svg width={20} height={20} viewBox="0 0 24 24">
               <Path

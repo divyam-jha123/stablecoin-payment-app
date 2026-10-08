@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  formatPaymentTime,
   createSimulatedPaymentStore,
   paymentsForAddress,
   SIMULATED_PAYMENTS_KEY,
@@ -98,5 +99,20 @@ describe('simulated payments', () => {
       direction: 'Sent',
       amount: 830,
     });
+  });
+});
+
+describe('formatPaymentTime', () => {
+  it('labels today and yesterday, then falls back to the date', () => {
+    const now = new Date(2026, 9, 9, 12, 0).getTime();
+    expect(
+      formatPaymentTime(new Date(2026, 9, 9, 9, 5).getTime(), now),
+    ).toMatch(/^Today · /);
+    expect(
+      formatPaymentTime(new Date(2026, 9, 8, 22, 18).getTime(), now),
+    ).toMatch(/^Yesterday · /);
+    expect(
+      formatPaymentTime(new Date(2026, 9, 6, 8, 0).getTime(), now),
+    ).not.toMatch(/^(Today|Yesterday)/);
   });
 });
