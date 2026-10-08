@@ -1,38 +1,91 @@
-import { router, Stack } from 'expo-router';
+import { useSyncExternalStore } from 'react';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppIcon, colors } from '../src/components/payment-ui';
+import { formatPathUsdAtomic } from '../src/features/payment/amount';
+import { simulatedPaymentStore } from '../src/features/payment/simulated-payment-store';
+import {
+  formatPaymentTime,
+  paymentPathUsdAtomic,
+} from '../src/features/payment/simulated-payments';
+
+const GREEN = '#12a150';
+
+function firstParam(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function SummaryRow({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.row}>
+      <Text style={styles.label}>{label}</Text>
+      <Text style={styles.value} numberOfLines={1}>
+        {value}
+      </Text>
+    </View>
+  );
+}
 
 export default function Success() {
+  const params = useLocalSearchParams<{ id?: string | string[] }>();
+  const id = firstParam(params.id);
+  const payments = useSyncExternalStore(
+    simulatedPaymentStore.subscribe,
+    simulatedPaymentStore.getSnapshot,
+  );
+  const payment = id ? payments.find((item) => item.id === id) : undefined;
+  const inrAmount = payment
+    ? Number(payment.inrAmount).toLocaleString('en-IN', {
+        maximumFractionDigits: 2,
+      })
+    : '';
+
   return (
     <SafeAreaView style={styles.screen}>
       <Stack.Screen options={{ headerShown: false }} />
       <View style={styles.content}>
-        <View style={styles.icon}>
-          <AppIcon name="wallet" color={colors.accent} size={48} />
-        </View>
-        <Text accessibilityRole="header" style={styles.title}>
-          No payment completed
-        </Text>
-        <Text style={styles.subtitle}>
-          Payment submission is not available yet. No funds were moved and no
-          merchant received INR.
-        </Text>
-        <View style={styles.summary}>
-          <Text style={styles.summaryTitle}>Payment status</Text>
-          <View style={styles.row}>
-            <Text style={styles.label}>Transaction ID</Text>
-            <Text style={styles.value}>Not created</Text>
-          </View>
-          <View style={styles.row}>
-            <Text style={styles.label}>Amount paid</Text>
-            <Text style={styles.value}>—</Text>
-          </View>
-          <View style={styles.row}>
-            <Text style={styles.label}>Settlement</Text>
-            <Text style={styles.value}>Not started</Text>
-          </View>
-        </View>
+        {payment ? (
+          <>
+            <View style={[styles.icon, styles.iconSuccess]}>
+              <AppIcon name="check" color="#ffffff" size={56} />
+            </View>
+            <Text accessibilityRole="header" style={styles.title}>
+              Payment successful
+            </Text>
+            <Text style={styles.amount}>₹{inrAmount}</Text>
+            <Text style={styles.subtitle}>
+              Paid to {payment.merchantName} · {payment.location}
+            </Text>
+            <View style={styles.summary}>
+              <Text style={styles.summaryTitle}>Payment details</Text>
+              <SummaryRow label="Reference ID" value={payment.reference} />
+              <SummaryRow label="Amount paid" value={`₹${inrAmount}`} />
+              <SummaryRow
+                label="Debited"
+                value={`${formatPathUsdAtomic(paymentPathUsdAtomic(payment))} ${payment.token}`}
+              />
+              <SummaryRow label="Settlement" value="Completed" />
+              <SummaryRow
+                label="Date & time"
+                value={formatPaymentTime(payment.createdAt)}
+              />
+            </View>
+          </>
+        ) : (
+          <>
+            <View style={styles.icon}>
+              <AppIcon name="wallet" color={colors.accent} size={48} />
+            </View>
+            <Text accessibilityRole="header" style={styles.title}>
+              No payment completed
+            </Text>
+            <Text style={styles.subtitle}>
+              No payment was found. No funds were moved and no merchant received
+              INR.
+            </Text>
+          </>
+        )}
         <View style={styles.spacer} />
         <Pressable
           accessibilityRole="button"
@@ -64,6 +117,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 24,
+  },
+  iconSuccess: { backgroundColor: GREEN },
+  amount: {
+    color: colors.ink,
+    fontSize: 40,
+    fontWeight: '800',
+    fontVariant: ['tabular-nums'],
   },
   title: {
     color: colors.ink,
@@ -97,7 +157,13 @@ const styles = StyleSheet.create({
     paddingTop: 12,
   },
   label: { color: colors.muted, fontSize: 13 },
-  value: { color: colors.ink, fontSize: 13, fontWeight: '600' },
+  value: {
+    color: colors.ink,
+    fontSize: 13,
+    fontWeight: '600',
+    flexShrink: 1,
+    marginLeft: 12,
+  },
   spacer: { flex: 1 },
   button: {
     backgroundColor: colors.accent,
