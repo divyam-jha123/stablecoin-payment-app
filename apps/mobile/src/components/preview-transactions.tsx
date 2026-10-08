@@ -1,12 +1,13 @@
 import { ILLUSTRATIVE_INR_PER_PATH_USD } from '../features/payment/amount';
 import { StyleSheet, Text, View } from 'react-native';
 import { AppIcon, colors } from './payment-ui';
-import { previewInr, type PreviewTransaction } from '../preview-data';
+import { previewInr } from '../preview-data';
+import type { TransactionItem } from '../features/payment/simulated-payments';
 
 export function PreviewTransactions({
   transactions,
 }: {
-  transactions: readonly PreviewTransaction[];
+  transactions: readonly TransactionItem[];
 }) {
   return (
     <View style={styles.list}>

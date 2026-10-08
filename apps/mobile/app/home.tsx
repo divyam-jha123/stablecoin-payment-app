@@ -34,6 +34,11 @@ import { HomeGreeting } from '../src/components/home-greeting';
 import { homeTheme } from '../src/theme/home';
 import { DashboardNav } from '../src/components/dashboard-nav';
 import { walletFlowLog } from '../src/features/account/wallet-flow-log';
+import { useSimulatedPayments } from '../src/features/payment/simulated-payment-store';
+import {
+  simulatedBalance,
+  toTransactionItem,
+} from '../src/features/payment/simulated-payments';
 
 // Metro bundles this static Figma asset at build time.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -42,6 +47,16 @@ const merchantBanner = require('../assets/figma/home-merchant-banner.png');
 export default function Home() {
   const { wallet, onTempo, session, foreground } = useAccount();
   const address = wallet.account?.address;
+  const payments = useSimulatedPayments(address);
+  const monthStart = new Date();
+  monthStart.setDate(1);
+  monthStart.setHours(0, 0, 0, 0);
+  const monthPayments = payments.filter(
+    (payment) => payment.createdAt >= monthStart.getTime(),
+  );
+  const monthSpent = `₹${monthPayments
+    .reduce((total, payment) => total + Number(payment.inrAmount), 0)
+    .toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
   const [balanceVisible, setBalanceVisible] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   useFocusEffect(
@@ -188,7 +203,9 @@ export default function Home() {
               ? previewDashboard.displayBalance
               : balance.isError
                 ? 'Unavailable'
-                : (balance.data ?? 'Checking…')
+                : balance.data === undefined
+                  ? 'Checking…'
+                  : simulatedBalance(balance.data, payments)
           }
           equivalent={
             uiPreviewEnabled
@@ -267,7 +284,7 @@ export default function Home() {
           accessibilityLabel={
             uiPreviewEnabled
               ? `Sample monthly activity: ${previewDashboard.spent} spent, ${previewDashboard.payments} payments, ${previewDashboard.networkFees} pathUSD network fees. View activity.`
-              : 'This month: spending, payments, and network fees are not available yet. View activity.'
+              : `This month: ${monthSpent} spent, ${monthPayments.length} payments. View activity.`
           }
           onPress={() => router.push('/activity')}
           style={styles.monthBar}
@@ -282,13 +299,15 @@ export default function Home() {
           </View>
           <View style={styles.monthMetric}>
             <Text style={styles.monthValue}>
-              {uiPreviewEnabled ? previewDashboard.spent : '—'}
+              {uiPreviewEnabled ? previewDashboard.spent : monthSpent}
             </Text>
             <Text style={styles.monthLabel}>Spent</Text>
           </View>
           <View style={styles.monthMetric}>
             <Text style={styles.monthValue}>
-              {uiPreviewEnabled ? previewDashboard.payments : '—'}
+              {uiPreviewEnabled
+                ? previewDashboard.payments
+                : monthPayments.length}
             </Text>
             <Text style={styles.monthLabel}>Payments</Text>
           </View>
@@ -315,12 +334,16 @@ export default function Home() {
             <PreviewTransactions
               transactions={previewTransactions.slice(0, 3)}
             />
+          ) : payments.length > 0 ? (
+            <PreviewTransactions
+              transactions={payments.slice(0, 3).map(toTransactionItem)}
+            />
           ) : (
             <View style={styles.emptyActivity}>
               <AppIcon name="activity" color={colors.accent} size={30} />
               <Text style={styles.emptyTitle}>No payments yet</Text>
               <Text style={styles.emptyCopy}>
-                Your transactions will appear here when payments are available.
+                Your transactions will appear here after you pay a merchant.
               </Text>
             </View>
           )}

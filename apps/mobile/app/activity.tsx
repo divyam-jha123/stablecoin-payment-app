@@ -8,13 +8,16 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useState } from 'react';
+import { useState, useSyncExternalStore } from 'react';
 import { AppIcon, colors } from '../src/components/payment-ui';
 import { DashboardNav } from '../src/components/dashboard-nav';
 
 import { uiPreviewEnabled } from '../src/ui-preview';
 import { previewInr, previewTransactions } from '../src/preview-data';
 import { PreviewTransactions } from '../src/components/preview-transactions';
+import { walletStore } from '../src/features/account/metamask';
+import { useSimulatedPayments } from '../src/features/payment/simulated-payment-store';
+import { toTransactionItem } from '../src/features/payment/simulated-payments';
 
 const filters = ['All', 'Sent', 'Received', 'Travel', 'Bills'];
 
@@ -22,17 +25,23 @@ export default function Activity() {
   const [filter, setFilter] = useState('All');
   const [search, setSearch] = useState('');
   const query = search.trim().toLowerCase();
-  const transactions = uiPreviewEnabled
-    ? previewTransactions.filter(
-        (transaction) =>
-          (filter === 'All' ||
-            transaction.direction === filter ||
-            transaction.category === filter) &&
-          `${transaction.name} ${transaction.category} ${transaction.amount} ${previewInr(transaction.amount)}`
-            .toLowerCase()
-            .includes(query),
-      )
-    : [];
+  const wallet = useSyncExternalStore(
+    walletStore.subscribe,
+    walletStore.getSnapshot,
+  );
+  const payments = useSimulatedPayments(wallet.account?.address);
+  const source = uiPreviewEnabled
+    ? previewTransactions
+    : payments.map(toTransactionItem);
+  const transactions = source.filter(
+    (transaction) =>
+      (filter === 'All' ||
+        transaction.direction === filter ||
+        transaction.category === filter) &&
+      `${transaction.name} ${transaction.category} ${transaction.amount} ${previewInr(transaction.amount)}`
+        .toLowerCase()
+        .includes(query),
+  );
   return (
     <SafeAreaView style={styles.screen}>
       <Stack.Screen options={{ headerShown: false }} />
@@ -81,7 +90,7 @@ export default function Activity() {
         </View>
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>
-            {uiPreviewEnabled ? 'Sample activity' : 'Today'}
+            {uiPreviewEnabled ? 'Sample activity' : 'Recent'}
           </Text>
           <Text style={styles.count}>
             {transactions.length}{' '}
@@ -96,21 +105,21 @@ export default function Activity() {
               <AppIcon name="activity" color={colors.accent} size={34} />
             </View>
             <Text style={styles.emptyTitle}>
-              {search || uiPreviewEnabled
+              {search || source.length > 0
                 ? 'No matching transactions'
                 : 'No transactions yet'}
             </Text>
             <Text style={styles.emptyText}>
-              {search || uiPreviewEnabled
+              {search || source.length > 0
                 ? 'Try another search term or filter.'
-                : 'Your payment activity will appear here when payments are available.'}
+                : 'Your payment activity will appear here after you pay a merchant.'}
             </Text>
           </View>
         )}
         <Text style={styles.notice}>
           {uiPreviewEnabled
             ? 'Sample data for design preview only. No funds moved.'
-            : 'Payment submission is not enabled yet. Your test balance is read from Tempo Moderato.'}
+            : 'Your test balance is read from Tempo Moderato.'}
         </Text>
       </ScrollView>
       <DashboardNav />

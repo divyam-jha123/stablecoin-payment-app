@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import {
   AccessibilityInfo,
@@ -19,6 +19,8 @@ import {
   StarbucksLogo,
   UsdcTokenEmblem,
 } from '../src/components/payment-logos';
+import { walletStore } from '../src/features/account/metamask';
+import { simulatedPaymentStore } from '../src/features/payment/simulated-payment-store';
 
 // Metro bundles these static Figma illustrations at build time.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -31,20 +33,38 @@ const coin = require('../assets/figma/processing-coin.png');
 const platform = require('../assets/figma/processing-platform.png');
 
 const BLUE = '#2f6bff';
+const GREEN = '#12a150';
 const RING_SIZE = 108;
 const RING_STROKE = 7;
 const RING_RADIUS = (RING_SIZE - RING_STROKE) / 2;
 const RING_LENGTH = 2 * Math.PI * RING_RADIUS;
 
-type StepStatus = 'active' | 'pending';
+// Simulated payment: each step runs for this long before the next starts.
+const STEP_DURATION_MS = 1600;
 const STEPS: {
   label: string;
   icon: 'swap' | 'bank' | 'check';
-  status: StepStatus;
+  title: string;
+  copy: (symbol: string) => string;
 }[] = [
-  { label: 'Convert', icon: 'swap', status: 'active' },
-  { label: 'Settle', icon: 'bank', status: 'pending' },
-  { label: 'Confirm', icon: 'check', status: 'pending' },
+  {
+    label: 'Convert',
+    icon: 'swap',
+    title: 'Processing payment',
+    copy: (symbol) => `Converting INR to ${symbol} and preparing settlement`,
+  },
+  {
+    label: 'Settle',
+    icon: 'bank',
+    title: 'Settling payment',
+    copy: () => 'Sending INR to the merchant account',
+  },
+  {
+    label: 'Confirm',
+    icon: 'check',
+    title: 'Confirming payment',
+    copy: () => 'Waiting for the merchant to confirm receipt',
+  },
 ];
 
 function firstParam(value: string | string[] | undefined): string | undefined {
@@ -249,6 +269,32 @@ export default function Processing() {
   const location = firstParam(params.location)?.trim() || 'Pune, Maharashtra';
   const inrAmount = firstParam(params.inrAmount)?.trim() || '500';
   const symbol = firstParam(params.token)?.trim() || 'USDC';
+  const [stepIndex, setStepIndex] = useState(0);
+  const recorded = useRef(false);
+
+  useEffect(() => {
+    if (stepIndex < STEPS.length) {
+      const timer = setTimeout(
+        () => setStepIndex((index) => index + 1),
+        STEP_DURATION_MS,
+      );
+      return () => clearTimeout(timer);
+    }
+    if (recorded.current) return;
+    recorded.current = true;
+    // Demo only: no funds move on-chain. The app records the payment so the
+    // wallet balance and activity reflect it.
+    const payment = simulatedPaymentStore.record({
+      address: walletStore.getSnapshot().account?.address,
+      merchantName,
+      location,
+      inrAmount,
+      token: symbol,
+    });
+    router.replace({ pathname: '/success', params: { id: payment.id } });
+  }, [stepIndex, merchantName, location, inrAmount, symbol]);
+
+  const currentStep = STEPS[Math.min(stepIndex, STEPS.length - 1)]!;
 
   return (
     <View style={styles.screen}>
@@ -306,37 +352,54 @@ export default function Processing() {
 
             <View style={styles.card}>
               <ProgressRing symbol={symbol} />
-              <Text style={styles.cardTitle}>Processing payment</Text>
-              <Text style={styles.cardCopy}>
-                Converting INR to {symbol} and preparing settlement
+              <Text accessibilityLiveRegion="polite" style={styles.cardTitle}>
+                {currentStep.title}
               </Text>
+              <Text style={styles.cardCopy}>{currentStep.copy(symbol)}</Text>
 
               <View style={styles.steps}>
                 {STEPS.map((step, index) => {
-                  const active = step.status === 'active';
+                  const done = index < stepIndex;
+                  const active = index === stepIndex;
+                  const statusText = done
+                    ? 'Done'
+                    : active
+                      ? 'In progress'
+                      : 'Pending';
                   return (
                     <Fragment key={step.label}>
                       {index > 0 ? (
                         <View style={styles.connector}>
                           {[0, 1, 2, 3].map((dot) => (
-                            <View key={dot} style={styles.connectorDot} />
+                            <View
+                              key={dot}
+                              style={[
+                                styles.connectorDot,
+                                index <= stepIndex && styles.connectorDotDone,
+                              ]}
+                            />
                           ))}
                         </View>
                       ) : null}
                       <View
-                        accessibilityLabel={`${step.label}, ${active ? 'in progress' : 'pending'}`}
-                        style={[styles.step, active && styles.stepActive]}
+                        accessibilityLabel={`${step.label}, ${statusText.toLowerCase()}`}
+                        style={[
+                          styles.step,
+                          active && styles.stepActive,
+                          done && styles.stepDone,
+                        ]}
                       >
                         <View
                           style={[
                             styles.stepIcon,
                             active && styles.stepIconActive,
+                            done && styles.stepIconDone,
                           ]}
                         >
                           <AppIcon
-                            name={step.icon}
+                            name={done ? 'check' : step.icon}
                             size={20}
-                            color={active ? '#ffffff' : '#3d4a63'}
+                            color={active || done ? '#ffffff' : '#3d4a63'}
                           />
                         </View>
                         <Text style={styles.stepLabel}>{step.label}</Text>
@@ -345,15 +408,17 @@ export default function Processing() {
                             style={[
                               styles.statusDot,
                               active && styles.statusDotActive,
+                              done && styles.statusDotDone,
                             ]}
                           />
                           <Text
                             style={[
                               styles.stepStatus,
                               active && styles.stepStatusActive,
+                              done && styles.stepStatusDone,
                             ]}
                           >
-                            {active ? 'In progress' : 'Pending'}
+                            {statusText}
                           </Text>
                         </View>
                       </View>
@@ -485,6 +550,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#b9c4d6',
   },
+  connectorDotDone: { borderColor: GREEN, backgroundColor: GREEN },
   step: {
     flex: 1,
     maxWidth: 104,
@@ -496,6 +562,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f6f8fb',
   },
   stepActive: { borderColor: BLUE, backgroundColor: '#ffffff' },
+  stepDone: { borderColor: GREEN, backgroundColor: '#ffffff' },
   stepIcon: {
     width: 40,
     height: 40,
@@ -505,6 +572,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   stepIconActive: { backgroundColor: BLUE },
+  stepIconDone: { backgroundColor: GREEN },
   stepLabel: {
     color: colors.ink,
     fontSize: 14,
@@ -524,6 +592,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#7d8aa3',
   },
   statusDotActive: { backgroundColor: BLUE },
+  statusDotDone: { backgroundColor: GREEN },
   stepStatus: { color: colors.muted, fontSize: 11 },
   stepStatusActive: { color: BLUE, fontWeight: '600' },
+  stepStatusDone: { color: GREEN, fontWeight: '600' },
 });
