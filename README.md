@@ -48,7 +48,7 @@ EXPO_PUBLIC_UI_PREVIEW=1 pnpm dev:mobile
 
 Open the app in Expo Go and tap **Get Started**, then **Continue to dashboard**. The **UI pages** control lets you switch between the other screens. If Expo is already running, restart it with the command above so it picks up the environment variable.
 
-This mode is for visual review in development. It includes a sample balance, monthly totals, and illustrative transactions; activity search and filters work on the sample data. It does not connect a wallet, read a balance, scan a live QR, or submit a payment. Start normally with `pnpm dev:mobile` to use the wallet flow.
+This mode is for visual review in development. It includes a sample balance, monthly totals, and illustrative transactions; activity search and filters work on the sample data. Payments made in preview are simulated. Processing holds on each step so it can be reviewed: use the **UI preview** bar at the bottom of the screen to move between steps or go on to the success or failed screen. Success, failed, and transaction details screens have the same bar for moving through the flow, and it can be hidden while you review a screen. Completed payments come off the sample balance and appear in monthly totals and activity; they are saved on the device only. This mode does not connect a wallet, read a balance, scan a live QR, or submit a payment on-chain. Start normally with `pnpm dev:mobile` to use the wallet flow.
 
 ```sh
 curl http://localhost:3000/health

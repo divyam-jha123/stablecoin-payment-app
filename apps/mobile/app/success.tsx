@@ -3,6 +3,9 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppIcon, colors } from '../src/components/payment-ui';
+import { PreviewFlowBar } from '../src/components/preview-flow-bar';
+import { previewSamplePayment } from '../src/preview-data';
+import { uiPreviewEnabled } from '../src/ui-preview';
 import { formatPathUsdAtomic } from '../src/features/payment/amount';
 import { simulatedPaymentStore } from '../src/features/payment/simulated-payment-store';
 import {
@@ -34,7 +37,11 @@ export default function Success() {
     simulatedPaymentStore.subscribe,
     simulatedPaymentStore.getSnapshot,
   );
-  const payment = id ? payments.find((item) => item.id === id) : undefined;
+  const payment = id
+    ? payments.find((item) => item.id === id)
+    : uiPreviewEnabled
+      ? (payments[0] ?? previewSamplePayment)
+      : undefined;
   const inrAmount = payment
     ? Number(payment.inrAmount).toLocaleString('en-IN', {
         maximumFractionDigits: 2,
@@ -102,6 +109,14 @@ export default function Success() {
           <Text style={styles.secondaryText}>Scan Another QR</Text>
         </Pressable>
       </View>
+      <PreviewFlowBar
+        status="Success"
+        actions={[
+          { label: 'Details ›', onPress: () => router.push('/details') },
+          { label: 'Failed ›', onPress: () => router.replace('/failed') },
+          { label: 'Activity ›', onPress: () => router.replace('/activity') },
+        ]}
+      />
     </SafeAreaView>
   );
 }
