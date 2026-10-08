@@ -121,6 +121,9 @@ export function AppIcon({
     | 'trend-up'
     | 'arrow-up-right'
     | 'currency'
+    | 'copy'
+    | 'download'
+    | 'share'
     | 'receive';
   color?: string;
   size?: number;
@@ -144,6 +147,9 @@ export function AppIcon({
     back: 'M20 12H4 M10 6l-6 6 6 6',
     send: 'M4 19 20 4l-4 16-4-7-8 6z',
     receive: 'M12 3v14 M6 11l6 6 6-6 M4 21h16',
+    copy: 'M8 7h12v14H8z M4 17H3V3h12v1',
+    download: 'M12 3v12 M7 10l5 5 5-5 M4 20h16',
+    share: 'M12 16V3 M7 8l5-5 5 5 M4 14v7h16v-7',
   };
   return (
     <Svg
