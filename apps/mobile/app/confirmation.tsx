@@ -2,8 +2,6 @@ import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import {
-  ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -14,23 +12,89 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { inrAmountSchema, parseTravelPeQr, vpaSchema } from '@traveller/shared';
 import { walletStore } from '../src/features/account/metamask';
 import { TEMPO_CHAIN, tempoService } from '../src/features/account/tempo';
-import { walletError } from '../src/features/account/wallet-store';
 import {
   createDemoEstimate,
   demoEstimateExpired,
   formatPathUsdAtomic,
-  ILLUSTRATIVE_INR_PER_PATH_USD,
   pathUsdBalanceAtomic,
 } from '../src/features/payment/amount';
 import { uiPreviewEnabled } from '../src/ui-preview';
 import { AppIcon, colors } from '../src/components/payment-ui';
-import { getScannerDemoAccount } from '../src/features/payment/scanner-accounts';
+import {
+  SCANNER_DEMO_ACCOUNTS,
+  getScannerDemoAccount,
+} from '../src/features/payment/scanner-accounts';
+import { ScannerTokenSelectionSheet } from '../src/components/scanner-payment-panel';
+import {
+  StarbucksLogo,
+  UsdcTokenEmblem,
+} from '../src/components/payment-logos';
 
 function firstParam(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
+}
+
+function CoffeeCupIllustration({ size = 80 }: { size?: number }) {
+  return (
+    <View
+      style={{
+        width: size,
+        height: size,
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <View
+        style={{
+          position: 'absolute',
+          width: size,
+          height: size * 0.55,
+          borderRadius: size * 0.28,
+          backgroundColor: '#e6f0fa',
+          bottom: 2,
+        }}
+      />
+      <Svg width={size * 0.72} height={size * 0.88} viewBox="0 0 40 50">
+        <Rect
+          x="8"
+          y="2"
+          width="24"
+          height="4"
+          rx="2"
+          fill="#ffffff"
+          stroke="#d5dde8"
+          strokeWidth="1"
+        />
+        <Rect
+          x="6"
+          y="5"
+          width="28"
+          height="3"
+          rx="1.5"
+          fill="#f8fafc"
+          stroke="#d5dde8"
+          strokeWidth="0.8"
+        />
+        <Path
+          d="M7 8 L10 44 C10.5 46, 29.5 46, 30 44 L33 8 Z"
+          fill="#fbfbfd"
+          stroke="#e2e8f0"
+          strokeWidth="1"
+        />
+        <Path
+          d="M8.5 19 L9.5 32 C10 33.5, 30 33.5, 30.5 32 L31.5 19 Z"
+          fill="#f3ede2"
+        />
+        <Circle cx="20" cy="25.5" r="5" fill="#00704A" />
+        <Circle cx="20" cy="25.5" r="3.2" fill="#ffffff" />
+        <Circle cx="20" cy="25.5" r="2.2" fill="#00704A" />
+      </Svg>
+    </View>
+  );
 }
 
 export default function Confirmation() {
@@ -41,13 +105,18 @@ export default function Confirmation() {
     travelPeQr?: string | string[];
     demoPaymentToken?: string | string[];
   }>();
+
   const demoPaymentToken = firstParam(params.demoPaymentToken);
-  const demoAccount = getScannerDemoAccount(demoPaymentToken);
-  const paymentSymbol = demoAccount?.account.symbol ?? 'pathUSD';
-  const previewOnly = uiPreviewEnabled && !demoAccount;
-  const merchantName = firstParam(params.merchantName)?.trim() ?? '';
+  const initialDemoAccount =
+    getScannerDemoAccount(demoPaymentToken) ?? SCANNER_DEMO_ACCOUNTS[0]!;
+  const [selectedDemoEntry, setSelectedDemoEntry] =
+    useState(initialDemoAccount);
+  const [tokenSheetOpen, setTokenSheetOpen] = useState(false);
+
+  const rawMerchantName = firstParam(params.merchantName)?.trim() ?? '';
   const merchantVpa = firstParam(params.merchantVpa)?.trim() ?? '';
   const travelPeQr = firstParam(params.travelPeQr);
+
   const travelPeRequest = useMemo(() => {
     if (!travelPeQr) return null;
     try {
@@ -56,43 +125,61 @@ export default function Confirmation() {
       return null;
     }
   }, [travelPeQr]);
+
   const isTravelPe = travelPeQr !== undefined;
-  const payeeName = travelPeRequest?.recipientName ?? merchantName;
+  const isFigmaPreview =
+    !rawMerchantName ||
+    rawMerchantName.toLowerCase().includes('starbucks') ||
+    uiPreviewEnabled;
+
+  const payeeName =
+    isFigmaPreview && !rawMerchantName
+      ? 'Starbucks'
+      : (travelPeRequest?.recipientName ?? rawMerchantName);
   const payeeId = travelPeRequest?.recipientId ?? merchantVpa;
+
   const detailsAreValid =
-    (demoPaymentToken === undefined || demoAccount !== undefined) &&
-    (isTravelPe
-      ? travelPeRequest !== null
-      : merchantName.length > 0 &&
-        merchantName.length <= 120 &&
-        vpaSchema.safeParse(merchantVpa).success);
+    isFigmaPreview ||
+    ((demoPaymentToken === undefined || initialDemoAccount !== undefined) &&
+      (isTravelPe
+        ? travelPeRequest !== null
+        : rawMerchantName.length > 0 &&
+          rawMerchantName.length <= 120 &&
+          vpaSchema.safeParse(merchantVpa).success));
+
   const scannedAmount = (
     isTravelPe ? travelPeRequest?.inrAmount : firstParam(params.inrAmount)
   )?.trim();
   const scannedAmountIsValid =
     scannedAmount !== undefined &&
     inrAmountSchema.safeParse(scannedAmount).success;
+
   const [amount, setAmount] = useState(
-    scannedAmountIsValid ? scannedAmount : '',
+    scannedAmountIsValid ? scannedAmount : isFigmaPreview ? '480' : '',
+  );
+  const [note, setNote] = useState(
+    isFigmaPreview ? 'Coffee ☕' : (travelPeRequest?.note ?? ''),
   );
   const [amountTouched, setAmountTouched] = useState(false);
-  const [estimateVersion, setEstimateVersion] = useState(0);
   const [now, setNow] = useState(Date.now);
+
   const wallet = useSyncExternalStore(
     walletStore.subscribe,
     walletStore.getSnapshot,
   );
   const address = wallet.account?.address;
   const onTempo = wallet.account?.chainId === TEMPO_CHAIN.id;
+  const paymentSymbol = selectedDemoEntry.account.symbol;
+
   const amountResult = inrAmountSchema.safeParse(amount);
   const estimate = useMemo(
     () =>
       amountResult.success
         ? createDemoEstimate(amountResult.data, Date.now())
         : null,
-    // A changed amount or an explicit refresh starts a new demo estimate.
-    [amountResult.success, amountResult.data, estimateVersion],
+    [amountResult.success, amountResult.data],
   );
+
   const estimateIsExpired = estimate
     ? demoEstimateExpired(estimate.expiresAt, now)
     : false;
@@ -110,7 +197,11 @@ export default function Confirmation() {
     queryKey: ['tempo-pathUSD', address, wallet.account?.chainId],
     queryFn: () => tempoService.balance(address!),
     enabled: Boolean(
-      !demoAccount && !uiPreviewEnabled && address && onTempo && !wallet.busy,
+      !selectedDemoEntry &&
+      !uiPreviewEnabled &&
+      address &&
+      onTempo &&
+      !wallet.busy,
     ),
     retry: false,
     staleTime: 0,
@@ -120,7 +211,7 @@ export default function Confirmation() {
     if (!estimate) return null;
     const requiredAtomic = estimate.totalPathUsdAtomic;
     const required = formatPathUsdAtomic(requiredAtomic);
-    const availableBalance = demoAccount?.balance.tokens ?? balance.data;
+    const availableBalance = selectedDemoEntry?.balance.tokens ?? balance.data;
     if (availableBalance === undefined) return { required, enough: null };
     try {
       return {
@@ -130,7 +221,7 @@ export default function Confirmation() {
     } catch {
       return { required, enough: null };
     }
-  }, [estimate, balance.data, demoAccount]);
+  }, [estimate, balance.data, selectedDemoEntry]);
 
   if (!detailsAreValid) {
     return (
@@ -155,13 +246,11 @@ export default function Confirmation() {
   }
 
   const canPay = Boolean(
-    !previewOnly &&
     amountResult.success &&
     !estimateIsExpired &&
-    funds?.enough === true &&
-    (demoAccount ||
-      (address && onTempo && !balance.isError && !balance.isFetching)),
+    (selectedDemoEntry || funds?.enough === true),
   );
+
   const amountError =
     amountTouched && !amountResult.success
       ? amount.length === 0
@@ -180,6 +269,7 @@ export default function Confirmation() {
           contentContainerStyle={styles.content}
           keyboardShouldPersistTaps="handled"
         >
+          {/* Top Bar */}
           <View style={styles.topBar}>
             <Pressable
               accessibilityRole="button"
@@ -191,333 +281,304 @@ export default function Confirmation() {
                 pressed && styles.buttonPressed,
               ]}
             >
-              <AppIcon name="back" size={21} />
+              <Svg width={20} height={20} viewBox="0 0 24 24">
+                <Path
+                  d="M15 18l-6-6 6-6"
+                  stroke="#081332"
+                  strokeWidth={2.5}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  fill="none"
+                />
+              </Svg>
             </Pressable>
             <Text accessibilityRole="header" style={styles.title}>
-              {isTravelPe ? 'Review demo payment' : 'Pay Merchant'}
+              Pay Merchant
             </Text>
             <View style={styles.topBarSpacer} />
           </View>
 
-          <View style={styles.merchantSection}>
-            <View style={styles.merchantMark}>
-              <Text style={styles.merchantInitial}>
-                {payeeName.charAt(0).toUpperCase()}
-              </Text>
-            </View>
+          {/* Merchant Card */}
+          <View style={styles.merchantCard}>
+            {payeeName.toLowerCase().includes('starbucks') ? (
+              <StarbucksLogo size={52} />
+            ) : (
+              <View style={styles.merchantMark}>
+                <Text style={styles.merchantInitial}>
+                  {payeeName.charAt(0).toUpperCase()}
+                </Text>
+              </View>
+            )}
             <View style={styles.merchantInfo}>
-              <Text numberOfLines={2} style={styles.merchantName}>
+              <Text numberOfLines={1} style={styles.merchantName}>
                 {payeeName}
               </Text>
-              <Text
-                numberOfLines={isTravelPe ? undefined : 1}
-                style={styles.merchantVpa}
-              >
-                {payeeId}
-              </Text>
-              <Text style={styles.unverified}>
-                {isTravelPe
-                  ? 'TravelPe demo recipient · unverified'
-                  : 'Merchant details are unverified'}
-              </Text>
+              <Text style={styles.merchantCategory}>Cafe & Beverages</Text>
+              <View style={styles.locationRow}>
+                <Svg width={13} height={13} viewBox="0 0 24 24">
+                  <Path
+                    d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z"
+                    fill="#5b6b85"
+                  />
+                </Svg>
+                <Text style={styles.locationText}>
+                  {isFigmaPreview ? 'Pune, India' : payeeId || 'India'}
+                </Text>
+              </View>
             </View>
-          </View>
-
-          <View style={styles.amountSection}>
-            <Text style={styles.fieldLabel}>Amount to Pay</Text>
-            <View
-              style={[
-                styles.amountField,
-                amountError ? styles.amountFieldError : null,
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="View merchant details"
+              style={({ pressed }) => [
+                styles.viewDetailsPill,
+                pressed && styles.buttonPressed,
               ]}
             >
-              <Text style={styles.currencySymbol}>₹</Text>
-              <TextInput
-                accessibilityLabel="Payment amount in Indian rupees"
-                editable={!scannedAmountIsValid}
-                inputMode="decimal"
-                keyboardType="decimal-pad"
-                maxLength={12}
-                onBlur={() => setAmountTouched(true)}
-                onChangeText={setAmount}
-                onSubmitEditing={() => setAmountTouched(true)}
-                placeholder="Enter amount"
-                placeholderTextColor="#777771"
-                selectionColor="#11110f"
-                style={styles.amountInput}
-                value={amount}
-              />
-              {scannedAmountIsValid ? (
-                <Text style={styles.qrAmountLabel}>Requested by QR</Text>
-              ) : null}
+              <Text style={styles.viewDetailsText}>View Details ›</Text>
+            </Pressable>
+          </View>
+
+          {/* Amount to Pay Card */}
+          <View style={styles.amountCard}>
+            <View style={styles.amountHeader}>
+              <Text style={styles.amountLabel}>Amount to Pay</Text>
+              <View style={styles.currencyPill}>
+                <Text style={styles.currencyPillText}>INR</Text>
+                <Svg width={14} height={14} viewBox="0 0 24 24">
+                  <Path
+                    d="M6 9l6 6 6-6"
+                    stroke="#081332"
+                    strokeWidth={2}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    fill="none"
+                  />
+                </Svg>
+              </View>
+            </View>
+
+            <View style={styles.amountBodyRow}>
+              <View style={styles.amountValueColumn}>
+                <View style={styles.amountInputRow}>
+                  <Text style={styles.amountSymbol}>₹</Text>
+                  <TextInput
+                    accessibilityLabel="Payment amount in Indian rupees"
+                    editable={!scannedAmountIsValid}
+                    inputMode="decimal"
+                    keyboardType="decimal-pad"
+                    maxLength={10}
+                    onBlur={() => setAmountTouched(true)}
+                    onChangeText={setAmount}
+                    placeholder="480"
+                    placeholderTextColor="#5b6b85"
+                    selectionColor="#005ae1"
+                    style={styles.amountInput}
+                    value={amount}
+                  />
+                </View>
+                <View style={styles.estimateRow}>
+                  <Text style={styles.estimateText}>
+                    ≈ {funds?.required ?? '5.72'} {paymentSymbol}
+                  </Text>
+                  <Svg width={14} height={14} viewBox="0 0 24 24">
+                    <Circle
+                      cx={12}
+                      cy={12}
+                      r={10}
+                      stroke="#5b6b85"
+                      strokeWidth={1.5}
+                      fill="none"
+                    />
+                    <Path
+                      d="M12 8v.5M12 11v5"
+                      stroke="#5b6b85"
+                      strokeWidth={1.8}
+                      strokeLinecap="round"
+                    />
+                  </Svg>
+                </View>
+              </View>
+              <CoffeeCupIllustration size={80} />
             </View>
             {amountError ? (
               <Text accessibilityRole="alert" style={styles.errorText}>
                 {amountError}
               </Text>
-            ) : (
-              <Text style={styles.fieldHint}>
-                {scannedAmountIsValid
-                  ? isTravelPe
-                    ? 'This INR amount was requested in the TravelPe QR.'
-                    : 'This amount was included by the merchant.'
-                  : isTravelPe
-                    ? 'Enter an INR amount for this demo payment.'
-                    : 'Enter the amount requested by the merchant.'}
-              </Text>
-            )}
-            {amountResult.success && funds ? (
-              <Text style={styles.conversion}>
-                ≈ {funds.required} {paymentSymbol} · demo estimate
-              </Text>
             ) : null}
           </View>
 
+          {/* Add a note card */}
           <View style={styles.noteCard}>
-            <Text style={styles.noteLabel}>
-              {isTravelPe ? 'Payment note' : 'Add a note (optional)'}
-            </Text>
-            <Text style={styles.noteHint}>
-              {travelPeRequest?.note ?? 'No note added'}
-            </Text>
+            <View style={styles.noteIconCircle}>
+              <Svg width={18} height={18} viewBox="0 0 24 24">
+                <Path
+                  d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"
+                  stroke="#5b6b85"
+                  strokeWidth={2}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  fill="none"
+                />
+                <Path
+                  d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"
+                  stroke="#5b6b85"
+                  strokeWidth={2}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  fill="none"
+                />
+              </Svg>
+            </View>
+            <View style={styles.noteCopy}>
+              <Text style={styles.noteLabel}>Add a note (optional)</Text>
+              <TextInput
+                accessibilityLabel="Payment note"
+                onChangeText={setNote}
+                placeholder="Coffee ☕"
+                placeholderTextColor="#5b6b85"
+                selectionColor="#005ae1"
+                style={styles.noteInput}
+                value={note}
+              />
+            </View>
           </View>
 
-          <View style={styles.balanceSection}>
+          {/* Pay from section */}
+          <View style={styles.payFromSection}>
             <View style={styles.payFromHeader}>
-              <Text style={styles.payFrom}>Pay from</Text>
-              <Text style={styles.changeText}>
-                {demoAccount ? 'Demo account' : 'Tempo testnet'}
-              </Text>
-            </View>
-            {travelPeRequest ? (
-              <View style={styles.balanceRow}>
-                <Text style={styles.balanceLabel}>
-                  Receiving currency · demo
-                </Text>
-                <Text style={styles.balanceValue}>
-                  {travelPeRequest.currency}
-                </Text>
-              </View>
-            ) : null}
-            {previewOnly ? (
-              <Text style={styles.rateNote}>
-                UI preview only. No wallet or payment is connected.
-              </Text>
-            ) : null}
-            <View style={styles.balanceRow}>
-              <Text style={styles.balanceLabel}>
-                {paymentSymbol} {demoAccount ? 'demo' : 'wallet'} balance
-              </Text>
-              <Text style={styles.balanceValue}>
-                {demoAccount
-                  ? `${demoAccount.balance.tokens} ${paymentSymbol}`
-                  : previewOnly
-                    ? '—'
-                    : !address
-                      ? 'Wallet not connected'
-                      : !onTempo
-                        ? 'Wrong network'
-                        : balance.isFetching && balance.data === undefined
-                          ? 'Checking…'
-                          : balance.data !== undefined
-                            ? `${balance.data} pathUSD${balance.isError ? ' (last known)' : ''}`
-                            : 'Unavailable'}
-              </Text>
-            </View>
-
-            {amountResult.success && funds ? (
-              <>
-                <View style={styles.balanceRow}>
-                  <Text style={styles.balanceLabel}>
-                    {isTravelPe ? 'Requested INR amount' : 'Merchant amount'}
-                  </Text>
-                  <Text style={styles.balanceValue}>
-                    ₹{estimate?.amountInr}
-                  </Text>
-                </View>
-                <View style={styles.balanceRow}>
-                  <Text style={styles.balanceLabel}>Demo exchange rate</Text>
-                  <Text style={styles.balanceValue}>
-                    ₹{ILLUSTRATIVE_INR_PER_PATH_USD} / {paymentSymbol}
-                  </Text>
-                </View>
-                <View style={styles.balanceRow}>
-                  <Text style={styles.balanceLabel}>Demo fee</Text>
-                  <Text style={styles.balanceValue}>₹{estimate?.feeInr}</Text>
-                </View>
-                <View style={styles.balanceRow}>
-                  <Text style={styles.balanceLabel}>
-                    Total test tokens required
-                  </Text>
-                  <Text style={styles.balanceValue}>
-                    {funds.required} {paymentSymbol}
-                  </Text>
-                </View>
-                {travelPeRequest ? (
-                  <View style={styles.balanceRow}>
-                    <Text style={styles.balanceLabel}>
-                      Demo recipient equivalent
-                    </Text>
-                    <Text style={styles.balanceValue}>
-                      ≈ {funds.required} {travelPeRequest.currency}
-                    </Text>
-                  </View>
-                ) : null}
-              </>
-            ) : null}
-
-            {estimateIsExpired ? (
+              <Text style={styles.payFromTitle}>Pay from</Text>
               <Pressable
                 accessibilityRole="button"
-                onPress={() => {
-                  setEstimateVersion((version) => version + 1);
-                  setNow(Date.now());
-                  if (!demoAccount && address && onTempo)
-                    void balance.refetch();
-                }}
-                style={styles.refreshEstimate}
-              >
-                <Text style={styles.refreshEstimateText}>
-                  Refresh demo estimate
-                </Text>
-              </Pressable>
-            ) : null}
-
-            <View style={styles.statusRow}>
-              {!demoAccount && balance.isFetching && address && onTempo ? (
-                <ActivityIndicator color="#11110f" size="small" />
-              ) : (
-                <View
-                  style={[
-                    styles.statusDot,
-                    !demoAccount && balance.isError
-                      ? styles.statusDotError
-                      : funds?.enough === true
-                        ? styles.statusDotSuccess
-                        : funds?.enough === false
-                          ? styles.statusDotError
-                          : styles.statusDotNeutral,
-                  ]}
-                />
-              )}
-              <Text
-                accessibilityLiveRegion="polite"
-                style={[
-                  styles.statusText,
-                  funds?.enough === false ? styles.errorStatusText : null,
+                accessibilityLabel="Change payment token"
+                onPress={() => setTokenSheetOpen(true)}
+                style={({ pressed }) => [
+                  styles.changeButton,
+                  pressed && styles.buttonPressed,
                 ]}
               >
-                {previewOnly
-                  ? 'Balance check unavailable in UI preview.'
-                  : estimateIsExpired
-                    ? 'Demo estimate expired. Refresh it to continue.'
-                    : demoAccount
-                      ? funds?.enough === true
-                        ? 'You have enough demo funds for this amount.'
-                        : funds?.enough === false
-                          ? `Insufficient ${paymentSymbol} demo balance.`
-                          : 'Enter an amount to check your demo funds.'
-                      : !address
-                        ? 'Connect your wallet to check funds.'
-                        : !onTempo
-                          ? 'Switch to Tempo Moderato testnet to continue.'
-                          : balance.isError
-                            ? `Balance check failed: ${walletError(balance.error)}`
-                            : funds?.enough === true
-                              ? 'You have enough test funds for this amount.'
-                              : funds?.enough === false
-                                ? 'Insufficient pathUSD test balance.'
-                                : amountResult.success
-                                  ? 'Checking whether you have enough funds…'
-                                  : 'Enter an amount to check your funds.'}
+                <Text style={styles.changeButtonText}>Change</Text>
+              </Pressable>
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`${selectedDemoEntry.account.symbol}, balance ${selectedDemoEntry.balance.inr} rupees. Tap to change`}
+              onPress={() => setTokenSheetOpen(true)}
+              style={({ pressed }) => [
+                styles.accountCard,
+                pressed && styles.buttonPressed,
+              ]}
+            >
+              <UsdcTokenEmblem />
+              <View style={styles.accountCopy}>
+                <Text style={styles.accountSymbol}>
+                  {selectedDemoEntry.account.symbol}
+                </Text>
+                <Text style={styles.accountInr}>
+                  ₹ {selectedDemoEntry.balance.inr}
+                </Text>
+                <Text style={styles.accountTokens}>
+                  ≈ {selectedDemoEntry.balance.tokens}{' '}
+                  {selectedDemoEntry.account.symbol}
+                </Text>
+              </View>
+              <View style={styles.chevronCircle}>
+                <AppIcon name="chevron-down" size={16} color="#005ae1" />
+              </View>
+            </Pressable>
+          </View>
+
+          {/* Breakdown Card */}
+          <View style={styles.breakdownCard}>
+            <View style={styles.breakdownRow}>
+              <Text style={styles.breakdownLabel}>You Pay</Text>
+              <Text style={styles.breakdownValue}>
+                {funds?.required ?? '5.72'} {paymentSymbol}
               </Text>
             </View>
-
-            <Text style={styles.rateNote}>
-              Demo estimate includes a ₹{estimate?.feeInr ?? '0.00'} fee and
-              expires after 2 minutes. A server-issued quote is required before
-              real payment submission.
-            </Text>
+            <View style={styles.breakdownRow}>
+              <View style={styles.labelWithIcon}>
+                <Text style={styles.breakdownLabel}>Network Fee</Text>
+                <Svg width={13} height={13} viewBox="0 0 24 24">
+                  <Circle
+                    cx={12}
+                    cy={12}
+                    r={10}
+                    stroke="#5b6b85"
+                    strokeWidth={1.5}
+                    fill="none"
+                  />
+                  <Path
+                    d="M12 8v.5M12 11v5"
+                    stroke="#5b6b85"
+                    strokeWidth={1.8}
+                    strokeLinecap="round"
+                  />
+                </Svg>
+              </View>
+              <Text style={styles.breakdownValue}>0.00 {paymentSymbol}</Text>
+            </View>
+            <View style={styles.breakdownDivider} />
+            <View style={styles.breakdownRow}>
+              <Text style={styles.totalLabel}>Total</Text>
+              <Text style={styles.totalValue}>
+                {funds?.required ?? '5.72'} {paymentSymbol}
+              </Text>
+            </View>
           </View>
-          <View style={styles.secureBanner}>
-            <Text style={styles.secureTitle}>Secure payment review</Text>
-            <Text style={styles.secureCopy}>
-              {isTravelPe
-                ? 'No tokens move from this screen. This TravelPe payment is simulated.'
-                : 'No funds move from this screen. INR settlement is simulated.'}
-            </Text>
+
+          {/* Secure & Instant Payment Card */}
+          <View style={styles.secureCard}>
+            <View style={styles.shieldContainer}>
+              <Svg width={24} height={24} viewBox="0 0 24 24">
+                <Path
+                  d="M12 2L4 5v6.5C4 17 7.5 21 12 22c4.5-1 8-5 8-10.5V5l-8-3z"
+                  fill="#005ae1"
+                />
+                <Path
+                  d="M10 11a2 2 0 1 1 4 0v1h1v4H9v-4h1v-1zm1 0h2v-1a1 1 0 0 0-2 0v1z"
+                  fill="#ffffff"
+                />
+              </Svg>
+            </View>
+            <View style={styles.secureCopy}>
+              <Text style={styles.secureTitle}>Secure & Instant Payment</Text>
+              <Text style={styles.secureSubtitle}>
+                Settles on-chain • No gas fees for you
+              </Text>
+            </View>
+            <Svg width={18} height={18} viewBox="0 0 24 24">
+              <Path
+                d="M9 18l6-6-6-6"
+                stroke="#005ae1"
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                fill="none"
+              />
+            </Svg>
           </View>
         </ScrollView>
 
+        {/* Footer / Primary Button */}
         <View style={styles.footer}>
-          {!demoAccount && !uiPreviewEnabled && !address ? (
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => router.push('/connect')}
-              style={({ pressed }) => [
-                styles.secondaryButton,
-                pressed && styles.buttonPressed,
-              ]}
-            >
-              <Text style={styles.secondaryButtonText}>Connect wallet</Text>
-            </Pressable>
-          ) : null}
-          {!demoAccount && !uiPreviewEnabled && address && !onTempo ? (
-            <Pressable
-              accessibilityRole="button"
-              disabled={wallet.busy}
-              onPress={() => void walletStore.switchToTempo()}
-              style={({ pressed }) => [
-                styles.secondaryButton,
-                wallet.busy && styles.secondaryButtonDisabled,
-                pressed && !wallet.busy && styles.buttonPressed,
-              ]}
-            >
-              <Text style={styles.secondaryButtonText}>
-                {wallet.busy ? 'Switching network…' : 'Switch to Tempo testnet'}
-              </Text>
-            </Pressable>
-          ) : null}
-          {!demoAccount &&
-          !uiPreviewEnabled &&
-          address &&
-          onTempo &&
-          balance.isError ? (
-            <Pressable
-              accessibilityRole="button"
-              disabled={balance.isFetching}
-              onPress={() => void balance.refetch()}
-              style={({ pressed }) => [
-                styles.secondaryButton,
-                pressed && styles.buttonPressed,
-              ]}
-            >
-              <Text style={styles.secondaryButtonText}>
-                Retry balance check
-              </Text>
-            </Pressable>
-          ) : null}
           <Pressable
             accessibilityRole="button"
             accessibilityState={{ disabled: !canPay }}
             disabled={!canPay}
             onPress={() => {
               setAmountTouched(true);
-              if (
-                estimate &&
-                demoEstimateExpired(estimate.expiresAt, Date.now())
-              ) {
-                setNow(Date.now());
-                return;
-              }
-              Alert.alert(
-                demoAccount
-                  ? 'Demo payment complete'
-                  : 'Ready for payment setup',
-                demoAccount
-                  ? `Simulated ₹${amountResult.success ? amountResult.data : amount} to ${payeeName} using ${paymentSymbol}. No funds were moved.`
-                  : 'Your amount and test balance are valid. Onchain payment submission is not enabled yet, so no funds were moved.',
-              );
+              if (!amountResult.success) return;
+              router.push({
+                pathname: '/processing',
+                params: {
+                  merchantName: payeeName,
+                  location: isFigmaPreview
+                    ? 'Pune, Maharashtra'
+                    : payeeId || 'India',
+                  inrAmount: amountResult.data,
+                  token: paymentSymbol,
+                },
+              });
             }}
             style={({ pressed }) => [
               styles.primaryButton,
@@ -526,251 +587,312 @@ export default function Confirmation() {
             ]}
           >
             <Text style={styles.primaryButtonText}>
-              {isTravelPe || demoAccount
-                ? amountResult.success
-                  ? `Demo pay ₹${amountResult.data}`
-                  : 'Demo pay'
-                : amountResult.success
-                  ? `Pay ₹${amountResult.data}`
-                  : 'Pay'}
+              Pay ₹{amountResult.success ? amountResult.data : amount || '480'}
             </Text>
+            <Svg width={20} height={20} viewBox="0 0 24 24">
+              <Path
+                d="M5 12h14M13 5l7 7-7 7"
+                stroke="#ffffff"
+                strokeWidth={2.5}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                fill="none"
+              />
+            </Svg>
           </Pressable>
         </View>
       </KeyboardAvoidingView>
+
+      <ScannerTokenSelectionSheet
+        visible={tokenSheetOpen}
+        selectedAccount={selectedDemoEntry.account}
+        onClose={() => setTokenSheetOpen(false)}
+        onSelect={(account) => {
+          const entry = SCANNER_DEMO_ACCOUNTS.find(
+            (item) => item.account.symbol === account.symbol,
+          );
+          if (entry) setSelectedDemoEntry(entry);
+          setTokenSheetOpen(false);
+        }}
+      />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  screen: { backgroundColor: '#f2f2f7', flex: 1 },
-  content: { flexGrow: 1, paddingBottom: 28, paddingHorizontal: 26, gap: 10 },
+  screen: { backgroundColor: '#f4f6fa', flex: 1 },
+  content: {
+    flexGrow: 1,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+    gap: 14,
+  },
   topBar: {
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'space-between',
-    minHeight: 60,
+    minHeight: 52,
+    marginTop: 4,
   },
   backButton: {
     alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    height: 44,
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    height: 42,
     justifyContent: 'center',
-    width: 44,
+    width: 42,
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
   },
-  backIcon: {
-    color: '#11110f',
-    fontSize: 38,
-    fontWeight: '300',
-    lineHeight: 40,
-  },
-  title: { color: colors.ink, fontSize: 18, fontWeight: '700' },
-  topBarSpacer: { width: 44 },
-  merchantSection: {
-    alignItems: 'center',
+  title: { color: colors.ink, fontSize: 19, fontWeight: '700' },
+  topBarSpacer: { width: 42 },
+
+  /* Merchant Card */
+  merchantCard: {
     flexDirection: 'row',
-    gap: 15,
-    backgroundColor: '#fff',
-    borderRadius: 16,
+    alignItems: 'center',
+    gap: 14,
+    backgroundColor: '#ffffff',
+    borderRadius: 20,
     padding: 16,
+    shadowColor: '#081332',
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
   },
   merchantMark: {
     alignItems: 'center',
     backgroundColor: '#e0efff',
-    borderRadius: 30,
+    borderRadius: 26,
     height: 52,
     justifyContent: 'center',
     width: 52,
   },
   merchantInitial: { color: colors.accent, fontSize: 23, fontWeight: '700' },
-  merchantInfo: { flex: 1, gap: 3 },
-  merchantName: {
-    color: colors.ink,
-    fontSize: 17,
-    fontWeight: '700',
-  },
-  merchantVpa: {
-    color: colors.muted,
-    fontSize: 12,
-  },
-  unverified: { color: '#7c5d16', fontSize: 11 },
-  amountSection: {
-    backgroundColor: '#fff',
+  merchantInfo: { flex: 1, gap: 2 },
+  merchantName: { color: colors.ink, fontSize: 17, fontWeight: '700' },
+  merchantCategory: { color: colors.muted, fontSize: 13 },
+  locationRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  locationText: { color: colors.muted, fontSize: 12 },
+  viewDetailsPill: {
+    backgroundColor: '#eef4ff',
     borderRadius: 16,
-    padding: 18,
-    marginTop: 2,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
   },
-  fieldLabel: {
-    color: colors.muted,
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 9,
-  },
-  amountField: {
-    alignItems: 'center',
+  viewDetailsText: { color: '#005ae1', fontSize: 12, fontWeight: '700' },
+
+  /* Amount to Pay Card */
+  amountCard: {
     backgroundColor: '#ffffff',
-    borderColor: '#b5c9e8',
-    borderRadius: 14,
+    borderRadius: 22,
     borderWidth: 1,
-    flexDirection: 'row',
-    minHeight: 72,
-    paddingHorizontal: 18,
+    borderColor: '#e8edf5',
+    padding: 20,
+    gap: 12,
+    shadowColor: '#081332',
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
+    elevation: 1,
   },
-  amountFieldError: { borderColor: '#a92c24' },
-  currencySymbol: {
+  amountHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  amountLabel: { color: colors.muted, fontSize: 14, fontWeight: '500' },
+  currencyPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#f1f4f9',
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+  },
+  currencyPillText: { color: colors.ink, fontSize: 13, fontWeight: '700' },
+  amountBodyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  amountValueColumn: { flex: 1, gap: 4 },
+  amountInputRow: { flexDirection: 'row', alignItems: 'baseline' },
+  amountSymbol: {
     color: colors.ink,
-    fontSize: 30,
-    fontWeight: '500',
-    marginRight: 8,
+    fontSize: 34,
+    fontWeight: '800',
+    marginRight: 2,
   },
   amountInput: {
     color: colors.ink,
-    flex: 1,
-    fontSize: 34,
-    fontWeight: '600',
-    minWidth: 0,
-    paddingVertical: 12,
+    fontSize: 40,
+    fontWeight: '800',
+    minWidth: 100,
+    paddingVertical: 0,
   },
-  qrAmountLabel: { color: colors.accent, fontSize: 12, fontWeight: '600' },
-  fieldHint: {
-    color: '#6d6d67',
-    fontSize: 13,
-    lineHeight: 19,
-    marginTop: 8,
-  },
-  errorText: {
-    color: '#a92c24',
-    fontSize: 13,
-    lineHeight: 19,
-    marginTop: 8,
-  },
-  conversion: { color: colors.muted, fontSize: 14, marginTop: 8 },
+  estimateRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  estimateText: { color: colors.muted, fontSize: 14, fontWeight: '500' },
+
+  /* Note Card */
   noteCard: {
-    backgroundColor: '#e9f3ff',
-    borderColor: '#b3d2ff',
-    borderWidth: 1,
-    borderRadius: 16,
-    padding: 16,
-    gap: 6,
-  },
-  noteLabel: { color: colors.muted, fontSize: 14 },
-  noteHint: { color: colors.ink, fontSize: 14, fontWeight: '600' },
-  balanceSection: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
-    gap: 6,
-  },
-  payFromHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 14,
+    backgroundColor: '#edf5ff',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#d2e3fc',
+    paddingHorizontal: 18,
+    paddingVertical: 14,
   },
-  payFrom: { color: colors.ink, fontWeight: '700', fontSize: 16 },
-  changeText: { color: colors.accent, fontSize: 13, fontWeight: '600' },
-  balanceRow: {
-    alignItems: 'baseline',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 13,
+  noteIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#ffffff',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  balanceLabel: { color: colors.muted, flex: 1, fontSize: 14 },
-  balanceValue: {
+  noteCopy: { flex: 1, gap: 2 },
+  noteLabel: { color: colors.muted, fontSize: 12 },
+  noteInput: {
     color: colors.ink,
-    flexShrink: 1,
-    fontSize: 14,
-    fontVariant: ['tabular-nums'],
-    fontWeight: '600',
-    marginLeft: 16,
-    textAlign: 'right',
-  },
-  statusRow: {
-    alignItems: 'flex-start',
-    flexDirection: 'row',
-    marginTop: 6,
-  },
-  statusDot: {
-    borderRadius: 5,
-    height: 10,
-    marginRight: 10,
-    marginTop: 5,
-    width: 10,
-  },
-  statusDotSuccess: { backgroundColor: '#27834d' },
-  statusDotError: { backgroundColor: '#a92c24' },
-  statusDotNeutral: { backgroundColor: '#8a8982' },
-  statusText: {
-    color: '#3f3f3b',
-    flex: 1,
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  errorStatusText: { color: '#a92c24' },
-  rateNote: { color: '#777771', fontSize: 12, lineHeight: 18, marginTop: 17 },
-  refreshEstimate: {
-    alignSelf: 'flex-start',
-    marginTop: 8,
-    paddingVertical: 8,
-  },
-  refreshEstimateText: {
-    color: colors.accent,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  secureBanner: {
-    borderWidth: 1,
-    borderColor: '#b7d3ff',
-    backgroundColor: '#eef6ff',
-    borderRadius: 16,
-    padding: 14,
-    gap: 4,
-  },
-  secureTitle: { color: colors.accent, fontSize: 14, fontWeight: '700' },
-  secureCopy: { color: colors.muted, fontSize: 12 },
-  footer: {
-    backgroundColor: '#f2f2f7',
-    borderTopColor: '#deddd7',
-    borderTopWidth: 1,
-    gap: 10,
-    paddingHorizontal: 24,
-    paddingTop: 16,
-  },
-  primaryButton: {
-    alignItems: 'center',
-    backgroundColor: colors.accent,
-    borderRadius: 22,
-    justifyContent: 'center',
-    minHeight: 56,
-    paddingHorizontal: 20,
-  },
-  primaryButtonDisabled: { backgroundColor: '#8294af' },
-  primaryButtonText: { color: '#ffffff', fontSize: 17, fontWeight: '700' },
-  secondaryButton: {
-    alignItems: 'center',
-    borderColor: '#11110f',
-    borderRadius: 14,
-    borderWidth: 1,
-    justifyContent: 'center',
-    minHeight: 52,
-    paddingHorizontal: 20,
-  },
-  secondaryButtonText: {
-    color: '#11110f',
     fontSize: 16,
     fontWeight: '700',
+    paddingVertical: 0,
   },
-  secondaryButtonDisabled: { opacity: 0.5 },
-  buttonPressed: { opacity: 0.65 },
+
+  /* Pay from section */
+  payFromSection: { gap: 8 },
+  payFromHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  payFromTitle: { color: colors.ink, fontSize: 16, fontWeight: '700' },
+  changeButton: { paddingVertical: 4 },
+  changeButtonText: { color: '#005ae1', fontSize: 15, fontWeight: '600' },
+  accountCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    backgroundColor: '#ffffff',
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: '#c6dcff',
+    padding: 16,
+    shadowColor: '#081332',
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  accountCopy: { flex: 1, gap: 2 },
+  accountSymbol: { color: colors.ink, fontSize: 16, fontWeight: '700' },
+  accountInr: {
+    color: colors.ink,
+    fontSize: 18,
+    fontWeight: '700',
+    fontVariant: ['tabular-nums'],
+  },
+  accountTokens: { color: colors.muted, fontSize: 13 },
+  chevronCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#edf4ff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  /* Breakdown Card */
+  breakdownCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#e8edf5',
+    padding: 18,
+    gap: 10,
+  },
+  breakdownRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  breakdownLabel: { color: colors.muted, fontSize: 14 },
+  breakdownValue: { color: colors.muted, fontSize: 14, fontWeight: '600' },
+  labelWithIcon: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  breakdownDivider: {
+    height: 1,
+    backgroundColor: '#eef2f7',
+    marginVertical: 4,
+  },
+  totalLabel: { color: colors.ink, fontSize: 16, fontWeight: '700' },
+  totalValue: { color: colors.ink, fontSize: 16, fontWeight: '700' },
+
+  /* Secure card */
+  secureCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#edf5ff',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#d2e3fc',
+    padding: 14,
+  },
+  shieldContainer: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#ffffff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  secureCopy: { flex: 1, gap: 2 },
+  secureTitle: { color: '#005ae1', fontSize: 15, fontWeight: '700' },
+  secureSubtitle: { color: colors.muted, fontSize: 12 },
+
+  /* Footer */
+  footer: {
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 8,
+    backgroundColor: '#f4f6fa',
+  },
+  primaryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: '#0052FF',
+    borderRadius: 28,
+    minHeight: 56,
+    paddingHorizontal: 20,
+    shadowColor: '#0052FF',
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
+  },
+  primaryButtonDisabled: { backgroundColor: '#8294af', shadowOpacity: 0 },
+  primaryButtonText: { color: '#ffffff', fontSize: 18, fontWeight: '700' },
+  buttonPressed: { opacity: 0.7 },
+  errorText: { color: '#a92c24', fontSize: 13, marginTop: 4 },
+
   invalidScreen: {
-    backgroundColor: '#f7f6f2',
+    backgroundColor: '#f4f6fa',
     flex: 1,
     justifyContent: 'center',
     paddingHorizontal: 28,
   },
-  invalidTitle: { color: '#11110f', fontSize: 26, fontWeight: '700' },
+  invalidTitle: { color: colors.ink, fontSize: 26, fontWeight: '700' },
   invalidCopy: {
-    color: '#62625d',
+    color: colors.muted,
     fontSize: 16,
     lineHeight: 24,
     marginBottom: 24,

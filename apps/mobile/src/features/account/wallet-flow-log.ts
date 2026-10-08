@@ -1,10 +1,24 @@
 let attempt = 0;
 let step = 0;
 let tracking = false;
+// Steps of the current attempt, attached to its first error so the cause is
+// visible even when only ERROR lines are copied from the terminal.
+let trail: string[] = [];
+let trailShown = false;
 const enabled = typeof __DEV__ !== 'undefined' && __DEV__;
 
 function prefix() {
   return `[MetaMask flow #${attempt || '-'} step ${++step}]`;
+}
+
+function record(message: string) {
+  trail.push(`${step}. ${message}`);
+}
+
+function takeTrail() {
+  if (trailShown || trail.length === 0) return '';
+  trailShown = true;
+  return `\n  Earlier steps:\n    ${trail.join('\n    ')}`;
 }
 
 function safeError(error: unknown) {
@@ -26,19 +40,28 @@ export const walletFlowLog = {
     attempt += 1;
     step = 0;
     tracking = true;
+    trail = [];
+    trailShown = false;
     console.info(`${prefix()} Connect button pressed`);
+    record('Connect button pressed');
   },
   appState(state: string) {
-    if (enabled && tracking)
-      console.info(`${prefix()} Traveller Pay app state: ${state}`);
+    if (!enabled || !tracking) return;
+    console.info(`${prefix()} Traveller Pay app state: ${state}`);
+    record(`Traveller Pay app state: ${state}`);
   },
   stop() {
     tracking = false;
   },
   info(message: string) {
-    if (enabled) console.info(`${prefix()} ${message}`);
+    if (!enabled) return;
+    console.info(`${prefix()} ${message}`);
+    record(message);
   },
   error(message: string, cause: unknown) {
-    if (enabled) console.error(`${prefix()} ${message}: ${safeError(cause)}`);
+    if (enabled)
+      console.error(
+        `${prefix()} ${message}: ${safeError(cause)}${takeTrail()}`,
+      );
   },
 };

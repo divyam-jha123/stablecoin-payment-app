@@ -96,6 +96,15 @@ async function walletRequest<T>(action: () => Promise<T>): Promise<T> {
   }
 }
 
+function isUnauthorized(error: unknown) {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    error.code === 4100
+  );
+}
+
 const adapter: WalletAdapter = {
   async connect() {
     const version = ++generation;
@@ -170,15 +179,30 @@ const adapter: WalletAdapter = {
   },
   async signMessage(message) {
     const sdk = await getClient();
-    const address = sdk.getAccount();
-    if (!address) throw new Error('Connect a wallet before signing in.');
-    walletFlowLog.info('Requesting sign-in signature from MetaMask');
-    const signature = await walletRequest(() =>
-      sdk.getProvider().request({
-        method: 'personal_sign',
-        params: [message, address],
-      }),
-    );
+    const sign = () => {
+      const address = sdk.getAccount();
+      if (!address) throw new Error('Connect a wallet before signing in.');
+      walletFlowLog.info('Requesting sign-in signature from MetaMask');
+      return walletRequest(() =>
+        sdk.getProvider().request({
+          method: 'personal_sign',
+          params: [message, address],
+        }),
+      );
+    };
+    let signature: unknown;
+    try {
+      signature = await sign();
+    } catch (cause) {
+      if (!isUnauthorized(cause)) throw cause;
+      // Adding Tempo in MetaMask selects it locally, but the session from the
+      // first approval only covers chains MetaMask knew then. Ask again now
+      // that Tempo exists so signing on Tempo is authorized.
+      walletFlowLog.error('MetaMask has not authorized Tempo yet', cause);
+      walletFlowLog.info('Requesting MetaMask approval for Tempo');
+      await adapter.connect();
+      signature = await sign();
+    }
     if (typeof signature !== 'string' || !/^0x[0-9a-f]+$/i.test(signature)) {
       throw new Error('MetaMask returned an invalid signature.');
     }

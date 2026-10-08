@@ -23,13 +23,14 @@ const pages = [
   { label: 'Review add money design', href: '/review-add-money' },
   { label: 'QR scanner', href: '/scanner' },
   {
-    label: 'Payment confirmation',
+    label: 'Pay Merchant (Figma preview)',
     href: {
       pathname: '/confirmation',
       params: {
-        merchantName: 'Sample merchant',
-        merchantVpa: 'sample@upi',
-        inrAmount: '250',
+        merchantName: 'Starbucks',
+        merchantVpa: 'starbucks@upi',
+        inrAmount: '480',
+        demoPaymentToken: 'USDC',
       },
     },
   },

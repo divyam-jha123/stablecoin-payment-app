@@ -124,7 +124,11 @@ export function AppIcon({
     | 'copy'
     | 'download'
     | 'share'
-    | 'receive';
+    | 'receive'
+    | 'chevron-left'
+    | 'swap'
+    | 'bank'
+    | 'check';
   color?: string;
   size?: number;
 }) {
@@ -150,6 +154,10 @@ export function AppIcon({
     copy: 'M8 7h12v14H8z M4 17H3V3h12v1',
     download: 'M12 3v12 M7 10l5 5 5-5 M4 20h16',
     share: 'M12 16V3 M7 8l5-5 5 5 M4 14v7h16v-7',
+    'chevron-left': 'M15 18l-6-6 6-6',
+    swap: 'M4 8h15 M15 4l4 4-4 4 M20 16H5 M9 12l-4 4 4 4',
+    bank: 'M3 9l9-5 9 5z M5 10v8 M10 10v8 M14 10v8 M19 10v8 M3 21h18',
+    check: 'M5 12.5l4.5 4.5L19 7.5',
   };
   return (
     <Svg
