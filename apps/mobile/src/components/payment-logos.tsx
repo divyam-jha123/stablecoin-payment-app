@@ -69,6 +69,36 @@ export function UsdcTokenEmblem({ size = 44 }: { size?: number }) {
   );
 }
 
+export function UsdtTokenEmblem({ size = 44 }: { size?: number }) {
+  return (
+    <View
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        backgroundColor: '#26A17B',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <Svg
+        width={size * 0.66}
+        height={size * 0.66}
+        viewBox="0 0 24 24"
+        accessible={false}
+      >
+        <Path d="M4.5 4.5h15v3.2h-5.8v12.8h-3.4V7.7H4.5z" fill="#ffffff" />
+        <Path
+          d="M4 11.2c0 1.2 3.6 2.1 8 2.1s8-.9 8-2.1-3.6-2.1-8-2.1-8 .9-8 2.1z"
+          stroke="#ffffff"
+          strokeWidth={1.4}
+          fill="none"
+        />
+      </Svg>
+    </View>
+  );
+}
+
 export function IndiaFlagEmblem({ size = 44 }: { size?: number }) {
   return (
     <View

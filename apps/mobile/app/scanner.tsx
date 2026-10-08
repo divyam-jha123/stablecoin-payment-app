@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import Constants from 'expo-constants';
 import {
   CameraView,
@@ -29,12 +36,22 @@ import {
   parseUpiPaymentDraft,
 } from '@traveller/shared';
 import { uiPreviewEnabled } from '../src/ui-preview';
+import {
+  UsdcTokenEmblem,
+  UsdtTokenEmblem,
+} from '../src/components/payment-logos';
 
 const REQUEST_TIMEOUT_MS = 10_000;
 const RETRY_DELAY_MS = 1_500;
 const MAX_SCAN_SIZE = 320;
 const FRAME_PADDING = 12;
 const DEFAULT_MESSAGE = 'Scan any QR code to pay';
+const CORNER_COLOR = '#1a7cff';
+const PAY_TOKENS = [
+  { symbol: 'USDT', Emblem: UsdtTokenEmblem },
+  { symbol: 'USDC', Emblem: UsdcTokenEmblem },
+] as const;
+type PayToken = (typeof PAY_TOKENS)[number]['symbol'];
 // Corner brackets sit just outside the cut-out, one colour per corner.
 const CORNER_OFFSET = 12;
 const SAMPLE_MERCHANT_QR =
@@ -117,6 +134,7 @@ export default function Scanner() {
   const [reading, setReading] = useState(false);
   const [torchOn, setTorchOn] = useState(false);
   const [pickingImage, setPickingImage] = useState(false);
+  const [payToken, setPayToken] = useState<PayToken>('USDC');
   const navigationStarted = useRef(false);
   const requestInProgress = useRef(false);
   const activeRequest = useRef<AbortController | null>(null);
@@ -130,7 +148,7 @@ export default function Scanner() {
       1,
       Math.min(
         cameraLayout.width - 96,
-        cameraLayout.height - top - 300,
+        cameraLayout.height - top - 340,
         MAX_SCAN_SIZE,
       ),
     );
@@ -283,12 +301,16 @@ export default function Scanner() {
     setCameraLayout({ height, width });
   }, []);
 
-  // A valid scan goes straight to confirmation, where the token is chosen.
+  // A valid scan goes straight to confirmation with the chosen token; it can
+  // still be changed there.
   useEffect(() => {
     if (!payment || reading || navigationStarted.current) return;
     navigationStarted.current = true;
-    router.replace({ pathname: '/confirmation', params: payment });
-  }, [payment, reading]);
+    router.replace({
+      pathname: '/confirmation',
+      params: { ...payment, demoPaymentToken: payToken },
+    });
+  }, [payment, reading, payToken]);
 
   if (!uiPreviewEnabled && !permission) {
     return (
@@ -482,9 +504,31 @@ export default function Scanner() {
           >
             {message}
           </Text>
-          <Text style={styles.sheetSubtitle}>
-            Google Pay • PhonePe • PayTM • UPI
-          </Text>
+          <Text style={styles.sheetSubtitle}>Pay with your crypto wallet</Text>
+          <View accessibilityRole="radiogroup" style={styles.tokenRow}>
+            {PAY_TOKENS.map(({ symbol, Emblem }, index) => {
+              const selected = payToken === symbol;
+              return (
+                <Fragment key={symbol}>
+                  {index > 0 ? <View style={styles.tokenDivider} /> : null}
+                  <Pressable
+                    accessibilityRole="radio"
+                    accessibilityLabel={`Pay with ${symbol}`}
+                    accessibilityState={{ checked: selected }}
+                    onPress={() => setPayToken(symbol)}
+                    style={({ pressed }) => [
+                      styles.tokenPill,
+                      selected && styles.tokenPillSelected,
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <Emblem size={40} />
+                    <Text style={styles.tokenText}>{symbol}</Text>
+                  </Pressable>
+                </Fragment>
+              );
+            })}
+          </View>
         </View>
 
         <SafeAreaView
@@ -597,7 +641,7 @@ const styles = StyleSheet.create({
     width: 52,
   },
   topLeft: {
-    borderColor: '#ea4335',
+    borderColor: CORNER_COLOR,
     borderLeftWidth: 5,
     borderTopLeftRadius: 28,
     borderTopWidth: 5,
@@ -605,7 +649,7 @@ const styles = StyleSheet.create({
     top: 0,
   },
   topRight: {
-    borderColor: '#f9ab00',
+    borderColor: CORNER_COLOR,
     borderRightWidth: 5,
     borderTopRightRadius: 28,
     borderTopWidth: 5,
@@ -613,7 +657,7 @@ const styles = StyleSheet.create({
     top: 0,
   },
   bottomLeft: {
-    borderColor: '#4285f4',
+    borderColor: CORNER_COLOR,
     borderBottomLeftRadius: 28,
     borderBottomWidth: 5,
     borderLeftWidth: 5,
@@ -621,7 +665,7 @@ const styles = StyleSheet.create({
     left: 0,
   },
   bottomRight: {
-    borderColor: '#34a853',
+    borderColor: CORNER_COLOR,
     borderBottomRightRadius: 28,
     borderBottomWidth: 5,
     borderRightWidth: 5,
@@ -673,6 +717,37 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginTop: 8,
     textAlign: 'center',
+  },
+  tokenRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 14,
+    marginTop: 18,
+  },
+  tokenDivider: {
+    backgroundColor: '#5f6368',
+    height: 34,
+    width: 1,
+  },
+  tokenPill: {
+    alignItems: 'center',
+    borderColor: '#5f6368',
+    borderRadius: 30,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 12,
+    paddingLeft: 10,
+    paddingRight: 24,
+    paddingVertical: 8,
+  },
+  tokenPillSelected: {
+    backgroundColor: 'rgba(26, 124, 255, 0.16)',
+    borderColor: CORNER_COLOR,
+  },
+  tokenText: {
+    color: '#ffffff',
+    fontSize: 17,
+    fontWeight: '500',
   },
   controls: {
     alignItems: 'center',
