@@ -26,26 +26,45 @@ export interface ScannerPaymentPanelProps {
 }
 
 function TokenIcon({ account }: { account: ScannerPaymentAccount }) {
-  return (
-    <View style={[styles.tokenIcon, { backgroundColor: account.color }]}>
-      {account.symbol === 'USDC' ? (
-        <AppIcon name="currency" color="#ffffff" size={28} />
-      ) : (
+  if (account.symbol === 'USDC') {
+    return (
+      <View style={[styles.tokenIcon, { backgroundColor: '#2775CA' }]}>
         <Svg width={28} height={28} viewBox="0 0 24 24" accessible={false}>
           <Path
-            d={
-              account.symbol === 'USDT'
-                ? 'M5 5h14M12 5v15M7 9h10M4 11c0 3 16 3 16 0'
-                : 'M8 20V4h5a5 5 0 0 1 0 10H8'
-            }
+            d="M6.5 6.8C4.9 8.3 4 10.5 4 13c0 2.5.9 4.7 2.5 6.2M17.5 6.8c1.6 1.5 2.5 3.7 2.5 6.2 0 2.5-.9 4.7-2.5 6.2"
             stroke="#ffffff"
             strokeWidth={2}
+            strokeLinecap="round"
+            fill="none"
+          />
+          <Path
+            d="M12 4.5v15M14.5 9.5c0-1.4-1.1-2-2.5-2h-1c-1.1 0-2 .9-2 2 0 2.2 4.5 1.8 4.5 4 0 1.1-.9 2-2 2h-1.5c-1.4 0-2.5-.9-2.5-2"
+            stroke="#ffffff"
+            strokeWidth={1.8}
             strokeLinecap="round"
             strokeLinejoin="round"
             fill="none"
           />
         </Svg>
-      )}
+      </View>
+    );
+  }
+  return (
+    <View style={[styles.tokenIcon, { backgroundColor: account.color }]}>
+      <Svg width={28} height={28} viewBox="0 0 24 24" accessible={false}>
+        <Path
+          d={
+            account.symbol === 'USDT'
+              ? 'M5 5h14M12 5v15M7 9h10M4 11c0 3 16 3 16 0'
+              : 'M8 20V4h5a5 5 0 0 1 0 10H8'
+          }
+          stroke="#ffffff"
+          strokeWidth={2}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          fill="none"
+        />
+      </Svg>
     </View>
   );
 }
@@ -65,17 +84,14 @@ export function ScannerPaymentPanel({
         styles.panel,
         {
           paddingBottom: Math.max(insets.bottom, 16),
-          paddingLeft: 26 + insets.left,
-          paddingRight: 26 + insets.right,
+          paddingLeft: 24 + insets.left,
+          paddingRight: 24 + insets.right,
         },
       ]}
     >
       <View style={styles.handle} />
       <View style={styles.header}>
-        <View style={styles.headingGroup}>
-          <Text style={styles.heading}>Pay from</Text>
-          <Text style={styles.demoLabel}>Demo</Text>
-        </View>
+        <Text style={styles.heading}>Pay from</Text>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Change payment token"
@@ -88,7 +104,7 @@ export function ScannerPaymentPanel({
       </View>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`${selectedAccount.symbol}, demo balance ${balance.inr} rupees, approximately ${balance.tokens} ${selectedAccount.symbol}. Change payment token`}
+        accessibilityLabel={`${selectedAccount.symbol}, balance ${balance.inr} rupees, approximately ${balance.tokens} ${selectedAccount.symbol}. Change payment token`}
         disabled={loading}
         onPress={onSelectAccount}
         style={({ pressed }) => [styles.accountCard, pressed && styles.pressed]}
@@ -96,14 +112,13 @@ export function ScannerPaymentPanel({
         <TokenIcon account={selectedAccount} />
         <View style={styles.accountCopy}>
           <Text style={styles.symbol}>{selectedAccount.symbol}</Text>
-          <Text style={styles.balanceLabel}>Available balance</Text>
           <Text style={styles.inrBalance}>₹ {balance.inr}</Text>
           <Text style={styles.tokenBalance}>
             ≈ {balance.tokens} {selectedAccount.symbol}
           </Text>
         </View>
         <View style={styles.chevron}>
-          <AppIcon name="chevron-down" size={18} />
+          <AppIcon name="chevron-down" size={18} color="#005ae1" />
         </View>
       </Pressable>
       <Pressable

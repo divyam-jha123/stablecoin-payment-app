@@ -2,9 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Constants from 'expo-constants';
 import {
   CameraView,
+  scanFromURLAsync,
   useCameraPermissions,
   type BarcodeScanningResult,
 } from 'expo-camera';
+import { launchImageLibraryAsync } from 'expo-image-picker';
 import { router, Stack } from 'expo-router';
 import {
   Button,
@@ -14,8 +16,11 @@ import {
   View,
   type LayoutChangeEvent,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import Svg, { Defs, Mask, Rect } from 'react-native-svg';
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from 'react-native-safe-area-context';
+import Svg, { Defs, Mask, Path, Rect } from 'react-native-svg';
 import {
   createTravelPeQr,
   isTravelPeQr,
@@ -24,16 +29,14 @@ import {
   parseUpiPaymentDraft,
 } from '@traveller/shared';
 import { uiPreviewEnabled } from '../src/ui-preview';
-import {
-  ScannerPaymentPanel,
-  ScannerTokenSelectionSheet,
-} from '../src/components/scanner-payment-panel';
-import { SCANNER_DEMO_ACCOUNTS } from '../src/features/payment/scanner-accounts';
 
 const REQUEST_TIMEOUT_MS = 10_000;
 const RETRY_DELAY_MS = 1_500;
-const MAX_SCAN_SIZE = 300;
+const MAX_SCAN_SIZE = 320;
 const FRAME_PADDING = 12;
+const DEFAULT_MESSAGE = 'Scan any QR code to pay';
+// Corner brackets sit just outside the cut-out, one colour per corner.
+const CORNER_OFFSET = 12;
 const SAMPLE_MERCHANT_QR =
   'upi://pay?pa=sample@upi&pn=Sample%20merchant&am=250.00&cu=INR';
 
@@ -107,13 +110,13 @@ function apiErrorMessage(value: unknown): string | null {
 export default function Scanner() {
   const [permission, requestPermission] = useCameraPermissions();
   const [cameraLayout, setCameraLayout] = useState<CameraLayout | null>(null);
-  const [message, setMessage] = useState('Scan QR code');
+  const insets = useSafeAreaInsets();
+  const [message, setMessage] = useState(DEFAULT_MESSAGE);
   const [scanning, setScanning] = useState(true);
   const [payment, setPayment] = useState<ScannedPayment | null>(null);
   const [reading, setReading] = useState(false);
-  const [tokenSheetOpen, setTokenSheetOpen] = useState(false);
-  const [selectedEntry, setSelectedEntry] = useState(SCANNER_DEMO_ACCOUNTS[0]!);
-  const [navigating, setNavigating] = useState(false);
+  const [torchOn, setTorchOn] = useState(false);
+  const [pickingImage, setPickingImage] = useState(false);
   const navigationStarted = useRef(false);
   const requestInProgress = useRef(false);
   const activeRequest = useRef<AbortController | null>(null);
@@ -121,20 +124,18 @@ export default function Scanner() {
 
   const frame = useMemo<ScanFrame | null>(() => {
     if (!cameraLayout) return null;
+    // Leave room for the top bar, the gallery button and the bottom sheet.
+    const top = insets.top + 96;
     const size = Math.max(
       1,
       Math.min(
-        cameraLayout.width - 64,
-        cameraLayout.height - 200,
+        cameraLayout.width - 96,
+        cameraLayout.height - top - 300,
         MAX_SCAN_SIZE,
       ),
     );
-    return {
-      left: (cameraLayout.width - size) / 2,
-      size,
-      top: Math.max(72, (cameraLayout.height - size) / 2 - 28),
-    };
-  }, [cameraLayout]);
+    return { left: (cameraLayout.width - size) / 2, size, top };
+  }, [cameraLayout, insets.top]);
 
   useEffect(
     () => () => {
@@ -150,7 +151,7 @@ export default function Scanner() {
     setMessage(nextMessage);
     retryTimer.current = setTimeout(() => {
       requestInProgress.current = false;
-      setMessage('Scan QR code');
+      setMessage(DEFAULT_MESSAGE);
       setScanning(true);
       retryTimer.current = null;
     }, RETRY_DELAY_MS);
@@ -248,20 +249,46 @@ export default function Scanner() {
     [frame, submitQr],
   );
 
+  const scanFromGallery = useCallback(async () => {
+    if (pickingImage || requestInProgress.current) return;
+    setPickingImage(true);
+    setScanning(false);
+    try {
+      const picked = await launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        quality: 1,
+      });
+      const uri = picked.canceled ? undefined : picked.assets[0]?.uri;
+      if (!uri) {
+        setScanning(true);
+        return;
+      }
+      const [found] = await scanFromURLAsync(uri, ['qr']);
+      if (found?.data) {
+        void submitQr(found.data);
+      } else {
+        requestInProgress.current = true;
+        resumeScanning('No QR code found in that image');
+      }
+    } catch {
+      requestInProgress.current = true;
+      resumeScanning('Could not read that image');
+    } finally {
+      setPickingImage(false);
+    }
+  }, [pickingImage, resumeScanning, submitQr]);
+
   const handleCameraLayout = useCallback((event: LayoutChangeEvent) => {
     const { height, width } = event.nativeEvent.layout;
     setCameraLayout({ height, width });
   }, []);
 
-  function continueToPayment() {
+  // A valid scan goes straight to confirmation, where the token is chosen.
+  useEffect(() => {
     if (!payment || reading || navigationStarted.current) return;
     navigationStarted.current = true;
-    setNavigating(true);
-    router.replace({
-      pathname: '/confirmation',
-      params: { ...payment, demoPaymentToken: selectedEntry.account.symbol },
-    });
-  }
+    router.replace({ pathname: '/confirmation', params: payment });
+  }, [payment, reading]);
 
   if (!uiPreviewEnabled && !permission) {
     return (
@@ -301,10 +328,9 @@ export default function Scanner() {
           <CameraView
             style={styles.camera}
             facing="back"
+            enableTorch={torchOn}
             barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
-            onBarcodeScanned={
-              scanning && !tokenSheetOpen ? handleBarcodeScanned : undefined
-            }
+            onBarcodeScanned={scanning ? handleBarcodeScanned : undefined}
           />
         ) : null}
 
@@ -344,7 +370,7 @@ export default function Scanner() {
                 y={0}
                 width={cameraLayout?.width ?? 0}
                 height={cameraLayout?.height ?? 0}
-                fill="rgba(0, 0, 0, 0.72)"
+                fill="rgba(0, 0, 0, 0.35)"
                 mask="url(#scanner-cutout)"
               />
             </Svg>
@@ -355,10 +381,10 @@ export default function Scanner() {
               style={[
                 styles.frame,
                 {
-                  height: frame.size,
-                  left: frame.left,
-                  top: frame.top,
-                  width: frame.size,
+                  height: frame.size + CORNER_OFFSET * 2,
+                  left: frame.left - CORNER_OFFSET,
+                  top: frame.top - CORNER_OFFSET,
+                  width: frame.size + CORNER_OFFSET * 2,
                 },
               ]}
             >
@@ -368,12 +394,35 @@ export default function Scanner() {
               <View style={[styles.corner, styles.bottomRight]} />
             </View>
 
-            <Text
-              accessibilityLiveRegion="polite"
-              style={[styles.status, { top: frame.top + frame.size + 36 }]}
-            >
-              {message}
-            </Text>
+            {!uiPreviewEnabled ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Upload QR code from gallery"
+                accessibilityState={{ disabled: pickingImage || reading }}
+                disabled={pickingImage || reading}
+                onPress={() => void scanFromGallery()}
+                style={({ pressed }) => [
+                  styles.galleryButton,
+                  { top: frame.top + frame.size + 40 },
+                  pressed && styles.pressed,
+                ]}
+              >
+                <Svg width={22} height={22} viewBox="0 0 24 24">
+                  <Rect
+                    x={3.5}
+                    y={3.5}
+                    width={17}
+                    height={17}
+                    rx={2}
+                    stroke="#202124"
+                    strokeWidth={1.8}
+                    fill="none"
+                  />
+                  <Path d="M6.5 17l3.5-4.5 2.5 3 2-2.5 3 4z" fill="#202124" />
+                </Svg>
+                <Text style={styles.galleryText}>Upload from gallery</Text>
+              </Pressable>
+            ) : null}
           </>
         ) : null}
 
@@ -422,7 +471,27 @@ export default function Scanner() {
           </View>
         ) : null}
 
-        <SafeAreaView pointerEvents="box-none" style={styles.controls}>
+        <View
+          style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 16) }]}
+        >
+          <View style={styles.sheetHandle} />
+          <Text
+            accessibilityLiveRegion="polite"
+            numberOfLines={2}
+            style={styles.sheetTitle}
+          >
+            {message}
+          </Text>
+          <Text style={styles.sheetSubtitle}>
+            Google Pay • PhonePe • PayTM • UPI
+          </Text>
+        </View>
+
+        <SafeAreaView
+          edges={['top']}
+          pointerEvents="box-none"
+          style={styles.controls}
+        >
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Close scanner"
@@ -430,34 +499,64 @@ export default function Scanner() {
             onPress={() => router.back()}
             style={({ pressed }) => [
               styles.closeButton,
-              pressed && styles.closeButtonPressed,
+              pressed && styles.pressed,
             ]}
           >
             <View style={[styles.closeLine, styles.closeLineForward]} />
             <View style={[styles.closeLine, styles.closeLineBackward]} />
           </Pressable>
+          <View style={styles.topActions}>
+            {!uiPreviewEnabled ? (
+              <Pressable
+                accessibilityRole="switch"
+                accessibilityLabel="Flashlight"
+                accessibilityState={{ checked: torchOn }}
+                hitSlop={6}
+                onPress={() => setTorchOn((on) => !on)}
+                style={({ pressed }) => [
+                  styles.torchButton,
+                  torchOn && styles.torchButtonOn,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <Svg width={26} height={26} viewBox="0 0 24 24">
+                  <Path
+                    d="M7 3h10v3.5l-2.5 3.5V21h-5V10L7 6.5z M7 6.5h10 M12 13.5v2.5"
+                    stroke={torchOn ? '#202124' : '#ffffff'}
+                    strokeWidth={1.9}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    fill="none"
+                  />
+                </Svg>
+              </Pressable>
+            ) : null}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Show my QR code"
+              hitSlop={6}
+              onPress={() => router.push('/receive')}
+              style={({ pressed }) => [
+                styles.iconButton,
+                pressed && styles.pressed,
+              ]}
+            >
+              <Svg width={30} height={30} viewBox="0 0 24 24">
+                <Path
+                  d="M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z"
+                  stroke="#ffffff"
+                  strokeWidth={1.8}
+                  fill="none"
+                />
+                <Path
+                  d="M5.5 5.5h2v2h-2z M16.5 5.5h2v2h-2z M5.5 16.5h2v2h-2z M14 14h3v3h-3z M18 18h3v3h-3z M18 14h3v2h-3z M14 18h2v3h-2z"
+                  fill="#ffffff"
+                />
+              </Svg>
+            </Pressable>
+          </View>
         </SafeAreaView>
       </View>
-      <ScannerPaymentPanel
-        selectedAccount={selectedEntry.account}
-        balance={selectedEntry.balance}
-        onSelectAccount={() => setTokenSheetOpen(true)}
-        onPay={continueToPayment}
-        disabled={!payment || navigating}
-        loading={reading || navigating}
-      />
-      <ScannerTokenSelectionSheet
-        visible={tokenSheetOpen}
-        selectedAccount={selectedEntry.account}
-        onClose={() => setTokenSheetOpen(false)}
-        onSelect={(account) => {
-          const entry = SCANNER_DEMO_ACCOUNTS.find(
-            (item) => item.account.symbol === account.symbol,
-          );
-          if (entry) setSelectedEntry(entry);
-          setTokenSheetOpen(false);
-        }}
-      />
     </View>
   );
 }
@@ -493,64 +592,130 @@ const styles = StyleSheet.create({
     position: 'absolute',
   },
   corner: {
-    borderColor: '#ffffff',
-    height: 48,
+    height: 52,
     position: 'absolute',
-    width: 48,
+    width: 52,
   },
   topLeft: {
-    borderLeftWidth: 4,
-    borderTopLeftRadius: 22,
-    borderTopWidth: 4,
+    borderColor: '#ea4335',
+    borderLeftWidth: 5,
+    borderTopLeftRadius: 28,
+    borderTopWidth: 5,
     left: 0,
     top: 0,
   },
   topRight: {
-    borderRightWidth: 4,
-    borderTopRightRadius: 22,
-    borderTopWidth: 4,
+    borderColor: '#f9ab00',
+    borderRightWidth: 5,
+    borderTopRightRadius: 28,
+    borderTopWidth: 5,
     right: 0,
     top: 0,
   },
   bottomLeft: {
-    borderBottomLeftRadius: 22,
-    borderBottomWidth: 4,
-    borderLeftWidth: 4,
+    borderColor: '#4285f4',
+    borderBottomLeftRadius: 28,
+    borderBottomWidth: 5,
+    borderLeftWidth: 5,
     bottom: 0,
     left: 0,
   },
   bottomRight: {
-    borderBottomRightRadius: 22,
-    borderBottomWidth: 4,
-    borderRightWidth: 4,
+    borderColor: '#34a853',
+    borderBottomRightRadius: 28,
+    borderBottomWidth: 5,
+    borderRightWidth: 5,
     bottom: 0,
     right: 0,
   },
-  status: {
+  galleryButton: {
+    alignItems: 'center',
+    alignSelf: 'center',
+    backgroundColor: '#e8eaed',
+    borderRadius: 28,
+    flexDirection: 'row',
+    gap: 12,
+    paddingHorizontal: 22,
+    paddingVertical: 12,
+    position: 'absolute',
+  },
+  galleryText: {
+    color: '#202124',
+    fontSize: 17,
+    fontWeight: '500',
+  },
+  sheet: {
+    alignItems: 'center',
+    backgroundColor: '#303134',
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
+    bottom: 0,
+    left: 0,
+    paddingHorizontal: 24,
+    paddingTop: 10,
+    position: 'absolute',
+    right: 0,
+  },
+  sheetHandle: {
+    backgroundColor: '#e8eaed',
+    borderRadius: 2,
+    height: 3,
+    marginBottom: 18,
+    width: 32,
+  },
+  sheetTitle: {
     color: '#ffffff',
     fontSize: 20,
-    fontWeight: '500',
-    left: 24,
-    position: 'absolute',
-    right: 24,
+    textAlign: 'center',
+  },
+  sheetSubtitle: {
+    color: '#bdc1c6',
+    fontSize: 16,
+    marginTop: 8,
     textAlign: 'center',
   },
   controls: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     left: 0,
+    paddingHorizontal: 12,
     position: 'absolute',
     right: 0,
     top: 0,
   },
+  topActions: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 10,
+  },
   closeButton: {
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.34)',
     height: 48,
     justifyContent: 'center',
-    marginLeft: 12,
-    marginTop: 4,
+    marginTop: 8,
     width: 48,
   },
-  closeButtonPressed: {
+  torchButton: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.34)',
+    borderRadius: 30,
+    height: 60,
+    justifyContent: 'center',
+    marginTop: 8,
+    width: 60,
+  },
+  torchButtonOn: {
+    backgroundColor: '#e8eaed',
+  },
+  iconButton: {
+    alignItems: 'center',
+    height: 52,
+    justifyContent: 'center',
+    marginTop: 8,
+    width: 52,
+  },
+  pressed: {
     opacity: 0.62,
   },
   closeLine: {

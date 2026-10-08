@@ -69,6 +69,25 @@ describe('MetaMask native connection wiring', () => {
     });
   });
 
+  it('asks MetaMask to approve Tempo again when signing is unauthorized', async () => {
+    const { walletStore, sdk } = await fixture();
+    await walletStore.connect();
+    sdk.getAccount.mockReturnValue(
+      '0x1234567890123456789012345678901234567890',
+    );
+    sdk
+      .getProvider()
+      .request.mockRejectedValueOnce(
+        Object.assign(new Error('Unauthorized'), { code: 4100 }),
+      );
+    await expect(walletStore.signMessage('Sign in to Traveller')).resolves.toBe(
+      '0xabcd',
+    );
+    expect(sdk.connect).toHaveBeenCalledTimes(2);
+    expect(sdk.connect).toHaveBeenLastCalledWith({ chainIds: ['0xa5bf'] });
+    expect(sdk.getProvider().request).toHaveBeenCalledTimes(2);
+  });
+
   it('removes the pairing listener on timeout and ignores subsequent events', async () => {
     const { walletStore, sdk, emit, handlers } = await fixture();
     vi.useFakeTimers();

@@ -1,22 +1,255 @@
-import { router, Stack } from 'expo-router';
+import { Fragment, useEffect, useRef } from 'react';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
 import {
-  Image,
+  AccessibilityInfo,
+  Animated,
+  Easing,
   ImageBackground,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Svg, { Circle } from 'react-native-svg';
 import { AppIcon, colors } from '../src/components/payment-ui';
+import {
+  IndiaFlagEmblem,
+  StarbucksLogo,
+  UsdcTokenEmblem,
+} from '../src/components/payment-logos';
 
 // Metro bundles these static Figma illustrations at build time.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const skyline = require('../assets/figma/processing-skyline.png');
+// The token illustration split into two aligned layers so the coin can move
+// on its own and land back on the platform exactly.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const token = require('../assets/figma/processing-token.png');
+const coin = require('../assets/figma/processing-coin.png');
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const platform = require('../assets/figma/processing-platform.png');
+
+const BLUE = '#2f6bff';
+const RING_SIZE = 108;
+const RING_STROKE = 7;
+const RING_RADIUS = (RING_SIZE - RING_STROKE) / 2;
+const RING_LENGTH = 2 * Math.PI * RING_RADIUS;
+
+type StepStatus = 'active' | 'pending';
+const STEPS: {
+  label: string;
+  icon: 'swap' | 'bank' | 'check';
+  status: StepStatus;
+}[] = [
+  { label: 'Convert', icon: 'swap', status: 'active' },
+  { label: 'Settle', icon: 'bank', status: 'pending' },
+  { label: 'Confirm', icon: 'check', status: 'pending' },
+];
+
+function firstParam(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function CoinDrop() {
+  const drop = useRef(new Animated.Value(0)).current;
+  const pulse = useRef(new Animated.Value(1)).current;
+  const float = useRef(new Animated.Value(0)).current;
+  const spin = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    let cancelled = false;
+    let idle: Animated.CompositeAnimation | undefined;
+    const landing = Animated.sequence([
+      Animated.delay(150),
+      // Spring overshoots past the platform and settles, like a bounce.
+      Animated.spring(drop, {
+        toValue: 1,
+        friction: 5,
+        tension: 55,
+        useNativeDriver: true,
+      }),
+    ]);
+    const impact = Animated.sequence([
+      Animated.delay(520),
+      Animated.timing(pulse, {
+        toValue: 1.07,
+        duration: 120,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }),
+      Animated.spring(pulse, {
+        toValue: 1,
+        friction: 4,
+        useNativeDriver: true,
+      }),
+    ]);
+
+    void AccessibilityInfo.isReduceMotionEnabled().then((reduce) => {
+      if (cancelled) return;
+      if (reduce) {
+        drop.setValue(1);
+        return;
+      }
+      Animated.parallel([landing, impact]).start(({ finished }) => {
+        if (!finished || cancelled) return;
+        idle = Animated.parallel([
+          Animated.loop(
+            Animated.sequence([
+              Animated.timing(float, {
+                toValue: 1,
+                duration: 1100,
+                easing: Easing.inOut(Easing.sin),
+                useNativeDriver: true,
+              }),
+              Animated.timing(float, {
+                toValue: 0,
+                duration: 1100,
+                easing: Easing.inOut(Easing.sin),
+                useNativeDriver: true,
+              }),
+            ]),
+          ),
+          Animated.loop(
+            Animated.sequence([
+              Animated.delay(1600),
+              Animated.timing(spin, {
+                toValue: 1,
+                duration: 1000,
+                easing: Easing.inOut(Easing.cubic),
+                useNativeDriver: true,
+              }),
+              Animated.timing(spin, {
+                toValue: 0,
+                duration: 0,
+                useNativeDriver: true,
+              }),
+            ]),
+          ),
+        ]);
+        idle.start();
+      });
+    });
+
+    return () => {
+      cancelled = true;
+      landing.stop();
+      impact.stop();
+      idle?.stop();
+    };
+  }, [drop, pulse, float, spin]);
+
+  const coinTransform = [
+    { perspective: 800 },
+    {
+      translateY: Animated.add(
+        drop.interpolate({ inputRange: [0, 1], outputRange: [-260, 0] }),
+        float.interpolate({ inputRange: [0, 1], outputRange: [0, -10] }),
+      ),
+    },
+    {
+      rotateY: spin.interpolate({
+        inputRange: [0, 1],
+        outputRange: ['0deg', '360deg'],
+      }),
+    },
+  ];
+  const coinOpacity = drop.interpolate({
+    inputRange: [0, 0.35, 1],
+    outputRange: [0, 1, 1],
+    extrapolate: 'clamp',
+  });
+
+  return (
+    <View
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+      style={styles.token}
+    >
+      <Animated.Image
+        source={platform}
+        resizeMode="contain"
+        style={[StyleSheet.absoluteFill, { transform: [{ scale: pulse }] }]}
+      />
+      <Animated.Image
+        source={coin}
+        resizeMode="contain"
+        style={[
+          StyleSheet.absoluteFill,
+          { opacity: coinOpacity, transform: coinTransform },
+        ]}
+      />
+    </View>
+  );
+}
+
+function ProgressRing({ symbol }: { symbol: string }) {
+  const spin = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.timing(spin, {
+        toValue: 1,
+        duration: 1400,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      }),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [spin]);
+  const rotate = spin.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
+
+  return (
+    <View
+      accessibilityLabel={`Converting to ${symbol}`}
+      style={styles.ringWrap}
+    >
+      <Svg width={RING_SIZE} height={RING_SIZE} style={StyleSheet.absoluteFill}>
+        <Circle
+          cx={RING_SIZE / 2}
+          cy={RING_SIZE / 2}
+          r={RING_RADIUS}
+          stroke="#e4ecf8"
+          strokeWidth={RING_STROKE}
+          fill="#ffffff"
+        />
+      </Svg>
+      <Animated.View
+        style={[StyleSheet.absoluteFill, { transform: [{ rotate }] }]}
+      >
+        <Svg width={RING_SIZE} height={RING_SIZE}>
+          <Circle
+            cx={RING_SIZE / 2}
+            cy={RING_SIZE / 2}
+            r={RING_RADIUS}
+            stroke={BLUE}
+            strokeWidth={RING_STROKE}
+            strokeLinecap="round"
+            strokeDasharray={`${RING_LENGTH * 0.28} ${RING_LENGTH}`}
+            fill="none"
+          />
+        </Svg>
+      </Animated.View>
+      <UsdcTokenEmblem size={54} />
+    </View>
+  );
+}
 
 export default function Processing() {
+  const params = useLocalSearchParams<{
+    merchantName?: string | string[];
+    location?: string | string[];
+    inrAmount?: string | string[];
+    token?: string | string[];
+  }>();
+  const merchantName = firstParam(params.merchantName)?.trim() || 'Starbucks';
+  const location = firstParam(params.location)?.trim() || 'Pune, Maharashtra';
+  const inrAmount = firstParam(params.inrAmount)?.trim() || '500';
+  const symbol = firstParam(params.token)?.trim() || 'USDC';
+
   return (
     <View style={styles.screen}>
       <Stack.Screen options={{ headerShown: false }} />
@@ -25,37 +258,111 @@ export default function Processing() {
         style={styles.background}
         resizeMode="cover"
       >
-        <SafeAreaView style={styles.content}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Go back"
-            onPress={() => router.back()}
-            style={styles.back}
-          >
-            <AppIcon name="back" />
-          </Pressable>
-          <View style={styles.main}>
-            <Text style={styles.title}>Payment setup</Text>
-            <Text style={styles.subtitle}>Tempo Moderato testnet</Text>
-            <Image source={token} resizeMode="contain" style={styles.token} />
-          </View>
-          <View style={styles.card}>
-            <View style={styles.ring}>
-              <AppIcon name="wallet" color={colors.accent} size={34} />
+        <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+          <ScrollView contentContainerStyle={styles.content} bounces={false}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Go back"
+              hitSlop={8}
+              onPress={() => router.back()}
+              style={({ pressed }) => [styles.back, pressed && styles.pressed]}
+            >
+              <AppIcon name="chevron-left" size={22} />
+            </Pressable>
+
+            <View style={styles.header}>
+              {merchantName.toLowerCase().includes('starbucks') ? (
+                <StarbucksLogo size={64} />
+              ) : (
+                <View style={styles.merchantMark}>
+                  <Text style={styles.merchantInitial}>
+                    {merchantName.charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+              )}
+              <Text
+                accessibilityRole="header"
+                numberOfLines={1}
+                style={styles.merchantName}
+              >
+                {merchantName}
+              </Text>
+              <Text numberOfLines={1} style={styles.location}>
+                {location}
+              </Text>
+              <Text style={styles.amount}>₹{inrAmount}</Text>
+
+              <View style={styles.pair}>
+                <IndiaFlagEmblem size={42} />
+                <Text style={styles.pairText}>INR</Text>
+                <AppIcon name="arrow" size={22} color="#7d8aa3" />
+                <UsdcTokenEmblem size={42} />
+                <Text style={styles.pairText}>{symbol}</Text>
+              </View>
+              <Text style={styles.converting}>Converting to {symbol}</Text>
             </View>
-            <Text style={styles.cardTitle}>
-              Processing is not available yet
-            </Text>
-            <Text style={styles.cardCopy}>
-              You can scan a merchant QR and review the amount. Payment
-              submission is still being built, so no funds have moved.
-            </Text>
-            <View style={styles.steps}>
-              <Text style={styles.stepActive}>1 Review</Text>
-              <Text style={styles.step}>2 Settle</Text>
-              <Text style={styles.step}>3 Confirm</Text>
+
+            <CoinDrop />
+
+            <View style={styles.card}>
+              <ProgressRing symbol={symbol} />
+              <Text style={styles.cardTitle}>Processing payment</Text>
+              <Text style={styles.cardCopy}>
+                Converting INR to {symbol} and preparing settlement
+              </Text>
+
+              <View style={styles.steps}>
+                {STEPS.map((step, index) => {
+                  const active = step.status === 'active';
+                  return (
+                    <Fragment key={step.label}>
+                      {index > 0 ? (
+                        <View style={styles.connector}>
+                          {[0, 1, 2, 3].map((dot) => (
+                            <View key={dot} style={styles.connectorDot} />
+                          ))}
+                        </View>
+                      ) : null}
+                      <View
+                        accessibilityLabel={`${step.label}, ${active ? 'in progress' : 'pending'}`}
+                        style={[styles.step, active && styles.stepActive]}
+                      >
+                        <View
+                          style={[
+                            styles.stepIcon,
+                            active && styles.stepIconActive,
+                          ]}
+                        >
+                          <AppIcon
+                            name={step.icon}
+                            size={20}
+                            color={active ? '#ffffff' : '#3d4a63'}
+                          />
+                        </View>
+                        <Text style={styles.stepLabel}>{step.label}</Text>
+                        <View style={styles.stepStatusRow}>
+                          <View
+                            style={[
+                              styles.statusDot,
+                              active && styles.statusDotActive,
+                            ]}
+                          />
+                          <Text
+                            style={[
+                              styles.stepStatus,
+                              active && styles.stepStatusActive,
+                            ]}
+                          >
+                            {active ? 'In progress' : 'Pending'}
+                          </Text>
+                        </View>
+                      </View>
+                    </Fragment>
+                  );
+                })}
+              </View>
             </View>
-          </View>
+          </ScrollView>
         </SafeAreaView>
       </ImageBackground>
     </View>
@@ -65,78 +372,158 @@ export default function Processing() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#e8f3ff' },
   background: { flex: 1 },
+  safe: { flex: 1 },
   content: {
-    flex: 1,
-    paddingHorizontal: 24,
-    paddingTop: 14,
-    paddingBottom: 30,
-    justifyContent: 'space-between',
+    flexGrow: 1,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 24,
   },
   back: {
-    height: 48,
-    width: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(255,255,255,0.75)',
+    height: 44,
+    width: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.8)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  main: { alignItems: 'center', gap: 8, flex: 1, justifyContent: 'center' },
-  title: { color: colors.ink, fontSize: 28, fontWeight: '700' },
-  subtitle: { color: colors.muted, fontSize: 14 },
-  token: { width: 230, height: 220, marginTop: 26 },
-  card: {
-    borderRadius: 24,
-    backgroundColor: 'rgba(255,255,255,0.9)',
-    padding: 25,
+  pressed: { opacity: 0.7 },
+  header: { alignItems: 'center', marginTop: -8 },
+  merchantMark: {
+    alignItems: 'center',
+    backgroundColor: '#e0efff',
+    borderRadius: 32,
+    height: 64,
+    justifyContent: 'center',
+    width: 64,
+  },
+  merchantInitial: { color: colors.accent, fontSize: 28, fontWeight: '700' },
+  merchantName: {
+    color: '#000000',
+    fontSize: 26,
+    fontWeight: '700',
+    marginTop: 12,
+  },
+  location: { color: colors.muted, fontSize: 18, marginTop: 2 },
+  amount: {
+    color: '#000000',
+    fontSize: 54,
+    fontWeight: '800',
+    marginTop: 20,
+    fontVariant: ['tabular-nums'],
+  },
+  pair: {
+    flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    marginTop: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 32,
+    borderWidth: 1.5,
+    borderColor: '#c6dcff',
+    backgroundColor: 'rgba(255,255,255,0.55)',
   },
-  ring: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    backgroundColor: '#dceeff',
+  pairText: { color: colors.ink, fontSize: 18, fontWeight: '700' },
+  converting: {
+    color: colors.muted,
+    fontSize: 18,
+    fontWeight: '500',
+    marginTop: 14,
+  },
+  token: {
+    alignSelf: 'center',
+    width: 250,
+    height: 232,
+    marginTop: 8,
+  },
+  card: {
+    marginTop: 'auto',
+    borderRadius: 28,
+    backgroundColor: 'rgba(255,255,255,0.88)',
+    paddingHorizontal: 16,
+    paddingTop: 22,
+    paddingBottom: 22,
+    alignItems: 'center',
+  },
+  ringWrap: {
+    width: RING_SIZE,
+    height: RING_SIZE,
     alignItems: 'center',
     justifyContent: 'center',
   },
   cardTitle: {
-    color: colors.ink,
-    fontSize: 18,
+    color: '#000000',
+    fontSize: 20,
     fontWeight: '700',
-    textAlign: 'center',
+    marginTop: 14,
   },
   cardCopy: {
     color: colors.muted,
-    fontSize: 13,
-    lineHeight: 19,
+    fontSize: 15,
+    lineHeight: 21,
     textAlign: 'center',
+    marginTop: 6,
+    paddingHorizontal: 20,
   },
   steps: {
-    flexDirection: 'row',
     alignSelf: 'stretch',
-    justifyContent: 'space-between',
-    marginTop: 20,
-    gap: 8,
+    justifyContent: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 26,
+  },
+  connector: {
+    flexDirection: 'row',
+    gap: 2,
+    marginHorizontal: 3,
+  },
+  connectorDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    borderWidth: 1,
+    borderColor: '#b9c4d6',
   },
   step: {
-    borderColor: '#bdcce1',
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingVertical: 12,
     flex: 1,
-    textAlign: 'center',
-    color: colors.muted,
-    fontSize: 12,
+    maxWidth: 104,
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#aab5c6',
+    backgroundColor: '#f6f8fb',
   },
-  stepActive: {
-    borderColor: colors.accent,
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingVertical: 12,
-    flex: 1,
-    textAlign: 'center',
-    color: colors.accent,
-    fontSize: 12,
-    fontWeight: '700',
+  stepActive: { borderColor: BLUE, backgroundColor: '#ffffff' },
+  stepIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#e3e7ee',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
+  stepIconActive: { backgroundColor: BLUE },
+  stepLabel: {
+    color: colors.ink,
+    fontSize: 14,
+    fontWeight: '600',
+    marginTop: 6,
+  },
+  stepStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginTop: 2,
+  },
+  statusDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: '#7d8aa3',
+  },
+  statusDotActive: { backgroundColor: BLUE },
+  stepStatus: { color: colors.muted, fontSize: 11 },
+  stepStatusActive: { color: BLUE, fontWeight: '600' },
 });
