@@ -25,7 +25,7 @@ import { useAccount } from '../src/features/account/use-account';
 import { walletStore } from '../src/features/account/metamask';
 import { TEMPO_CHAIN, tempoService } from '../src/features/account/tempo';
 import { walletError } from '../src/features/account/wallet-store';
-import { previewDashboard, previewTransactions } from '../src/preview-data';
+import { previewDashboardWith } from '../src/preview-data';
 import { PreviewTransactions } from '../src/components/preview-transactions';
 import { uiPreviewEnabled } from '../src/ui-preview';
 import { HomeBalanceCard } from '../src/components/home-balance-card';
@@ -47,7 +47,8 @@ const merchantBanner = require('../assets/figma/home-merchant-banner.png');
 export default function Home() {
   const { wallet, onTempo, session, foreground } = useAccount();
   const address = wallet.account?.address;
-  const payments = useSimulatedPayments(address);
+  const payments = useSimulatedPayments(uiPreviewEnabled ? null : address);
+  const previewDashboard = previewDashboardWith(payments);
   const monthStart = new Date();
   monthStart.setDate(1);
   monthStart.setHours(0, 0, 0, 0);
@@ -332,7 +333,7 @@ export default function Home() {
           </View>
           {uiPreviewEnabled ? (
             <PreviewTransactions
-              transactions={previewTransactions.slice(0, 3)}
+              transactions={previewDashboard.transactions.slice(0, 3)}
             />
           ) : payments.length > 0 ? (
             <PreviewTransactions

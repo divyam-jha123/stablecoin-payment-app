@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import {
   AccessibilityInfo,
@@ -21,6 +21,8 @@ import {
 } from '../src/components/payment-logos';
 import { walletStore } from '../src/features/account/metamask';
 import { simulatedPaymentStore } from '../src/features/payment/simulated-payment-store';
+import { uiPreviewEnabled } from '../src/ui-preview';
+import { PreviewFlowBar } from '../src/components/preview-flow-bar';
 
 // Metro bundles these static Figma illustrations at build time.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -272,27 +274,36 @@ export default function Processing() {
   const [stepIndex, setStepIndex] = useState(0);
   const recorded = useRef(false);
 
-  useEffect(() => {
-    if (stepIndex < STEPS.length) {
-      const timer = setTimeout(
-        () => setStepIndex((index) => index + 1),
-        STEP_DURATION_MS,
-      );
-      return () => clearTimeout(timer);
-    }
+  const complete = useCallback(() => {
     if (recorded.current) return;
     recorded.current = true;
     // Demo only: no funds move on-chain. The app records the payment so the
     // wallet balance and activity reflect it.
     const payment = simulatedPaymentStore.record({
-      address: walletStore.getSnapshot().account?.address,
+      address: uiPreviewEnabled
+        ? null
+        : walletStore.getSnapshot().account?.address,
       merchantName,
       location,
       inrAmount,
       token: symbol,
     });
     router.replace({ pathname: '/success', params: { id: payment.id } });
-  }, [stepIndex, merchantName, location, inrAmount, symbol]);
+  }, [merchantName, location, inrAmount, symbol]);
+
+  useEffect(() => {
+    // The UI preview holds each step until it is advanced by hand.
+    if (uiPreviewEnabled) return;
+    if (stepIndex >= STEPS.length) {
+      complete();
+      return;
+    }
+    const timer = setTimeout(
+      () => setStepIndex((index) => index + 1),
+      STEP_DURATION_MS,
+    );
+    return () => clearTimeout(timer);
+  }, [stepIndex, complete]);
 
   const currentStep = STEPS[Math.min(stepIndex, STEPS.length - 1)]!;
 
@@ -305,7 +316,13 @@ export default function Processing() {
         resizeMode="cover"
       >
         <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-          <ScrollView contentContainerStyle={styles.content} bounces={false}>
+          <ScrollView
+            contentContainerStyle={[
+              styles.content,
+              uiPreviewEnabled && styles.previewSpace,
+            ]}
+            bounces={false}
+          >
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Go back"
@@ -430,6 +447,28 @@ export default function Processing() {
           </ScrollView>
         </SafeAreaView>
       </ImageBackground>
+      <PreviewFlowBar
+        status={
+          stepIndex < STEPS.length
+            ? `${STEPS[stepIndex]!.label} step ${stepIndex + 1} of ${STEPS.length}`
+            : 'All steps done'
+        }
+        actions={[
+          {
+            label: '‹ Step',
+            disabled: stepIndex === 0,
+            onPress: () => setStepIndex((index) => Math.max(0, index - 1)),
+          },
+          {
+            label: 'Step ›',
+            disabled: stepIndex >= STEPS.length,
+            onPress: () =>
+              setStepIndex((index) => Math.min(STEPS.length, index + 1)),
+          },
+          { label: 'Success ›', onPress: complete },
+          { label: 'Failed ›', onPress: () => router.replace('/failed') },
+        ]}
+      />
     </View>
   );
 }
@@ -444,6 +483,7 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 24,
   },
+  previewSpace: { paddingBottom: 120 },
   back: {
     height: 44,
     width: 44,

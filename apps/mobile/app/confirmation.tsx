@@ -247,7 +247,8 @@ export default function Confirmation() {
 
   const canPay = Boolean(
     amountResult.success &&
-    !estimateIsExpired &&
+    // The UI preview keeps Pay available while a screen is under review.
+    (uiPreviewEnabled || !estimateIsExpired) &&
     (selectedDemoEntry || funds?.enough === true),
   );
 

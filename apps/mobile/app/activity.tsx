@@ -13,7 +13,7 @@ import { AppIcon, colors } from '../src/components/payment-ui';
 import { DashboardNav } from '../src/components/dashboard-nav';
 
 import { uiPreviewEnabled } from '../src/ui-preview';
-import { previewInr, previewTransactions } from '../src/preview-data';
+import { previewDashboardWith, previewInr } from '../src/preview-data';
 import { PreviewTransactions } from '../src/components/preview-transactions';
 import { walletStore } from '../src/features/account/metamask';
 import { useSimulatedPayments } from '../src/features/payment/simulated-payment-store';
@@ -29,9 +29,11 @@ export default function Activity() {
     walletStore.subscribe,
     walletStore.getSnapshot,
   );
-  const payments = useSimulatedPayments(wallet.account?.address);
+  const payments = useSimulatedPayments(
+    uiPreviewEnabled ? null : wallet.account?.address,
+  );
   const source = uiPreviewEnabled
-    ? previewTransactions
+    ? previewDashboardWith(payments).transactions
     : payments.map(toTransactionItem);
   const transactions = source.filter(
     (transaction) =>
