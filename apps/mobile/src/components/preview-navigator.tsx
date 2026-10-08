@@ -17,6 +17,7 @@ const pages = [
   { label: 'Connect / sign in', href: '/connect' },
   { label: 'Dashboard', href: '/home' },
   { label: 'Payments', href: '/payments' },
+  { label: 'Receive payment', href: '/receive' },
   { label: 'Profile', href: '/profile' },
   { label: 'Add money design preview', href: '/add-money' },
   { label: 'Review add money design', href: '/review-add-money' },
@@ -43,7 +44,7 @@ export function PreviewNavigator() {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
 
-  if (pathname === '/') return null;
+  if (pathname === '/' || pathname === '/receive') return null;
 
   return (
     <>

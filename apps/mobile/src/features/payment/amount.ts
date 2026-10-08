@@ -1,4 +1,6 @@
 export const ILLUSTRATIVE_INR_PER_PATH_USD = '83.00';
+export const DEMO_FEE_INR = '0.00';
+export const DEMO_ESTIMATE_VALIDITY_MS = 2 * 60 * 1000;
 
 const PATH_USD_DECIMALS = 6;
 
@@ -37,4 +39,22 @@ export function formatPathUsdAtomic(amount: bigint): string {
     .padStart(PATH_USD_DECIMALS, '0')
     .replace(/0+$/, '');
   return fraction ? `${whole}.${fraction}` : whole.toString();
+}
+
+export function createDemoEstimate(inrAmount: string, issuedAt: number) {
+  const amountPaise = decimalToAtomic(inrAmount, 2);
+  const feePaise = decimalToAtomic(DEMO_FEE_INR, 2);
+  const totalPaise = amountPaise + feePaise;
+  const totalInr = `${totalPaise / 100n}.${(totalPaise % 100n).toString().padStart(2, '0')}`;
+  return {
+    amountInr: inrAmount,
+    feeInr: DEMO_FEE_INR,
+    totalInr,
+    totalPathUsdAtomic: requiredPathUsdAtomic(totalInr),
+    expiresAt: issuedAt + DEMO_ESTIMATE_VALIDITY_MS,
+  };
+}
+
+export function demoEstimateExpired(expiresAt: number, now: number): boolean {
+  return now >= expiresAt;
 }

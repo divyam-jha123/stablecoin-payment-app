@@ -14,18 +14,20 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { inrAmountSchema, vpaSchema } from '@traveller/shared';
+import { inrAmountSchema, parseTravelPeQr, vpaSchema } from '@traveller/shared';
 import { walletStore } from '../src/features/account/metamask';
 import { TEMPO_CHAIN, tempoService } from '../src/features/account/tempo';
 import { walletError } from '../src/features/account/wallet-store';
 import {
+  createDemoEstimate,
+  demoEstimateExpired,
   formatPathUsdAtomic,
   ILLUSTRATIVE_INR_PER_PATH_USD,
   pathUsdBalanceAtomic,
-  requiredPathUsdAtomic,
 } from '../src/features/payment/amount';
 import { uiPreviewEnabled } from '../src/ui-preview';
 import { AppIcon, colors } from '../src/components/payment-ui';
+import { getScannerDemoAccount } from '../src/features/payment/scanner-accounts';
 
 function firstParam(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
@@ -36,14 +38,37 @@ export default function Confirmation() {
     inrAmount?: string | string[];
     merchantName?: string | string[];
     merchantVpa?: string | string[];
+    travelPeQr?: string | string[];
+    demoPaymentToken?: string | string[];
   }>();
+  const demoPaymentToken = firstParam(params.demoPaymentToken);
+  const demoAccount = getScannerDemoAccount(demoPaymentToken);
+  const paymentSymbol = demoAccount?.account.symbol ?? 'pathUSD';
+  const previewOnly = uiPreviewEnabled && !demoAccount;
   const merchantName = firstParam(params.merchantName)?.trim() ?? '';
   const merchantVpa = firstParam(params.merchantVpa)?.trim() ?? '';
-  const scannedAmount = firstParam(params.inrAmount)?.trim();
-  const merchantIsValid =
-    merchantName.length > 0 &&
-    merchantName.length <= 120 &&
-    vpaSchema.safeParse(merchantVpa).success;
+  const travelPeQr = firstParam(params.travelPeQr);
+  const travelPeRequest = useMemo(() => {
+    if (!travelPeQr) return null;
+    try {
+      return parseTravelPeQr(travelPeQr);
+    } catch {
+      return null;
+    }
+  }, [travelPeQr]);
+  const isTravelPe = travelPeQr !== undefined;
+  const payeeName = travelPeRequest?.recipientName ?? merchantName;
+  const payeeId = travelPeRequest?.recipientId ?? merchantVpa;
+  const detailsAreValid =
+    (demoPaymentToken === undefined || demoAccount !== undefined) &&
+    (isTravelPe
+      ? travelPeRequest !== null
+      : merchantName.length > 0 &&
+        merchantName.length <= 120 &&
+        vpaSchema.safeParse(merchantVpa).success);
+  const scannedAmount = (
+    isTravelPe ? travelPeRequest?.inrAmount : firstParam(params.inrAmount)
+  )?.trim();
   const scannedAmountIsValid =
     scannedAmount !== undefined &&
     inrAmountSchema.safeParse(scannedAmount).success;
@@ -51,6 +76,8 @@ export default function Confirmation() {
     scannedAmountIsValid ? scannedAmount : '',
   );
   const [amountTouched, setAmountTouched] = useState(false);
+  const [estimateVersion, setEstimateVersion] = useState(0);
+  const [now, setNow] = useState(Date.now);
   const wallet = useSyncExternalStore(
     walletStore.subscribe,
     walletStore.getSnapshot,
@@ -58,6 +85,22 @@ export default function Confirmation() {
   const address = wallet.account?.address;
   const onTempo = wallet.account?.chainId === TEMPO_CHAIN.id;
   const amountResult = inrAmountSchema.safeParse(amount);
+  const estimate = useMemo(
+    () =>
+      amountResult.success
+        ? createDemoEstimate(amountResult.data, Date.now())
+        : null,
+    // A changed amount or an explicit refresh starts a new demo estimate.
+    [amountResult.success, amountResult.data, estimateVersion],
+  );
+  const estimateIsExpired = estimate
+    ? demoEstimateExpired(estimate.expiresAt, now)
+    : false;
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1_000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     if (!uiPreviewEnabled) return walletStore.start();
@@ -66,34 +109,36 @@ export default function Confirmation() {
   const balance = useQuery({
     queryKey: ['tempo-pathUSD', address, wallet.account?.chainId],
     queryFn: () => tempoService.balance(address!),
-    enabled: Boolean(!uiPreviewEnabled && address && onTempo && !wallet.busy),
+    enabled: Boolean(
+      !demoAccount && !uiPreviewEnabled && address && onTempo && !wallet.busy,
+    ),
     retry: false,
     staleTime: 0,
   });
 
   const funds = useMemo(() => {
-    if (!amountResult.success) return null;
-    const requiredAtomic = requiredPathUsdAtomic(amountResult.data);
+    if (!estimate) return null;
+    const requiredAtomic = estimate.totalPathUsdAtomic;
     const required = formatPathUsdAtomic(requiredAtomic);
-    if (balance.data === undefined) return { required, enough: null };
+    const availableBalance = demoAccount?.balance.tokens ?? balance.data;
+    if (availableBalance === undefined) return { required, enough: null };
     try {
       return {
         required,
-        enough: pathUsdBalanceAtomic(balance.data) >= requiredAtomic,
+        enough: pathUsdBalanceAtomic(availableBalance) >= requiredAtomic,
       };
     } catch {
       return { required, enough: null };
     }
-  }, [amountResult.success, amountResult.data, balance.data]);
+  }, [estimate, balance.data, demoAccount]);
 
-  if (!merchantIsValid) {
+  if (!detailsAreValid) {
     return (
       <SafeAreaView style={styles.invalidScreen}>
         <Stack.Screen options={{ headerShown: false }} />
-        <Text style={styles.invalidTitle}>Payment details expired</Text>
+        <Text style={styles.invalidTitle}>Invalid payment details</Text>
         <Text style={styles.invalidCopy}>
-          Scan the merchant QR again so Traveller can verify the payment
-          details.
+          Scan the payment QR again to review its recipient and amount.
         </Text>
         <Pressable
           accessibilityRole="button"
@@ -110,13 +155,12 @@ export default function Confirmation() {
   }
 
   const canPay = Boolean(
-    !uiPreviewEnabled &&
+    !previewOnly &&
     amountResult.success &&
-    address &&
-    onTempo &&
+    !estimateIsExpired &&
     funds?.enough === true &&
-    !balance.isError &&
-    !balance.isFetching,
+    (demoAccount ||
+      (address && onTempo && !balance.isError && !balance.isFetching)),
   );
   const amountError =
     amountTouched && !amountResult.success
@@ -150,7 +194,7 @@ export default function Confirmation() {
               <AppIcon name="back" size={21} />
             </Pressable>
             <Text accessibilityRole="header" style={styles.title}>
-              Pay Merchant
+              {isTravelPe ? 'Review demo payment' : 'Pay Merchant'}
             </Text>
             <View style={styles.topBarSpacer} />
           </View>
@@ -158,18 +202,23 @@ export default function Confirmation() {
           <View style={styles.merchantSection}>
             <View style={styles.merchantMark}>
               <Text style={styles.merchantInitial}>
-                {merchantName.charAt(0).toUpperCase()}
+                {payeeName.charAt(0).toUpperCase()}
               </Text>
             </View>
             <View style={styles.merchantInfo}>
               <Text numberOfLines={2} style={styles.merchantName}>
-                {merchantName}
+                {payeeName}
               </Text>
-              <Text numberOfLines={1} style={styles.merchantVpa}>
-                {merchantVpa}
+              <Text
+                numberOfLines={isTravelPe ? undefined : 1}
+                style={styles.merchantVpa}
+              >
+                {payeeId}
               </Text>
               <Text style={styles.unverified}>
-                Merchant details are unverified
+                {isTravelPe
+                  ? 'TravelPe demo recipient · unverified'
+                  : 'Merchant details are unverified'}
               </Text>
             </View>
           </View>
@@ -192,14 +241,14 @@ export default function Confirmation() {
                 onBlur={() => setAmountTouched(true)}
                 onChangeText={setAmount}
                 onSubmitEditing={() => setAmountTouched(true)}
-                placeholder="0.00"
+                placeholder="Enter amount"
                 placeholderTextColor="#777771"
                 selectionColor="#11110f"
                 style={styles.amountInput}
                 value={amount}
               />
               {scannedAmountIsValid ? (
-                <Text style={styles.qrAmountLabel}>Set by QR</Text>
+                <Text style={styles.qrAmountLabel}>Requested by QR</Text>
               ) : null}
             </View>
             {amountError ? (
@@ -209,66 +258,139 @@ export default function Confirmation() {
             ) : (
               <Text style={styles.fieldHint}>
                 {scannedAmountIsValid
-                  ? 'This amount was included by the merchant.'
-                  : 'Enter the amount requested by the merchant.'}
+                  ? isTravelPe
+                    ? 'This INR amount was requested in the TravelPe QR.'
+                    : 'This amount was included by the merchant.'
+                  : isTravelPe
+                    ? 'Enter an INR amount for this demo payment.'
+                    : 'Enter the amount requested by the merchant.'}
               </Text>
             )}
             {amountResult.success && funds ? (
               <Text style={styles.conversion}>
-                ≈ {funds.required} pathUSD · illustrative
+                ≈ {funds.required} {paymentSymbol} · demo estimate
               </Text>
             ) : null}
           </View>
 
           <View style={styles.noteCard}>
-            <Text style={styles.noteLabel}>Add a note (optional)</Text>
-            <Text style={styles.noteHint}>No note added</Text>
+            <Text style={styles.noteLabel}>
+              {isTravelPe ? 'Payment note' : 'Add a note (optional)'}
+            </Text>
+            <Text style={styles.noteHint}>
+              {travelPeRequest?.note ?? 'No note added'}
+            </Text>
           </View>
 
           <View style={styles.balanceSection}>
             <View style={styles.payFromHeader}>
               <Text style={styles.payFrom}>Pay from</Text>
-              <Text style={styles.changeText}>Tempo testnet</Text>
+              <Text style={styles.changeText}>
+                {demoAccount ? 'Demo account' : 'Tempo testnet'}
+              </Text>
             </View>
-            {uiPreviewEnabled ? (
+            {travelPeRequest ? (
+              <View style={styles.balanceRow}>
+                <Text style={styles.balanceLabel}>
+                  Receiving currency · demo
+                </Text>
+                <Text style={styles.balanceValue}>
+                  {travelPeRequest.currency}
+                </Text>
+              </View>
+            ) : null}
+            {previewOnly ? (
               <Text style={styles.rateNote}>
                 UI preview only. No wallet or payment is connected.
               </Text>
             ) : null}
             <View style={styles.balanceRow}>
-              <Text style={styles.balanceLabel}>pathUSD wallet balance</Text>
+              <Text style={styles.balanceLabel}>
+                {paymentSymbol} {demoAccount ? 'demo' : 'wallet'} balance
+              </Text>
               <Text style={styles.balanceValue}>
-                {uiPreviewEnabled
-                  ? '—'
-                  : !address
-                    ? 'Wallet not connected'
-                    : !onTempo
-                      ? 'Wrong network'
-                      : balance.isFetching && balance.data === undefined
-                        ? 'Checking…'
-                        : balance.data !== undefined
-                          ? `${balance.data} pathUSD${balance.isError ? ' (last known)' : ''}`
-                          : 'Unavailable'}
+                {demoAccount
+                  ? `${demoAccount.balance.tokens} ${paymentSymbol}`
+                  : previewOnly
+                    ? '—'
+                    : !address
+                      ? 'Wallet not connected'
+                      : !onTempo
+                        ? 'Wrong network'
+                        : balance.isFetching && balance.data === undefined
+                          ? 'Checking…'
+                          : balance.data !== undefined
+                            ? `${balance.data} pathUSD${balance.isError ? ' (last known)' : ''}`
+                            : 'Unavailable'}
               </Text>
             </View>
 
             {amountResult.success && funds ? (
-              <View style={styles.balanceRow}>
-                <Text style={styles.balanceLabel}>You pay · estimated</Text>
-                <Text style={styles.balanceValue}>
-                  {funds.required} pathUSD
+              <>
+                <View style={styles.balanceRow}>
+                  <Text style={styles.balanceLabel}>
+                    {isTravelPe ? 'Requested INR amount' : 'Merchant amount'}
+                  </Text>
+                  <Text style={styles.balanceValue}>
+                    ₹{estimate?.amountInr}
+                  </Text>
+                </View>
+                <View style={styles.balanceRow}>
+                  <Text style={styles.balanceLabel}>Demo exchange rate</Text>
+                  <Text style={styles.balanceValue}>
+                    ₹{ILLUSTRATIVE_INR_PER_PATH_USD} / {paymentSymbol}
+                  </Text>
+                </View>
+                <View style={styles.balanceRow}>
+                  <Text style={styles.balanceLabel}>Demo fee</Text>
+                  <Text style={styles.balanceValue}>₹{estimate?.feeInr}</Text>
+                </View>
+                <View style={styles.balanceRow}>
+                  <Text style={styles.balanceLabel}>
+                    Total test tokens required
+                  </Text>
+                  <Text style={styles.balanceValue}>
+                    {funds.required} {paymentSymbol}
+                  </Text>
+                </View>
+                {travelPeRequest ? (
+                  <View style={styles.balanceRow}>
+                    <Text style={styles.balanceLabel}>
+                      Demo recipient equivalent
+                    </Text>
+                    <Text style={styles.balanceValue}>
+                      ≈ {funds.required} {travelPeRequest.currency}
+                    </Text>
+                  </View>
+                ) : null}
+              </>
+            ) : null}
+
+            {estimateIsExpired ? (
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => {
+                  setEstimateVersion((version) => version + 1);
+                  setNow(Date.now());
+                  if (!demoAccount && address && onTempo)
+                    void balance.refetch();
+                }}
+                style={styles.refreshEstimate}
+              >
+                <Text style={styles.refreshEstimateText}>
+                  Refresh demo estimate
                 </Text>
-              </View>
+              </Pressable>
             ) : null}
 
             <View style={styles.statusRow}>
-              {balance.isFetching && address && onTempo ? (
+              {!demoAccount && balance.isFetching && address && onTempo ? (
                 <ActivityIndicator color="#11110f" size="small" />
               ) : (
                 <View
                   style={[
                     styles.statusDot,
-                    balance.isError
+                    !demoAccount && balance.isError
                       ? styles.statusDotError
                       : funds?.enough === true
                         ? styles.statusDotSuccess
@@ -285,40 +407,50 @@ export default function Confirmation() {
                   funds?.enough === false ? styles.errorStatusText : null,
                 ]}
               >
-                {uiPreviewEnabled
+                {previewOnly
                   ? 'Balance check unavailable in UI preview.'
-                  : !address
-                    ? 'Connect your wallet to check funds.'
-                    : !onTempo
-                      ? 'Switch to Tempo Moderato testnet to continue.'
-                      : balance.isError
-                        ? `Balance check failed: ${walletError(balance.error)}`
-                        : funds?.enough === true
-                          ? 'You have enough test funds for this amount.'
-                          : funds?.enough === false
-                            ? 'Insufficient pathUSD test balance.'
-                            : amountResult.success
-                              ? 'Checking whether you have enough funds…'
-                              : 'Enter an amount to check your funds.'}
+                  : estimateIsExpired
+                    ? 'Demo estimate expired. Refresh it to continue.'
+                    : demoAccount
+                      ? funds?.enough === true
+                        ? 'You have enough demo funds for this amount.'
+                        : funds?.enough === false
+                          ? `Insufficient ${paymentSymbol} demo balance.`
+                          : 'Enter an amount to check your demo funds.'
+                      : !address
+                        ? 'Connect your wallet to check funds.'
+                        : !onTempo
+                          ? 'Switch to Tempo Moderato testnet to continue.'
+                          : balance.isError
+                            ? `Balance check failed: ${walletError(balance.error)}`
+                            : funds?.enough === true
+                              ? 'You have enough test funds for this amount.'
+                              : funds?.enough === false
+                                ? 'Insufficient pathUSD test balance.'
+                                : amountResult.success
+                                  ? 'Checking whether you have enough funds…'
+                                  : 'Enter an amount to check your funds.'}
               </Text>
             </View>
 
             <Text style={styles.rateNote}>
-              Uses an illustrative rate of ₹{ILLUSTRATIVE_INR_PER_PATH_USD} per
-              pathUSD. A server-issued quote will replace this before real
-              payment submission.
+              Demo estimate includes a ₹{estimate?.feeInr ?? '0.00'} fee and
+              expires after 2 minutes. A server-issued quote is required before
+              real payment submission.
             </Text>
           </View>
           <View style={styles.secureBanner}>
             <Text style={styles.secureTitle}>Secure payment review</Text>
             <Text style={styles.secureCopy}>
-              No funds move from this screen. INR settlement is simulated.
+              {isTravelPe
+                ? 'No tokens move from this screen. This TravelPe payment is simulated.'
+                : 'No funds move from this screen. INR settlement is simulated.'}
             </Text>
           </View>
         </ScrollView>
 
         <View style={styles.footer}>
-          {!uiPreviewEnabled && !address ? (
+          {!demoAccount && !uiPreviewEnabled && !address ? (
             <Pressable
               accessibilityRole="button"
               onPress={() => router.push('/connect')}
@@ -330,7 +462,7 @@ export default function Confirmation() {
               <Text style={styles.secondaryButtonText}>Connect wallet</Text>
             </Pressable>
           ) : null}
-          {!uiPreviewEnabled && address && !onTempo ? (
+          {!demoAccount && !uiPreviewEnabled && address && !onTempo ? (
             <Pressable
               accessibilityRole="button"
               disabled={wallet.busy}
@@ -346,7 +478,11 @@ export default function Confirmation() {
               </Text>
             </Pressable>
           ) : null}
-          {!uiPreviewEnabled && address && onTempo && balance.isError ? (
+          {!demoAccount &&
+          !uiPreviewEnabled &&
+          address &&
+          onTempo &&
+          balance.isError ? (
             <Pressable
               accessibilityRole="button"
               disabled={balance.isFetching}
@@ -367,9 +503,20 @@ export default function Confirmation() {
             disabled={!canPay}
             onPress={() => {
               setAmountTouched(true);
+              if (
+                estimate &&
+                demoEstimateExpired(estimate.expiresAt, Date.now())
+              ) {
+                setNow(Date.now());
+                return;
+              }
               Alert.alert(
-                'Ready for payment setup',
-                'Your amount and test balance are valid. Onchain payment submission is not enabled yet, so no funds were moved.',
+                demoAccount
+                  ? 'Demo payment complete'
+                  : 'Ready for payment setup',
+                demoAccount
+                  ? `Simulated ₹${amountResult.success ? amountResult.data : amount} to ${payeeName} using ${paymentSymbol}. No funds were moved.`
+                  : 'Your amount and test balance are valid. Onchain payment submission is not enabled yet, so no funds were moved.',
               );
             }}
             style={({ pressed }) => [
@@ -379,7 +526,13 @@ export default function Confirmation() {
             ]}
           >
             <Text style={styles.primaryButtonText}>
-              {amountResult.success ? `Pay ₹${amountResult.data}` : 'Pay'}
+              {isTravelPe || demoAccount
+                ? amountResult.success
+                  ? `Demo pay ₹${amountResult.data}`
+                  : 'Demo pay'
+                : amountResult.success
+                  ? `Pay ₹${amountResult.data}`
+                  : 'Pay'}
             </Text>
           </Pressable>
         </View>
@@ -555,6 +708,16 @@ const styles = StyleSheet.create({
   },
   errorStatusText: { color: '#a92c24' },
   rateNote: { color: '#777771', fontSize: 12, lineHeight: 18, marginTop: 17 },
+  refreshEstimate: {
+    alignSelf: 'flex-start',
+    marginTop: 8,
+    paddingVertical: 8,
+  },
+  refreshEstimateText: {
+    color: colors.accent,
+    fontSize: 14,
+    fontWeight: '700',
+  },
   secureBanner: {
     borderWidth: 1,
     borderColor: '#b7d3ff',

@@ -15,7 +15,14 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow Traveller Pay to scan merchant UPI QR codes."
+          "cameraPermission": "Allow TravelPe to scan payment QR codes."
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "savePhotosPermission": "Allow TravelPe to save your payment QR image.",
+          "granularPermissions": ["photo"]
         }
       ]
     ],

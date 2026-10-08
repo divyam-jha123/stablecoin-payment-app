@@ -130,8 +130,7 @@ export default function Home() {
     onAddMoney: () =>
       uiPreviewEnabled ? router.push('/add-money') : void fund(),
     onSend: () => router.push('/payments'),
-    onReceive: () =>
-      router.push({ pathname: '/payments', params: { mode: 'receive' } }),
+    onReceive: () => router.push('/receive'),
     disabled: navigatingDisabled,
     fundingDisabled: fundingUnavailable,
     fundingLabel: funding
@@ -164,7 +163,6 @@ export default function Home() {
       >
         <HomeGreeting
           name={uiPreviewEnabled ? 'Rupesh' : 'traveller'}
-          showMockPhoto={uiPreviewEnabled}
           unread={uiPreviewEnabled}
           onProfile={() => router.push('/profile')}
           onNotifications={() => setNotificationsOpen(true)}

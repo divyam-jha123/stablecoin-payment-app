@@ -1,22 +1,14 @@
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { AppIcon } from './payment-ui';
 import { homeTheme as theme } from '../theme/home';
 
-// Reuse the supplied photo without modifying the reference asset. The preview
-// viewport clips its 30px photo region at (44, 70) in the 356×733 screenshot.
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const profileReference = require('../../../../assets/home-design-reference.png');
-const photoScale = theme.layout.avatar / 30;
-
 export function HomeGreeting({
   name,
-  showMockPhoto = false,
   unread = false,
   onProfile,
   onNotifications,
 }: {
   name: string;
-  showMockPhoto?: boolean;
   unread?: boolean;
   onProfile: () => void;
   onNotifications: () => void;
@@ -33,15 +25,7 @@ export function HomeGreeting({
         ]}
       >
         <View style={styles.avatar}>
-          {showMockPhoto ? (
-            <Image
-              source={profileReference}
-              style={styles.photo}
-              accessible={false}
-            />
-          ) : (
-            <AppIcon name="person" color={theme.colors.primary} size={24} />
-          )}
+          <AppIcon name="person" color={theme.colors.primary} size={24} />
         </View>
       </Pressable>
       <View style={styles.copy}>
@@ -92,13 +76,6 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  photo: {
-    position: 'absolute',
-    width: 356 * photoScale,
-    height: 733 * photoScale,
-    left: -44 * photoScale,
-    top: -70 * photoScale,
   },
   copy: { flex: 1, minWidth: 0, gap: 2 },
   greeting: { ...theme.typography.greeting, color: theme.colors.text },

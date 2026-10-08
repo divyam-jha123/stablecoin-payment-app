@@ -16,13 +16,30 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Defs, Mask, Rect } from 'react-native-svg';
-import { parsedQrResponseSchema } from '@traveller/shared';
+import {
+  createTravelPeQr,
+  isTravelPeQr,
+  parsedQrResponseSchema,
+  parseTravelPeQr,
+  parseUpiPaymentDraft,
+} from '@traveller/shared';
 import { uiPreviewEnabled } from '../src/ui-preview';
+import {
+  ScannerPaymentPanel,
+  ScannerTokenSelectionSheet,
+} from '../src/components/scanner-payment-panel';
+import { SCANNER_DEMO_ACCOUNTS } from '../src/features/payment/scanner-accounts';
 
 const REQUEST_TIMEOUT_MS = 10_000;
 const RETRY_DELAY_MS = 1_500;
 const MAX_SCAN_SIZE = 300;
 const FRAME_PADDING = 12;
+const SAMPLE_MERCHANT_QR =
+  'upi://pay?pa=sample@upi&pn=Sample%20merchant&am=250.00&cu=INR';
+
+type ScannedPayment =
+  | { travelPeQr: string }
+  | { merchantName: string; merchantVpa: string; inrAmount?: string };
 
 type CameraLayout = { height: number; width: number };
 type ScanFrame = { left: number; size: number; top: number };
@@ -92,6 +109,12 @@ export default function Scanner() {
   const [cameraLayout, setCameraLayout] = useState<CameraLayout | null>(null);
   const [message, setMessage] = useState('Scan QR code');
   const [scanning, setScanning] = useState(true);
+  const [payment, setPayment] = useState<ScannedPayment | null>(null);
+  const [reading, setReading] = useState(false);
+  const [tokenSheetOpen, setTokenSheetOpen] = useState(false);
+  const [selectedEntry, setSelectedEntry] = useState(SCANNER_DEMO_ACCOUNTS[0]!);
+  const [navigating, setNavigating] = useState(false);
+  const navigationStarted = useRef(false);
   const requestInProgress = useRef(false);
   const activeRequest = useRef<AbortController | null>(null);
   const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -122,6 +145,8 @@ export default function Scanner() {
   );
 
   const resumeScanning = useCallback((nextMessage: string) => {
+    setReading(false);
+    setPayment(null);
     setMessage(nextMessage);
     retryTimer.current = setTimeout(() => {
       requestInProgress.current = false;
@@ -133,9 +158,26 @@ export default function Scanner() {
 
   const submitQr = useCallback(
     async (qrData: string) => {
+      if (requestInProgress.current) return;
       requestInProgress.current = true;
+      setReading(true);
+      setPayment(null);
       setScanning(false);
       setMessage('Reading QR code…');
+
+      if (isTravelPeQr(qrData)) {
+        try {
+          const request = parseTravelPeQr(qrData);
+          setPayment({ travelPeQr: qrData });
+          setMessage(`Pay ${request.recipientName}`);
+          setReading(false);
+        } catch (error) {
+          resumeScanning(
+            error instanceof Error ? error.message : 'Invalid TravelPe QR code',
+          );
+        }
+        return;
+      }
 
       const apiBaseUrl = getApiBaseUrl();
       if (!apiBaseUrl) {
@@ -168,17 +210,14 @@ export default function Scanner() {
           throw new Error('The QR response could not be verified');
         }
 
-        setMessage('QR code detected');
-        const { merchant, payment } = parsedResponse.data.data;
-        router.replace({
-          pathname: '/confirmation',
-          params: {
-            merchantName: merchant.name,
-            merchantVpa: merchant.vpa,
-            ...(payment.inrAmount === null
-              ? {}
-              : { inrAmount: payment.inrAmount }),
-          },
+        const { merchant, payment: parsedPayment } = parsedResponse.data.data;
+        setMessage(`Pay ${merchant.name}`);
+        setPayment({
+          merchantName: merchant.name,
+          merchantVpa: merchant.vpa,
+          ...(parsedPayment.inrAmount === null
+            ? {}
+            : { inrAmount: parsedPayment.inrAmount }),
         });
       } catch (error) {
         resumeScanning(
@@ -191,6 +230,7 @@ export default function Scanner() {
       } finally {
         clearTimeout(timeout);
         activeRequest.current = null;
+        setReading(false);
       }
     },
     [resumeScanning],
@@ -213,35 +253,17 @@ export default function Scanner() {
     setCameraLayout({ height, width });
   }, []);
 
-  if (uiPreviewEnabled) {
-    return (
-      <SafeAreaView style={styles.permissionScreen}>
-        <Stack.Screen options={{ headerShown: false }} />
-        <Text style={styles.permissionText}>QR scanner preview</Text>
-        <Text style={styles.permissionText}>
-          Camera scanning is skipped in UI preview. Open a sample merchant to
-          review the next screen.
-        </Text>
-        <Button
-          title="Use sample merchant QR"
-          color="#ffffff"
-          onPress={() =>
-            router.push({
-              pathname: '/confirmation',
-              params: {
-                merchantName: 'Sample merchant',
-                merchantVpa: 'sample@upi',
-                inrAmount: '250',
-              },
-            })
-          }
-        />
-        <Button title="Back" color="#ffffff" onPress={() => router.back()} />
-      </SafeAreaView>
-    );
+  function continueToPayment() {
+    if (!payment || reading || navigationStarted.current) return;
+    navigationStarted.current = true;
+    setNavigating(true);
+    router.replace({
+      pathname: '/confirmation',
+      params: { ...payment, demoPaymentToken: selectedEntry.account.symbol },
+    });
   }
 
-  if (!permission) {
+  if (!uiPreviewEnabled && !permission) {
     return (
       <SafeAreaView style={styles.permissionScreen}>
         <Text style={styles.permissionText}>Checking camera permission…</Text>
@@ -249,11 +271,11 @@ export default function Scanner() {
     );
   }
 
-  if (!permission.granted) {
+  if (!uiPreviewEnabled && permission && !permission.granted) {
     return (
       <SafeAreaView style={styles.permissionScreen}>
         <Text style={styles.permissionText}>
-          Camera access is required to scan merchant QR codes.
+          Camera access is required to scan payment QR codes.
         </Text>
         {permission.canAskAgain ? (
           <Button
@@ -266,109 +288,189 @@ export default function Scanner() {
             Enable camera access for Traveller Pay in your device settings.
           </Text>
         )}
+        <Button title="Back" color="#ffffff" onPress={() => router.back()} />
       </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.screen} onLayout={handleCameraLayout}>
-      <Stack.Screen options={{ headerShown: false }} />
-      <CameraView
-        style={styles.camera}
-        facing="back"
-        barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
-        onBarcodeScanned={scanning ? handleBarcodeScanned : undefined}
-      />
+    <View style={styles.screen}>
+      <View style={styles.cameraViewport} onLayout={handleCameraLayout}>
+        <Stack.Screen options={{ headerShown: false }} />
+        {!uiPreviewEnabled ? (
+          <CameraView
+            style={styles.camera}
+            facing="back"
+            barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
+            onBarcodeScanned={
+              scanning && !tokenSheetOpen ? handleBarcodeScanned : undefined
+            }
+          />
+        ) : null}
 
-      {frame ? (
-        <>
-          <Svg pointerEvents="none" style={styles.mask}>
-            <Defs>
-              <Mask
-                id="scanner-cutout"
-                x={0}
-                y={0}
-                width={cameraLayout?.width ?? 0}
-                height={cameraLayout?.height ?? 0}
-                maskUnits="userSpaceOnUse"
-                maskType="luminance"
-              >
-                <Rect
+        {frame ? (
+          <>
+            <Svg pointerEvents="none" style={styles.mask}>
+              <Defs>
+                <Mask
+                  id="scanner-cutout"
                   x={0}
                   y={0}
                   width={cameraLayout?.width ?? 0}
                   height={cameraLayout?.height ?? 0}
-                  fill="#ffffff"
-                />
-                <Rect
-                  x={frame.left}
-                  y={frame.top}
-                  width={frame.size}
-                  height={frame.size}
-                  rx={24}
-                  ry={24}
-                  fill="#000000"
-                />
-              </Mask>
-            </Defs>
-            <Rect
-              x={0}
-              y={0}
-              width={cameraLayout?.width ?? 0}
-              height={cameraLayout?.height ?? 0}
-              fill="rgba(0, 0, 0, 0.72)"
-              mask="url(#scanner-cutout)"
-            />
-          </Svg>
+                  maskUnits="userSpaceOnUse"
+                  maskType="luminance"
+                >
+                  <Rect
+                    x={0}
+                    y={0}
+                    width={cameraLayout?.width ?? 0}
+                    height={cameraLayout?.height ?? 0}
+                    fill="#ffffff"
+                  />
+                  <Rect
+                    x={frame.left}
+                    y={frame.top}
+                    width={frame.size}
+                    height={frame.size}
+                    rx={24}
+                    ry={24}
+                    fill="#000000"
+                  />
+                </Mask>
+              </Defs>
+              <Rect
+                x={0}
+                y={0}
+                width={cameraLayout?.width ?? 0}
+                height={cameraLayout?.height ?? 0}
+                fill="rgba(0, 0, 0, 0.72)"
+                mask="url(#scanner-cutout)"
+              />
+            </Svg>
 
+            <View
+              pointerEvents="none"
+              importantForAccessibility="no-hide-descendants"
+              style={[
+                styles.frame,
+                {
+                  height: frame.size,
+                  left: frame.left,
+                  top: frame.top,
+                  width: frame.size,
+                },
+              ]}
+            >
+              <View style={[styles.corner, styles.topLeft]} />
+              <View style={[styles.corner, styles.topRight]} />
+              <View style={[styles.corner, styles.bottomLeft]} />
+              <View style={[styles.corner, styles.bottomRight]} />
+            </View>
+
+            <Text
+              accessibilityLiveRegion="polite"
+              style={[styles.status, { top: frame.top + frame.size + 36 }]}
+            >
+              {message}
+            </Text>
+          </>
+        ) : null}
+
+        {uiPreviewEnabled && frame ? (
           <View
-            pointerEvents="none"
-            importantForAccessibility="no-hide-descendants"
             style={[
-              styles.frame,
+              styles.previewActions,
               {
-                height: frame.size,
-                left: frame.left,
                 top: frame.top,
+                left: frame.left,
                 width: frame.size,
+                height: frame.size,
               },
             ]}
           >
-            <View style={[styles.corner, styles.topLeft]} />
-            <View style={[styles.corner, styles.topRight]} />
-            <View style={[styles.corner, styles.bottomLeft]} />
-            <View style={[styles.corner, styles.bottomRight]} />
+            <Text style={styles.permissionText}>Camera preview</Text>
+            <Button
+              title="Use sample merchant QR"
+              color="#ffffff"
+              onPress={() => {
+                const sample = parseUpiPaymentDraft(SAMPLE_MERCHANT_QR);
+                setPayment({
+                  merchantName: sample.merchantName,
+                  merchantVpa: sample.vpa,
+                  ...(sample.inrAmount ? { inrAmount: sample.inrAmount } : {}),
+                });
+                setMessage(`Pay ${sample.merchantName}`);
+              }}
+            />
+            <Button
+              title="Use sample TravelPe QR"
+              color="#ffffff"
+              onPress={() => {
+                const travelPeQr = createTravelPeQr({
+                  version: 1,
+                  recipientId: 'divyam@travelpe',
+                  recipientName: 'Divyam Jha',
+                  currency: 'USDC',
+                  inrAmount: '250',
+                  note: 'Demo payment',
+                });
+                setPayment({ travelPeQr });
+                setMessage('Pay Divyam Jha');
+              }}
+            />
           </View>
+        ) : null}
 
-          <Text
-            accessibilityLiveRegion="polite"
-            style={[styles.status, { top: frame.top + frame.size + 36 }]}
+        <SafeAreaView pointerEvents="box-none" style={styles.controls}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Close scanner"
+            hitSlop={8}
+            onPress={() => router.back()}
+            style={({ pressed }) => [
+              styles.closeButton,
+              pressed && styles.closeButtonPressed,
+            ]}
           >
-            {message}
-          </Text>
-        </>
-      ) : null}
-
-      <SafeAreaView pointerEvents="box-none" style={styles.controls}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Close scanner"
-          hitSlop={8}
-          onPress={() => router.back()}
-          style={({ pressed }) => [
-            styles.closeButton,
-            pressed && styles.closeButtonPressed,
-          ]}
-        >
-          <View style={[styles.closeLine, styles.closeLineForward]} />
-          <View style={[styles.closeLine, styles.closeLineBackward]} />
-        </Pressable>
-      </SafeAreaView>
+            <View style={[styles.closeLine, styles.closeLineForward]} />
+            <View style={[styles.closeLine, styles.closeLineBackward]} />
+          </Pressable>
+        </SafeAreaView>
+      </View>
+      <ScannerPaymentPanel
+        selectedAccount={selectedEntry.account}
+        balance={selectedEntry.balance}
+        onSelectAccount={() => setTokenSheetOpen(true)}
+        onPay={continueToPayment}
+        disabled={!payment || navigating}
+        loading={reading || navigating}
+      />
+      <ScannerTokenSelectionSheet
+        visible={tokenSheetOpen}
+        selectedAccount={selectedEntry.account}
+        onClose={() => setTokenSheetOpen(false)}
+        onSelect={(account) => {
+          const entry = SCANNER_DEMO_ACCOUNTS.find(
+            (item) => item.account.symbol === account.symbol,
+          );
+          if (entry) setSelectedEntry(entry);
+          setTokenSheetOpen(false);
+        }}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  cameraViewport: { flex: 1, overflow: 'hidden' },
+  previewActions: {
+    position: 'absolute',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 16,
+    padding: 16,
+  },
   screen: {
     backgroundColor: '#000000',
     flex: 1,
