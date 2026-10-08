@@ -1,4 +1,4 @@
-import { View } from 'react-native';
+import { Text, View } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 export function StarbucksLogo({ size = 52 }: { size?: number }) {
@@ -125,6 +125,42 @@ export function IndiaFlagEmblem({ size = 44 }: { size?: number }) {
         />
         <Circle cx={15} cy={15} r={0.9} fill="#000080" />
       </Svg>
+    </View>
+  );
+}
+
+// Brand colours for tokens without a dedicated emblem.
+const TOKEN_COLORS: Record<string, string> = { pathUSD: '#081332' };
+
+/**
+ * Emblem for whichever token a payment uses. Payments can convert to any
+ * supported token, so screens should use this rather than a fixed emblem.
+ */
+export function TokenEmblem({
+  symbol,
+  size = 44,
+}: {
+  symbol: string;
+  size?: number;
+}) {
+  if (symbol === 'USDC') return <UsdcTokenEmblem size={size} />;
+  if (symbol === 'USDT') return <UsdtTokenEmblem size={size} />;
+  return (
+    <View
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        backgroundColor: TOKEN_COLORS[symbol] ?? '#2f6bff',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <Text
+        style={{ color: '#ffffff', fontSize: size * 0.46, fontWeight: '800' }}
+      >
+        {symbol.charAt(0).toUpperCase()}
+      </Text>
     </View>
   );
 }

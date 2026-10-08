@@ -25,7 +25,12 @@ export type TransactionItem = {
   category: string;
   direction: 'Sent' | 'Received';
   amount: number;
+  /** Day label, then time, separated by " · " (for example "Today · 9:12 AM"). */
   time: string;
+  /** Token debited or credited; the list shows the INR amount in it. */
+  token?: string;
+  /** Brand mark for sample merchants. Others show their first letter. */
+  brand?: { mark: string; background: string; color: string };
 };
 
 export interface PaymentStorage {
@@ -150,10 +155,15 @@ export function formatPaymentTime(createdAt: number, now = Date.now()) {
     hour: 'numeric',
     minute: '2-digit',
   });
-  const sameDay = new Date(now).toDateString() === date.toDateString();
-  const day = sameDay
-    ? 'Today'
-    : date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+  const today = new Date(now);
+  const yesterday = new Date(now);
+  yesterday.setDate(today.getDate() - 1);
+  const day =
+    today.toDateString() === date.toDateString()
+      ? 'Today'
+      : yesterday.toDateString() === date.toDateString()
+        ? 'Yesterday'
+        : date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
   return `${day} · ${time}`;
 }
 
@@ -165,5 +175,6 @@ export function toTransactionItem(payment: SimulatedPayment): TransactionItem {
     direction: 'Sent',
     amount: Number(payment.inrAmount),
     time: formatPaymentTime(payment.createdAt),
+    token: payment.token,
   };
 }

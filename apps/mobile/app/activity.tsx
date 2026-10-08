@@ -8,22 +8,39 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useState, useSyncExternalStore } from 'react';
+import { Fragment, useState, useSyncExternalStore } from 'react';
+import Svg, { Path } from 'react-native-svg';
 import { AppIcon, colors } from '../src/components/payment-ui';
 import { DashboardNav } from '../src/components/dashboard-nav';
 
 import { uiPreviewEnabled } from '../src/ui-preview';
 import { previewDashboardWith, previewInr } from '../src/preview-data';
-import { PreviewTransactions } from '../src/components/preview-transactions';
+import { TransactionCard } from '../src/components/transaction-card';
 import { walletStore } from '../src/features/account/metamask';
 import { useSimulatedPayments } from '../src/features/payment/simulated-payment-store';
-import { toTransactionItem } from '../src/features/payment/simulated-payments';
+import {
+  toTransactionItem,
+  type TransactionItem,
+} from '../src/features/payment/simulated-payments';
 
 const filters = ['All', 'Sent', 'Received', 'Travel', 'Bills'];
+
+/** Groups transactions by their day label, keeping list order. */
+function groupByDay(transactions: readonly TransactionItem[]) {
+  const groups: { day: string; items: TransactionItem[] }[] = [];
+  for (const transaction of transactions) {
+    const day = transaction.time.split(' · ')[0] ?? '';
+    const group = groups.find((item) => item.day === day);
+    if (group) group.items.push(transaction);
+    else groups.push({ day, items: [transaction] });
+  }
+  return groups;
+}
 
 export default function Activity() {
   const [filter, setFilter] = useState('All');
   const [search, setSearch] = useState('');
+  const [filtersOpen, setFiltersOpen] = useState(true);
   const query = search.trim().toLowerCase();
   const wallet = useSyncExternalStore(
     walletStore.subscribe,
@@ -55,12 +72,28 @@ export default function Activity() {
             onPress={() => router.replace('/home')}
             style={styles.back}
           >
-            <AppIcon name="back" />
+            <AppIcon name="chevron-left" />
           </Pressable>
           <Text accessibilityRole="header" style={styles.title}>
             Transactions
           </Text>
-          <View style={styles.headerSpace} />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={filtersOpen ? 'Hide filters' : 'Show filters'}
+            accessibilityState={{ expanded: filtersOpen }}
+            onPress={() => setFiltersOpen((open) => !open)}
+            style={[styles.filterButton, filtersOpen && styles.filterButtonOn]}
+          >
+            <Svg width={22} height={22} viewBox="0 0 24 24">
+              <Path
+                d="M4 5h16l-6 7.5V18l-4 2v-7.5z"
+                stroke={colors.ink}
+                strokeWidth={2}
+                strokeLinejoin="round"
+                fill="none"
+              />
+            </Svg>
+          </Pressable>
         </View>
         <TextInput
           accessibilityLabel="Search transactions"
@@ -70,37 +103,49 @@ export default function Activity() {
           onChangeText={setSearch}
           style={styles.search}
         />
-        <View style={styles.filters}>
-          {filters.map((item) => (
-            <Pressable
-              key={item}
-              accessibilityRole="button"
-              accessibilityState={{ selected: filter === item }}
-              onPress={() => setFilter(item)}
-              style={[styles.filter, filter === item && styles.selected]}
-            >
-              <Text
-                style={[
-                  styles.filterText,
-                  filter === item && styles.selectedText,
-                ]}
+        {filtersOpen ? (
+          <View style={styles.filters}>
+            {filters.map((item) => (
+              <Pressable
+                key={item}
+                accessibilityRole="button"
+                accessibilityState={{ selected: filter === item }}
+                onPress={() => setFilter(item)}
+                style={[styles.filter, filter === item && styles.selected]}
               >
-                {item}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            {uiPreviewEnabled ? 'Sample activity' : 'Recent'}
-          </Text>
-          <Text style={styles.count}>
-            {transactions.length}{' '}
-            {transactions.length === 1 ? 'transaction' : 'transactions'}
-          </Text>
-        </View>
+                <Text
+                  style={[
+                    styles.filterText,
+                    filter === item && styles.selectedText,
+                  ]}
+                >
+                  {item}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
         {transactions.length > 0 ? (
-          <PreviewTransactions transactions={transactions} />
+          groupByDay(transactions).map((group) => (
+            <Fragment key={group.day}>
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>{group.day}</Text>
+                <Text style={styles.count}>
+                  {group.items.length}{' '}
+                  {group.items.length === 1 ? 'transaction' : 'transactions'}
+                </Text>
+              </View>
+              <View style={styles.list}>
+                {group.items.map((transaction) => (
+                  <TransactionCard
+                    key={transaction.id}
+                    transaction={transaction}
+                    onPress={() => router.push('/details')}
+                  />
+                ))}
+              </View>
+            </Fragment>
+          ))
         ) : (
           <View style={styles.empty}>
             <View style={styles.emptyIcon}>
@@ -146,35 +191,45 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  title: { color: colors.ink, fontSize: 23, fontWeight: '700' },
-  headerSpace: { width: 48 },
+  title: { color: colors.ink, fontSize: 26, fontWeight: '800' },
+  filterButton: {
+    height: 48,
+    width: 48,
+    borderRadius: 14,
+    backgroundColor: '#f2f4f8',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterButtonOn: { backgroundColor: '#e6eefc' },
   search: {
     backgroundColor: '#edf2fd',
     borderRadius: 24,
-    minHeight: 48,
-    paddingHorizontal: 18,
+    minHeight: 50,
+    paddingHorizontal: 20,
     color: colors.ink,
-    fontSize: 14,
+    fontSize: 15,
+    textAlign: 'center',
   },
   filters: { flexDirection: 'row', justifyContent: 'space-between', gap: 7 },
   filter: {
     backgroundColor: '#edf2fd',
-    borderRadius: 10,
-    minHeight: 45,
+    borderRadius: 12,
+    minHeight: 46,
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
   selected: { backgroundColor: colors.accent },
-  filterText: { color: colors.ink, fontSize: 12 },
-  selectedText: { color: '#fff' },
+  filterText: { color: colors.ink, fontSize: 14 },
+  selectedText: { color: '#fff', fontWeight: '600' },
   section: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  sectionTitle: { color: colors.ink, fontSize: 18, fontWeight: '700' },
-  count: { color: colors.muted, fontSize: 13 },
+  sectionTitle: { color: colors.ink, fontSize: 20, fontWeight: '700' },
+  count: { color: colors.muted, fontSize: 14, fontWeight: '600' },
+  list: { gap: 14, marginTop: -6 },
   empty: {
     flex: 1,
     minHeight: 330,

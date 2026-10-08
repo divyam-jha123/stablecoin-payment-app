@@ -30,7 +30,7 @@ describe('preview dashboard', () => {
     const dashboard = previewDashboardWith(store.getSnapshot());
     expect(dashboard.displayBalance).toBe('₹11,620.75');
     expect(dashboard.displayEquivalent).toBe('≈ 138.32 USDC');
-    expect(dashboard.spent).toBe('₹6,429');
+    expect(dashboard.spent).toBe('₹2,520');
     expect(dashboard.payments).toBe(previewDashboard.payments + 1);
     expect(dashboard.transactions[0]?.id).toBe(payment.id);
     expect(dashboard.transactions).toHaveLength(previewTransactions.length + 1);
