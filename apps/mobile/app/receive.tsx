@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { router, Stack } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
-import { Asset, requestPermissionsAsync } from 'expo-media-library';
+import * as MediaLibrary from 'expo-media-library/legacy';
 import * as Sharing from 'expo-sharing';
 import {
   KeyboardAvoidingView,
@@ -114,7 +114,9 @@ export default function ReceivePayment() {
     setBusy(true);
     try {
       if (action === 'download') {
-        const permission = await requestPermissionsAsync(true, ['photo']);
+        const permission = await MediaLibrary.requestPermissionsAsync(true, [
+          'photo',
+        ]);
         if (!permission.granted) {
           showMessage(
             'Photo access denied. Allow saving images in device settings.',
@@ -137,7 +139,7 @@ export default function ReceivePayment() {
           UTI: 'public.png',
         });
       } else {
-        await Asset.create(imageUri);
+        await MediaLibrary.createAssetAsync(imageUri);
         showMessage('QR saved to Photos.');
       }
     } catch {
