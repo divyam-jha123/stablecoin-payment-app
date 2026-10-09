@@ -1,0 +1,21 @@
+**/node_modules
+**/dist
+**/.expo
+**/*.tsbuildinfo
+.git
+.env
+.env.*
+.impeccable
+.pnpm-store
+coverage
+docs
+assets
+*.log
+.DS_Store
+*.apk
+*.aab
+*.ipa
+
+# The API image only needs the mobile manifest so the workspace lockfile resolves.
+apps/mobile/*
+!apps/mobile/package.json
