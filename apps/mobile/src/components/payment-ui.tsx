@@ -130,7 +130,8 @@ export function AppIcon({
     | 'bank'
     | 'check'
     | 'store'
-    | 'help';
+    | 'help'
+    | 'retry';
   color?: string;
   size?: number;
 }) {
@@ -163,6 +164,7 @@ export function AppIcon({
     store:
       'M4 9l1.5-5h13L20 9 M4 9a2.7 2.7 0 0 0 5.3 0 2.7 2.7 0 0 0 5.4 0 2.7 2.7 0 0 0 5.3 0 M5 11.5V20h14v-8.5 M10 20v-5h4v5',
     help: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .8-1 1.5v.4 M12 16.8h.01',
+    retry: 'M20 12a8 8 0 1 1-2.34-5.66 M20 4v5h-5',
   };
   return (
     <Svg

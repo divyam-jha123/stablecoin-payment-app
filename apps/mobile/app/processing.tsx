@@ -844,7 +844,14 @@ export default function Processing() {
               setStepIndex((index) => Math.min(STEPS.length, index + 1)),
           },
           { label: 'Success ›', onPress: complete },
-          { label: 'Failed ›', onPress: () => router.replace('/failed') },
+          {
+            label: 'Failed ›',
+            onPress: () =>
+              router.replace({
+                pathname: '/failed',
+                params: { merchantName, location, inrAmount, token: symbol },
+              }),
+          },
         ]}
       />
     </View>
