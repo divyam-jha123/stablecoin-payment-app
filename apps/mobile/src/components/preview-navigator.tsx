@@ -48,7 +48,6 @@ const pages = [
       params: {
         merchantName: 'Starbucks',
         merchantVpa: 'starbucks@upi',
-        inrAmount: '480',
         demoPaymentToken: 'USDC',
       },
     },
