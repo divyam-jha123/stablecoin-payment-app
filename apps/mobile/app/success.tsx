@@ -301,6 +301,10 @@ function SuccessBadge({
   );
 }
 
+function shortHash(hash: string) {
+  return `${hash.slice(0, 8)}…${hash.slice(-6)}`;
+}
+
 function shareReceipt(payment: SimulatedPayment) {
   const lines = [
     'TravelPe payment receipt',
@@ -308,6 +312,7 @@ function shareReceipt(payment: SimulatedPayment) {
     payment.location,
     `Debited: ${formatPathUsdAtomic(paymentPathUsdAtomic(payment))} ${payment.token}`,
     `Reference: ${payment.reference}`,
+    ...(payment.txHash ? [`Tempo transaction: ${payment.txHash}`] : []),
     formatPaymentTime(payment.createdAt),
     '',
     SIMULATED_NOTICE,
@@ -419,6 +424,12 @@ export default function Success() {
                   label="Debited"
                   value={`${formatPathUsdAtomic(paymentPathUsdAtomic(payment))} ${payment.token}`}
                 />
+                {payment.txHash ? (
+                  <SummaryRow
+                    label="Tempo transaction"
+                    value={shortHash(payment.txHash)}
+                  />
+                ) : null}
                 <SummaryRow label="Settlement" value="Simulated" />
                 <SummaryRow
                   label="Date & time"

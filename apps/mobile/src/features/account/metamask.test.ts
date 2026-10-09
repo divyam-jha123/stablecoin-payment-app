@@ -8,6 +8,11 @@ vi.mock('@metamask/connect-evm', () => ({
   createEVMClient: mocks.createEVMClient,
 }));
 vi.mock('react-native', () => ({ Linking: { openURL: mocks.openURL } }));
+vi.mock('expo-secure-store', () => ({
+  getItemAsync: async () => null,
+  setItemAsync: async () => undefined,
+  deleteItemAsync: async () => undefined,
+}));
 
 const uri = 'metamask://connect?test-pairing=one';
 async function fixture() {

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { router, usePathname, type Href } from 'expo-router';
 import {
+  Alert,
   Modal,
   Pressable,
   ScrollView,
@@ -10,11 +11,29 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from './payment-ui';
+import { pinStore, PREVIEW_PIN_OWNER } from '../features/account/payment-pin';
+import { simulatedPaymentStore } from '../features/payment/simulated-payment-store';
 
 const pages = [
   { label: 'Splash', href: '/' },
   { label: 'Onboarding', href: '/onboarding' },
   { label: 'Connect / sign in', href: '/connect' },
+  { label: 'Set payment PIN', href: '/pin-setup' },
+  {
+    label: 'Enter PIN to pay',
+    href: {
+      pathname: '/pin-entry',
+      params: {
+        mode: 'verify',
+        next: 'pay',
+        merchantName: 'Starbucks',
+        location: 'Pune, Maharashtra',
+        inrAmount: '480',
+        token: 'USDC',
+      },
+    },
+  },
+  { label: 'Tap to pay set-up', href: '/setup-payments' },
   { label: 'Dashboard', href: '/home' },
   { label: 'Payments', href: '/payments' },
   { label: 'Receive payment', href: '/receive' },
@@ -46,6 +65,31 @@ export function PreviewNavigator() {
   const pathname = usePathname();
 
   if (pathname === '/' || pathname === '/receive') return null;
+
+  function resetPreview() {
+    Alert.alert(
+      'Start preview again?',
+      'This clears your preview PIN and simulated payments.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reset preview',
+          style: 'destructive',
+          onPress: () => {
+            void Promise.all([
+              pinStore.clear(PREVIEW_PIN_OWNER),
+              simulatedPaymentStore.clearPreview(),
+            ])
+              .then(() => {
+                setOpen(false);
+                router.replace('/onboarding');
+              })
+              .catch(() => Alert.alert('Reset failed', 'Please try again.'));
+          },
+        },
+      ],
+    );
+  }
 
   return (
     <>
@@ -98,6 +142,13 @@ export function PreviewNavigator() {
                 </Pressable>
               ))}
             </ScrollView>
+            <Pressable
+              accessibilityRole="button"
+              onPress={resetPreview}
+              style={styles.reset}
+            >
+              <Text style={styles.resetText}>Reset preview and onboarding</Text>
+            </Pressable>
           </View>
         </SafeAreaView>
       </Modal>
@@ -152,4 +203,6 @@ const styles = StyleSheet.create({
   },
   pageText: { color: colors.ink, fontSize: 16 },
   arrow: { color: colors.muted, fontSize: 24 },
+  reset: { alignItems: 'center', paddingTop: 16, paddingBottom: 4 },
+  resetText: { color: colors.error, fontSize: 15, fontWeight: '600' },
 });

@@ -32,6 +32,12 @@
           "recordAudioAndroid": false,
           "enableBackgroundPlayback": false
         }
+      ],
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Allow TravelPe to sign in securely with Face ID."
+        }
       ]
     ],
     "android": {

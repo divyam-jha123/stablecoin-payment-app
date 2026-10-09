@@ -10,10 +10,15 @@ import {
 } from 'react-native';
 import { Redirect, router, Stack } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ui } from '../src/components/payment-ui';
 import { useAccount } from '../src/features/account/use-account';
 import { walletStore } from '../src/features/account/metamask';
+import {
+  pinStore,
+  PREVIEW_PIN_OWNER,
+} from '../src/features/account/payment-pin';
+import { rememberedAccount } from '../src/features/account/remembered-account';
 import { authenticateWallet } from '../src/features/account/session';
 import { TEMPO_CHAIN } from '../src/features/account/tempo';
 import { walletError } from '../src/features/account/wallet-store';
@@ -28,10 +33,31 @@ export default function Connect() {
   const lock = useRef(false);
   const busy = signing || wallet.busy;
   const checking = Boolean(wallet.account && onTempo && session.isFetching);
+  const signedIn = Boolean(
+    !uiPreviewEnabled && wallet.account && onTempo && session.data === true,
+  );
+  // After sign-in: set the TravelPe payment PIN, then Home.
+  const nextStep = useQuery({
+    queryKey: ['after-sign-in', wallet.account?.address],
+    queryFn: async () =>
+      (await pinStore.hasPin(wallet.account!.address))
+        ? ('/home' as const)
+        : ('/pin-setup' as const),
+    enabled: signedIn,
+    retry: false,
+  });
 
   async function signIn() {
     if (uiPreviewEnabled) {
-      router.replace('/home');
+      setSigning(true);
+      try {
+        const hasPin = await pinStore.hasPin(PREVIEW_PIN_OWNER);
+        router.replace(hasPin ? '/' : '/pin-setup');
+      } catch {
+        setError('Could not load your PIN. Try again.');
+      } finally {
+        setSigning(false);
+      }
       return;
     }
     if (lock.current || walletStore.getSnapshot().busy) return;
@@ -76,6 +102,8 @@ export default function Connect() {
         );
       }
       walletFlowLog.info('Wallet still matches signed-in account');
+      // Next launch opens straight to Home, behind the app lock.
+      await rememberedAccount.remember(account.address);
       queryClient.setQueryData(
         ['session', account.address, account.chainId],
         true,
@@ -91,14 +119,8 @@ export default function Connect() {
     }
   }
 
-  if (
-    !uiPreviewEnabled &&
-    wallet.account &&
-    onTempo &&
-    session.data === true &&
-    !busy
-  )
-    return <Redirect href="/home" />;
+  if (signedIn && !busy && nextStep.isFetched)
+    return <Redirect href={nextStep.data ?? '/home'} />;
 
   return (
     <SafeAreaView style={styles.screen}>
@@ -154,7 +176,7 @@ export default function Connect() {
           >
             <Text style={styles.mainButtonText}>
               {uiPreviewEnabled
-                ? 'Continue to dashboard'
+                ? 'Continue'
                 : busy
                   ? 'Waiting for MetaMask…'
                   : checking

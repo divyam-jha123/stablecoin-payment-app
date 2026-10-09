@@ -4,6 +4,7 @@ import {
 } from '@metamask/connect-evm';
 import { Linking } from 'react-native';
 import { TEMPO_CHAIN, TEMPO_CHAIN_HEX } from './tempo';
+import { rememberedAccount } from './remembered-account';
 import { createWalletStore, type WalletAdapter } from './wallet-store';
 import { walletFlowLog } from './wallet-flow-log';
 
@@ -173,12 +174,22 @@ const adapter: WalletAdapter = {
     });
   },
   async account() {
-    const address = client?.getAccount();
-    const chain = client?.getChainId();
+    // Start the SDK on first read so a saved MetaMask session is restored
+    // after a cold start. Don't wait long: the remembered account covers it.
+    const sdk =
+      client ??
+      (await Promise.race([
+        getClient().catch(() => undefined),
+        new Promise<undefined>((resolve) => setTimeout(resolve, 5_000)),
+      ]));
+    const address = sdk?.getAccount();
+    const chain = sdk?.getChainId();
     return address && chain ? { address, chainId: Number(chain) } : null;
   },
   async signMessage(message) {
     const sdk = await getClient();
+    // Signed in from a previous launch but MetaMask's session lapsed.
+    if (!sdk.getAccount()) await adapter.connect();
     const sign = () => {
       const address = sdk.getAccount();
       if (!address) throw new Error('Connect a wallet before signing in.');
@@ -209,6 +220,37 @@ const adapter: WalletAdapter = {
     walletFlowLog.info('MetaMask returned sign-in signature');
     return signature as `0x${string}`;
   },
+  async sendTransaction(call) {
+    const sdk = await getClient();
+    // Signed in from a previous launch but MetaMask's session lapsed.
+    if (!sdk.getAccount()) await adapter.connect();
+    const send = () => {
+      const from = sdk.getAccount();
+      if (!from) throw new Error('Connect a wallet before approving.');
+      walletFlowLog.info('Requesting transaction approval from MetaMask');
+      return walletRequest(() =>
+        sdk.getProvider().request({
+          method: 'eth_sendTransaction',
+          params: [{ from, to: call.to, data: call.data }],
+        }),
+      );
+    };
+    let hash: unknown;
+    try {
+      hash = await send();
+    } catch (cause) {
+      if (!isUnauthorized(cause)) throw cause;
+      // Same as signing: re-approve so the session covers Tempo, then retry.
+      walletFlowLog.error('MetaMask has not authorized Tempo yet', cause);
+      await adapter.connect();
+      hash = await send();
+    }
+    if (typeof hash !== 'string' || !/^0x[0-9a-f]{64}$/i.test(hash)) {
+      throw new Error('MetaMask returned an invalid transaction.');
+    }
+    walletFlowLog.info('MetaMask submitted the transaction');
+    return hash as `0x${string}`;
+  },
   subscribe(listener) {
     listeners.add(listener);
     return () => {
@@ -217,4 +259,4 @@ const adapter: WalletAdapter = {
   },
 };
 
-export const walletStore = createWalletStore(adapter);
+export const walletStore = createWalletStore(adapter, rememberedAccount);

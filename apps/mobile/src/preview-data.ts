@@ -79,6 +79,13 @@ export const previewDashboard = {
   networkFees: '0.004',
 };
 
+/** Sample tap-to-pay state for the Profile card in the UI preview. */
+export const previewTapToPay = {
+  dailyLimitUsd: 250,
+  remainingUsd: '238.42',
+  expiry: Math.floor(Date.now() / 1000) + 12 * 86_400,
+};
+
 /** Shown on the success screen when it is opened directly in the UI preview. */
 export const previewSamplePayment: SimulatedPayment = {
   id: 'preview-sample',

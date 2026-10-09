@@ -1,3 +1,4 @@
+import type { AccountMemory } from './remembered-account';
 import { accountAddress, TEMPO_CHAIN } from './tempo';
 import { walletFlowLog } from './wallet-flow-log';
 
@@ -6,6 +7,8 @@ export type WalletSnapshot = {
   account: WalletAccount | null;
   busy: boolean;
   error: string | null;
+  /** False until the first account check after launch has finished. */
+  restored: boolean;
 };
 export interface WalletAdapter {
   connect(): Promise<void>;
@@ -13,6 +16,11 @@ export interface WalletAdapter {
   disconnect(): Promise<void>;
   account(): Promise<WalletAccount | null>;
   signMessage(message: string): Promise<`0x${string}`>;
+  /** Sends one transaction from the connected account; resolves its hash. */
+  sendTransaction(call: {
+    to: `0x${string}`;
+    data: `0x${string}`;
+  }): Promise<`0x${string}`>;
   subscribe(listener: () => void): () => void;
 }
 
@@ -31,8 +39,16 @@ export function walletError(error: unknown): string {
     : 'Could not reach MetaMask. Open the wallet and try again.';
 }
 
-export function createWalletStore(adapter: WalletAdapter) {
-  let snapshot: WalletSnapshot = { account: null, busy: false, error: null };
+export function createWalletStore(
+  adapter: WalletAdapter,
+  memory?: AccountMemory,
+) {
+  let snapshot: WalletSnapshot = {
+    account: null,
+    busy: false,
+    error: null,
+    restored: false,
+  };
   let operation = 0;
   let read = 0;
   let disconnected = false;
@@ -46,12 +62,20 @@ export function createWalletStore(adapter: WalletAdapter) {
     if (disconnected) return;
     const version = ++read;
     try {
-      const account = await adapter.account();
+      // A live MetaMask account wins; otherwise the traveller who signed in
+      // on this phone, so a returning user opens straight to Home.
+      let account = await adapter.account();
+      // Always loaded, so screens can tell the remembered traveller apart
+      // once `restored` is true.
+      const remembered = memory ? await memory.load() : null;
+      if (!account && remembered) {
+        account = { address: remembered, chainId: TEMPO_CHAIN.id };
+      }
       if (account) accountAddress(account.address);
-      if (version === read) update({ account });
+      if (version === read) update({ account, restored: true });
     } catch (error) {
       if (version === read)
-        update({ account: null, error: walletError(error) });
+        update({ account: null, error: walletError(error), restored: true });
     }
   }
   async function run(action: () => Promise<void>) {
@@ -103,6 +127,7 @@ export function createWalletStore(adapter: WalletAdapter) {
     },
     refresh,
     signMessage: adapter.signMessage,
+    sendTransaction: adapter.sendTransaction,
     setError(error: string) {
       update({ error });
     },
@@ -125,7 +150,7 @@ export function createWalletStore(adapter: WalletAdapter) {
       disconnected = true;
       ++operation;
       ++read;
-      update({ account: null, busy: true, error: null });
+      update({ account: null, busy: true, error: null, restored: true });
       try {
         await adapter.disconnect();
       } catch (error) {

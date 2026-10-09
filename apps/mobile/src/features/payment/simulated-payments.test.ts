@@ -60,6 +60,20 @@ describe('simulated payments', () => {
     expect(restored.getSnapshot()).toEqual([saved]);
   });
 
+  it('resets preview history while preserving wallet payment records', async () => {
+    const { storage } = memoryStorage();
+    const store = createSimulatedPaymentStore(storage);
+    const walletPayment = store.record(payment);
+    store.record({ ...payment, address: null });
+
+    await store.clearPreview();
+    expect(store.getSnapshot()).toEqual([walletPayment]);
+
+    const restored = createSimulatedPaymentStore(storage);
+    await restored.hydrate();
+    expect(restored.getSnapshot()).toEqual([walletPayment]);
+  });
+
   it('keeps payments recorded before hydration and ignores bad data', async () => {
     const { storage } = memoryStorage({
       [SIMULATED_PAYMENTS_KEY]: JSON.stringify([{ id: 'broken' }]),
@@ -89,6 +103,13 @@ describe('simulated payments', () => {
     expect(simulatedBalance('25.5', store.getSnapshot())).toBe('15.5');
     expect(simulatedBalance('4', store.getSnapshot())).toBe('0');
     expect(simulatedBalance('4', [])).toBe('4');
+  });
+
+  it('does not deduct on-chain payments, which the balance already shows', () => {
+    const store = createSimulatedPaymentStore();
+    const onChain = store.record({ ...payment, txHash: '0xfeed' });
+    expect(onChain.txHash).toBe('0xfeed');
+    expect(simulatedBalance('25.5', store.getSnapshot())).toBe('25.5');
   });
 
   it('maps a payment to a sent transaction item', () => {

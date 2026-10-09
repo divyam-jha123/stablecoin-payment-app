@@ -23,6 +23,8 @@ import {
   pathUsdBalanceAtomic,
 } from '../src/features/payment/amount';
 import { uiPreviewEnabled } from '../src/ui-preview';
+import { pinStore } from '../src/features/account/payment-pin';
+import { pinOwner } from '../src/features/account/pin-owner';
 import { AppIcon, colors } from '../src/components/payment-ui';
 import {
   SCANNER_DEMO_ACCOUNTS,
@@ -544,7 +546,7 @@ export default function Confirmation() {
             <View style={styles.secureCopy}>
               <Text style={styles.secureTitle}>Secure & Instant Payment</Text>
               <Text style={styles.secureSubtitle}>
-                Settles on-chain • No gas fees for you
+                Settles on Tempo • Network fee under $0.01
               </Text>
             </View>
             <Svg width={18} height={18} viewBox="0 0 24 24">
@@ -566,12 +568,19 @@ export default function Confirmation() {
             accessibilityRole="button"
             accessibilityState={{ disabled: !canPay }}
             disabled={!canPay}
-            onPress={() => {
+            onPress={async () => {
               setAmountTouched(true);
               if (!amountResult.success) return;
+              const owner = pinOwner();
+              const hasPin = owner
+                ? await pinStore.hasPin(owner).catch(() => false)
+                : false;
+              // The payment PIN approves it; without one, set it first.
               router.push({
-                pathname: '/processing',
+                pathname: hasPin ? '/pin-entry' : '/pin-setup',
                 params: {
+                  mode: 'verify',
+                  next: 'pay',
                   merchantName: payeeName,
                   location: isFigmaPreview
                     ? 'Pune, Maharashtra'
