@@ -63,7 +63,13 @@ export function PreviewNavigator() {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
 
-  if (pathname === '/' || pathname === '/receive') return null;
+  // Hidden where it would sit over the screen's own header controls.
+  if (
+    pathname === '/' ||
+    pathname === '/receive' ||
+    pathname === '/edit-profile'
+  )
+    return null;
 
   function resetPreview() {
     Alert.alert(
