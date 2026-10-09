@@ -35,12 +35,12 @@ When changing a screen:
 
 What may differ between the modes:
 
-| Allowed to differ in preview                                                                                                                         | Must stay identical                              |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
-| Data source: fixtures in `src/preview-data.ts`, simulated payments recorded with `address: null`                                                     | Layout, components, colours, typography, spacing |
-| No wallet connection, RPC balance or on-chain submission                                                                                             | Copy and labels (except sample names and values) |
-| Dev-only controls: the **UI pages** menu (`src/components/preview-navigator.tsx`) and the **UI preview** bar (`src/components/preview-flow-bar.tsx`) | Screen order, navigation and animations          |
-| Sample QR buttons on the scanner instead of the camera                                                                                               | Validation, disabled states and error handling   |
+| Allowed to differ in preview                                                                     | Must stay identical                              |
+| ------------------------------------------------------------------------------------------------ | ------------------------------------------------ |
+| Data source: fixtures in `src/preview-data.ts`, simulated payments recorded with `address: null` | Layout, components, colours, typography, spacing |
+| No wallet connection, RPC balance or on-chain submission                                         | Copy and labels (except sample names and values) |
+| Dev-only controls: the **UI preview** bar (`src/components/preview-flow-bar.tsx`)                | Screen order, navigation and animations          |
+| Sample QR buttons on the scanner instead of the camera                                           | Validation, disabled states and error handling   |
 
 ## Product rules
 

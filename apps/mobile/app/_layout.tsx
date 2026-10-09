@@ -3,8 +3,6 @@ import { Stack } from 'expo-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AppLock } from '../src/components/app-lock';
-import { PreviewNavigator } from '../src/components/preview-navigator';
-import { uiPreviewEnabled } from '../src/ui-preview';
 
 export default function RootLayout() {
   const [queryClient] = useState(
@@ -17,7 +15,6 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <QueryClientProvider client={queryClient}>
         <Stack />
-        {uiPreviewEnabled ? <PreviewNavigator /> : null}
         <AppLock />
       </QueryClientProvider>
     </SafeAreaProvider>
