@@ -91,6 +91,13 @@ describe('simulated payments', () => {
     expect(simulatedBalance('4', [])).toBe('4');
   });
 
+  it('does not deduct on-chain payments, which the balance already shows', () => {
+    const store = createSimulatedPaymentStore();
+    const onChain = store.record({ ...payment, txHash: '0xfeed' });
+    expect(onChain.txHash).toBe('0xfeed');
+    expect(simulatedBalance('25.5', store.getSnapshot())).toBe('25.5');
+  });
+
   it('maps a payment to a sent transaction item', () => {
     const store = createSimulatedPaymentStore();
     const item = toTransactionItem(store.record(payment));

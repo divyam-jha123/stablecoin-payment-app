@@ -21,6 +21,7 @@ import {
   PaymentScreen,
   ui,
 } from '../src/components/payment-ui';
+import { rememberedAccount } from '../src/features/account/remembered-account';
 import { useAccount } from '../src/features/account/use-account';
 import { walletStore } from '../src/features/account/metamask';
 import { TEMPO_CHAIN, tempoService } from '../src/features/account/tempo';
@@ -83,7 +84,14 @@ export default function Home() {
   } | null>(null);
   const fundingLock = useRef(false);
   const authorized =
-    uiPreviewEnabled || Boolean(address && onTempo && session.data === true);
+    uiPreviewEnabled ||
+    Boolean(
+      address &&
+      onTempo &&
+      // The traveller signed in on this phone proved their wallet at first
+      // sign-in; they never see the login page again.
+      (session.data === true || rememberedAccount.is(address)),
+    );
   const dashboardLogged = useRef(false);
   useEffect(() => {
     if (
@@ -170,9 +178,14 @@ export default function Home() {
         : 'Add Money',
   };
 
+  // On launch, wait for MetaMask or the remembered traveller before deciding.
   if (
     !uiPreviewEnabled &&
-    (!address || !onTempo || session.data === false || session.isError)
+    wallet.restored &&
+    (!address ||
+      !onTempo ||
+      (!rememberedAccount.is(address) &&
+        (session.data === false || session.isError)))
   )
     return <Redirect href="/connect" />;
   if (!authorized)

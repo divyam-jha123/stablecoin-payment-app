@@ -44,6 +44,7 @@ export default function Failed() {
     location?: string | string[];
     inrAmount?: string | string[];
     token?: string | string[];
+    reason?: string | string[];
   }>();
   // The preview opens this screen without a payment, so it falls back to the
   // sample one; wallet mode only shows what the failed payment passed in.
@@ -53,6 +54,8 @@ export default function Failed() {
   const amount = formatInr(firstParam(params.inrAmount) ?? sample?.inrAmount);
   const token = firstParam(params.token) ?? sample?.token;
   const inrAmount = firstParam(params.inrAmount) ?? sample?.inrAmount;
+  // Set when the stablecoin payment itself failed, before any conversion.
+  const failureReason = firstParam(params.reason);
   const [retrying, setRetrying] = useState(false);
   const retryTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => () => clearTimeout(retryTimer.current), []);
@@ -129,8 +132,13 @@ export default function Failed() {
         </View>
 
         <Text style={styles.reason}>
-          {token ? `${token} to INR` : 'Stablecoin to INR'} conversion failed
+          {failureReason
+            ? "Payment didn't go through"
+            : `${token ? `${token} to INR` : 'Stablecoin to INR'} conversion failed`}
         </Text>
+        {failureReason ? (
+          <Text style={styles.detail}>{failureReason}</Text>
+        ) : null}
       </View>
 
       <View style={styles.footer}>
@@ -235,6 +243,13 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '600',
     textAlign: 'center',
+  },
+  detail: {
+    color: colors.muted,
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
+    marginTop: 6,
   },
   footer: { paddingHorizontal: 24, paddingTop: 24, paddingBottom: 12 },
   button: {

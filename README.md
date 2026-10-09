@@ -38,6 +38,16 @@ pnpm dev
 
 Open the Expo terminal QR on an Android device, or press `a` with a configured emulator.
 
+To make real testnet payments in wallet mode, set the Tempo address that receives them before starting Expo:
+
+```sh
+EXPO_PUBLIC_SETTLEMENT_ADDRESS=0xYourTestnetSettlementAddress pnpm dev:mobile
+```
+
+Use a testnet address you control, such as a second MetaMask account. Turn on **tap to pay** from Profile: one MetaMask approval lets the app pay from your own account without opening MetaMask again, up to a daily limit and only to that address. Funds stay in MetaMask until you pay. Without the variable, tap to pay and on-chain payments are unavailable.
+
+Your first visit goes from onboarding and wallet connection to setting a 4-digit payment PIN, then the dashboard. Each payment is approved with that PIN; it is stored only as a salted hash on the phone. On later launches the app skips the splash, onboarding and login: unlock it with your phone's fingerprint, face or PIN and it opens on the dashboard. During those sessions it locks again after 30 seconds or more in the background.
+
 ### Preview the dashboard without a wallet
 
 From the repository root, start Expo with the UI preview flag:
@@ -46,7 +56,7 @@ From the repository root, start Expo with the UI preview flag:
 EXPO_PUBLIC_UI_PREVIEW=1 pnpm dev:mobile
 ```
 
-Open the app in Expo Go and tap **Get Started**, then **Continue to dashboard**. The **UI pages** control lets you switch between the other screens. If Expo is already running, restart it with the command above so it picks up the environment variable.
+Open the app in Expo Go and tap **Get Started**, then **Continue**. The tap-to-pay set-up screen follows; approve it (simulated) or choose **Not now** to reach the dashboard. The **UI pages** control lets you switch between the other screens. If Expo is already running, restart it with the command above so it picks up the environment variable.
 
 This mode is for visual review in development. It includes a sample balance, monthly totals, and illustrative transactions; activity search and filters work on the sample data. Payments made in preview are simulated. Processing holds on each step so it can be reviewed: use the **UI preview** bar at the bottom of the screen to move between steps or go on to the success or failed screen. Success, failed, and transaction details screens have the same bar for moving through the flow, and it can be hidden while you review a screen. Completed payments come off the sample balance and appear in monthly totals and activity; they are saved on the device only. This mode does not connect a wallet, read a balance, scan a live QR, or submit a payment on-chain. Start normally with `pnpm dev:mobile` to use the wallet flow.
 

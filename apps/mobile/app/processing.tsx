@@ -27,6 +27,8 @@ import {
 } from '../src/components/payment-logos';
 import { walletStore } from '../src/features/account/metamask';
 import { simulatedPaymentStore } from '../src/features/payment/simulated-payment-store';
+import { payOnChain } from '../src/features/payment/pay-onchain';
+import { walletError } from '../src/features/account/wallet-store';
 import { uiPreviewEnabled } from '../src/ui-preview';
 import { PreviewFlowBar } from '../src/components/preview-flow-bar';
 
@@ -601,12 +603,44 @@ export default function Processing() {
   const symbol = firstParam(params.token)?.trim() || 'USDC';
   const [stepIndex, setStepIndex] = useState(0);
   const recorded = useRef(false);
+  // Wallet mode pays pathUSD on Tempo for real while the steps play; it is
+  // the only token with a testnet contract. Other tokens, and the UI preview,
+  // stay simulated. INR settlement is always simulated.
+  const transfer = useRef<{ reference: string; hash: Promise<string> }>(
+    undefined,
+  );
+  useEffect(() => {
+    const owner = walletStore.getSnapshot().account?.address;
+    if (uiPreviewEnabled || symbol !== 'pathUSD' || !owner || transfer.current)
+      return;
+    const reference = `TRV${Date.now().toString().slice(-12)}`;
+    const hash = payOnChain({ owner, inrAmount, reference });
+    hash.catch(() => undefined);
+    transfer.current = { reference, hash };
+  }, [inrAmount, symbol]);
 
-  const complete = useCallback(() => {
+  const complete = useCallback(async () => {
     if (recorded.current) return;
     recorded.current = true;
-    // Demo only: no funds move on-chain. The app records the payment so the
-    // wallet balance and activity reflect it.
+    let txHash: string | undefined;
+    if (transfer.current) {
+      try {
+        txHash = await transfer.current.hash;
+      } catch (cause) {
+        router.replace({
+          pathname: '/failed',
+          params: {
+            merchantName,
+            location,
+            inrAmount,
+            token: symbol,
+            reason: walletError(cause),
+          },
+        });
+        return;
+      }
+    }
+    // Records the payment so the wallet balance and activity reflect it.
     const payment = simulatedPaymentStore.record({
       address: uiPreviewEnabled
         ? null
@@ -615,6 +649,8 @@ export default function Processing() {
       location,
       inrAmount,
       token: symbol,
+      reference: transfer.current?.reference,
+      txHash,
     });
     router.replace({ pathname: '/success', params: { id: payment.id } });
   }, [merchantName, location, inrAmount, symbol]);
@@ -632,7 +668,7 @@ export default function Processing() {
     const end = STEP_ENDS[step]!;
     const next = () => {
       if (cancelled || uiPreviewEnabled) return;
-      if (stepIndex >= STEPS.length) complete();
+      if (stepIndex >= STEPS.length) void complete();
       else setStepIndex((index) => index + 1);
     };
 

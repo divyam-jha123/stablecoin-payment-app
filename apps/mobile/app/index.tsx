@@ -2,6 +2,8 @@ import { useEffect } from 'react';
 import { useFonts } from 'expo-font';
 import Constants from 'expo-constants';
 import { router, Stack } from 'expo-router';
+import { rememberedAccount } from '../src/features/account/remembered-account';
+import { uiPreviewEnabled } from '../src/ui-preview';
 import {
   Image,
   StatusBar,
@@ -23,10 +25,29 @@ export default function Splash() {
   const { height, width } = useWindowDimensions();
   const [fontLoaded] = useFonts({ Outfit: outfitFont });
 
+  // A traveller who signed in on this phone skips the splash and onboarding:
+  // the app lock asks to unlock straight away, then Home.
+  useEffect(() => {
+    if (uiPreviewEnabled) return;
+    let cancelled = false;
+    void rememberedAccount.load().then((address) => {
+      if (address && !cancelled) router.replace('/home');
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // First visit: the full splash, then onboarding.
   useEffect(() => {
     if (!fontLoaded) return;
     const timeout = setTimeout(
-      () => router.replace('/onboarding'),
+      () =>
+        void (
+          uiPreviewEnabled ? Promise.resolve(null) : rememberedAccount.load()
+        ).then((address) => {
+          if (!address) router.replace('/onboarding');
+        }),
       SPLASH_DURATION_MS,
     );
     return () => clearTimeout(timeout);

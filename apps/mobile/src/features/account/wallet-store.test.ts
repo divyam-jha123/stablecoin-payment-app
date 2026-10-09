@@ -21,6 +21,7 @@ function fixture() {
     }),
     account: vi.fn(async () => account),
     signMessage: vi.fn(async () => '0xsignature' as `0x${string}`),
+    sendTransaction: vi.fn(async () => '0xhash' as `0x${string}`),
     subscribe: (listener) => {
       changed = listener;
       return () => {
@@ -47,7 +48,26 @@ describe('MetaMask account lifecycle', () => {
       account: { address, chainId: 42431 },
       busy: false,
       error: null,
+      restored: true,
     });
+  });
+  it('falls back to the remembered traveller when MetaMask has no session', async () => {
+    const { adapter } = fixture();
+    const store = createWalletStore(adapter, { load: async () => address });
+    expect(store.getSnapshot().restored).toBe(false);
+    await store.refresh();
+    expect(store.getSnapshot()).toMatchObject({
+      account: { address, chainId: 42431 },
+      restored: true,
+    });
+  });
+  it('prefers the live MetaMask account over the remembered one', async () => {
+    const { adapter } = fixture();
+    const live = '0x9999999999999999999999999999999999999999';
+    vi.mocked(adapter.account).mockResolvedValue({ address: live, chainId: 1 });
+    const store = createWalletStore(adapter, { load: async () => address });
+    await store.refresh();
+    expect(store.getSnapshot().account).toEqual({ address: live, chainId: 1 });
   });
   it('reports rejected approvals without inventing an account', async () => {
     const { store, adapter } = fixture();

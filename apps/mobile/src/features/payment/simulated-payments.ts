@@ -5,8 +5,10 @@ import {
 } from './amount';
 
 /**
- * Demo-only payment records. Nothing is submitted on-chain; the app deducts
- * these from the displayed test balance and keeps them on this device.
+ * Payment records kept on this device. INR settlement is always simulated.
+ * Without `txHash` the stablecoin leg is simulated too, and the app deducts it
+ * from the displayed test balance; with `txHash` it was a real Tempo testnet
+ * transfer, already reflected in the on-chain balance.
  */
 export type SimulatedPayment = {
   id: string;
@@ -17,6 +19,8 @@ export type SimulatedPayment = {
   inrAmount: string;
   token: string;
   createdAt: number;
+  /** Tempo transaction that moved the stablecoin, when it was on-chain. */
+  txHash?: string;
 };
 
 export type TransactionItem = {
@@ -51,7 +55,8 @@ function isSimulatedPayment(value: unknown): value is SimulatedPayment {
     typeof record.location === 'string' &&
     typeof record.inrAmount === 'string' &&
     typeof record.token === 'string' &&
-    typeof record.createdAt === 'number'
+    typeof record.createdAt === 'number' &&
+    (record.txHash === undefined || typeof record.txHash === 'string')
   );
 }
 
@@ -100,6 +105,8 @@ export function createSimulatedPaymentStore(storage?: PaymentStorage) {
       location: string;
       inrAmount: string;
       token: string;
+      reference?: string | undefined;
+      txHash?: string | undefined;
       now?: number;
     }): SimulatedPayment {
       requiredPathUsdAtomic(input.inrAmount);
@@ -107,13 +114,14 @@ export function createSimulatedPaymentStore(storage?: PaymentStorage) {
       const digits = `${createdAt}${++sequence}`.slice(-12).padStart(12, '0');
       const payment: SimulatedPayment = {
         id: `sim-${createdAt}-${sequence}`,
-        reference: `TRV${digits}`,
+        reference: input.reference ?? `TRV${digits}`,
         address: input.address?.toLowerCase() ?? null,
         merchantName: input.merchantName,
         location: input.location,
         inrAmount: input.inrAmount,
         token: input.token,
         createdAt,
+        ...(input.txHash ? { txHash: input.txHash } : {}),
       };
       publish([payment, ...payments]);
       persist();
@@ -136,13 +144,17 @@ export function paymentPathUsdAtomic(payment: SimulatedPayment) {
   return requiredPathUsdAtomic(payment.inrAmount);
 }
 
-/** On-chain balance minus simulated spend, never below zero. */
+/**
+ * On-chain balance minus simulated spend, never below zero. On-chain payments
+ * are already in the balance, so only simulated ones are subtracted.
+ */
 export function simulatedBalance(
   balance: string,
   payments: readonly SimulatedPayment[],
 ): string {
   const spent = payments.reduce(
-    (total, payment) => total + paymentPathUsdAtomic(payment),
+    (total, payment) =>
+      payment.txHash ? total : total + paymentPathUsdAtomic(payment),
     0n,
   );
   const remaining = pathUsdBalanceAtomic(balance) - spent;

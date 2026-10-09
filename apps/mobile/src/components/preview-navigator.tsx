@@ -15,6 +15,22 @@ const pages = [
   { label: 'Splash', href: '/' },
   { label: 'Onboarding', href: '/onboarding' },
   { label: 'Connect / sign in', href: '/connect' },
+  { label: 'Set payment PIN', href: '/pin-setup' },
+  {
+    label: 'Enter PIN to pay',
+    href: {
+      pathname: '/pin-entry',
+      params: {
+        mode: 'verify',
+        next: 'pay',
+        merchantName: 'Starbucks',
+        location: 'Pune, Maharashtra',
+        inrAmount: '480',
+        token: 'USDC',
+      },
+    },
+  },
+  { label: 'Tap to pay set-up', href: '/setup-payments' },
   { label: 'Dashboard', href: '/home' },
   { label: 'Payments', href: '/payments' },
   { label: 'Receive payment', href: '/receive' },
