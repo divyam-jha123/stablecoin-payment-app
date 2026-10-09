@@ -16,8 +16,8 @@ import { DashboardNav } from '../src/components/dashboard-nav';
 import { AppIcon, colors, TestNotice } from '../src/components/payment-ui';
 import { useAccount } from '../src/features/account/use-account';
 import { walletStore } from '../src/features/account/metamask';
+import { openPinSettings } from '../src/features/account/open-pin-settings';
 import { pinStore } from '../src/features/account/payment-pin';
-import { pinOwner } from '../src/features/account/pin-owner';
 import { rememberedAccount } from '../src/features/account/remembered-account';
 import { logoutSession } from '../src/features/account/session';
 import { uiPreviewEnabled } from '../src/ui-preview';
@@ -120,20 +120,7 @@ export default function Profile() {
 
   // Security opens the TravelPe PIN: change it, or set one if missing.
   async function openSecurity() {
-    const owner = pinOwner();
-    if (!owner) {
-      notAvailable('Security');
-      return;
-    }
-    const hasPin = await pinStore.hasPin(owner).catch(() => false);
-    router.push(
-      hasPin
-        ? {
-            pathname: '/pin-entry',
-            params: { mode: 'change', next: 'profile' },
-          }
-        : { pathname: '/pin-setup', params: { next: 'profile' } },
-    );
+    if (!(await openPinSettings())) notAvailable('Security');
   }
 
   async function disconnect() {

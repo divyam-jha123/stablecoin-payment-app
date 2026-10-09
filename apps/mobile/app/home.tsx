@@ -32,8 +32,10 @@ import { uiPreviewEnabled } from '../src/ui-preview';
 import { HomeBalanceCard } from '../src/components/home-balance-card';
 import { HomeQuickActions } from '../src/components/home-quick-actions';
 import { HomeGreeting } from '../src/components/home-greeting';
+import { HomeAdCarousel } from '../src/components/home-ad-carousel';
 import { homeTheme } from '../src/theme/home';
 import { DashboardNav } from '../src/components/dashboard-nav';
+import { openPinSettings } from '../src/features/account/open-pin-settings';
 import { walletFlowLog } from '../src/features/account/wallet-flow-log';
 import { useSimulatedPayments } from '../src/features/payment/simulated-payment-store';
 import {
@@ -44,6 +46,10 @@ import {
 // Metro bundles this static Figma asset at build time.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const merchantBanner = require('../assets/figma/home-merchant-banner.png');
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const pinAd = require('../assets/ads/pin-ad.png');
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const historyAd = require('../assets/ads/history-ad.png');
 
 export default function Home() {
   const { wallet, onTempo, session, foreground } = useAccount();
@@ -272,27 +278,58 @@ export default function Home() {
             fundingHint={uiPreviewEnabled ? 'From bank' : 'Test faucet'}
           />
         </View>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Scan and pay across India"
-          accessibilityState={{ disabled: navigatingDisabled }}
+        <HomeAdCarousel
           disabled={navigatingDisabled}
-          onPress={() => router.push('/scanner')}
-          style={[styles.banner, navigatingDisabled && styles.disabledAction]}
-        >
-          <Image
-            source={merchantBanner}
-            resizeMode="cover"
-            style={styles.bannerImage}
-          />
-          <View style={styles.bannerCopy}>
-            <Text style={styles.bannerTitle}>Scan a merchant QR</Text>
-            <Text style={styles.bannerSub}>
-              Review UPI details before you pay.
-            </Text>
-            <Text style={styles.bannerLink}>Open scanner →</Text>
-          </View>
-        </Pressable>
+          ads={[
+            {
+              key: 'scan',
+              accessibilityLabel: 'Scan and pay across India',
+              onPress: () => router.push('/scanner'),
+              content: (
+                <>
+                  <Image
+                    source={merchantBanner}
+                    resizeMode="cover"
+                    style={styles.bannerImage}
+                  />
+                  <View style={styles.bannerCopy}>
+                    <Text style={styles.bannerTitle}>Scan a merchant QR</Text>
+                    <Text style={styles.bannerSub}>
+                      Review UPI details before you pay.
+                    </Text>
+                    <Text style={styles.bannerLink}>Open scanner →</Text>
+                  </View>
+                </>
+              ),
+            },
+            {
+              key: 'pin',
+              accessibilityLabel:
+                'Your PIN. Your payments. Set a 4-digit PIN to approve your TravelPe payments.',
+              onPress: () => void openPinSettings(),
+              content: (
+                <Image
+                  source={pinAd}
+                  resizeMode="cover"
+                  style={styles.bannerImage}
+                />
+              ),
+            },
+            {
+              key: 'history',
+              accessibilityLabel:
+                'Every payment, in one place. View your TravelPe payment history.',
+              onPress: () => router.push('/activity'),
+              content: (
+                <Image
+                  source={historyAd}
+                  resizeMode="cover"
+                  style={styles.bannerImage}
+                />
+              ),
+            },
+          ]}
+        />
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={
@@ -449,14 +486,6 @@ const styles = StyleSheet.create({
     minHeight: homeTheme.layout.touchTarget,
     justifyContent: 'center',
     alignSelf: 'flex-end',
-  },
-  disabledAction: { opacity: 0.5 },
-  banner: {
-    width: '100%',
-    height: 116,
-    borderRadius: 16,
-    overflow: 'hidden',
-    backgroundColor: '#ebeeff',
   },
   bannerImage: { width: '100%', height: '100%', position: 'absolute' },
   bannerCopy: {
