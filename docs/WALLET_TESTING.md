@@ -11,6 +11,22 @@ This increment connects a developer-controlled MetaMask account, reads its pathU
 5. Switch accounts/networks in MetaMask and return. Verify the account/network updates and that another account's balance is never displayed. Disconnect and reconnect; reject an approval and check retry behavior. If cancelling locally, reject pending wallet prompts as well.
 6. Disable the phone's internet and refresh: the app must show a balance error, not an invented zero. A failed faucet response may still have reached the network: inspect the balance before retrying.
 
+### Connection speed and progress
+
+1. On a fresh install, sign in and watch the status below the wallet address. It should name the current connection, Tempo network, challenge, MetaMask signature, or backend verification step. A declined MetaMask approval must stop the flow without opening a second prompt.
+2. Repeat with an already connected wallet and a valid backend session. The existing session check should finish without another signature. Compare the elapsed times in the development log's `MetaMask flow` entries.
+3. Reconnect a previously signed-in account after its MetaMask session lapses. Check the SDK's combined connection/signing flow and the ordinary approval fallback if MetaMask reports an unsupported or unauthorized request. Confirm that selecting a different account never signs in as the remembered account.
+4. Temporarily make the API unreachable during a session check, then restore it. The saved session must remain available for retry; a `401` response should clear an expired session. Test on a physical Android device because Metro export cannot verify wallet handoff timing.
+
+### Returning from MetaMask
+
+The SDK now receives a native return URL, and TravelPay requests foreground after sign-in succeeds or fails. Installed builds use `travellerpay://wallet-return`; Expo Go uses its current development URL. A warm callback preserves the current screen; a cold callback starts the usual authentication gate. A connection approval alone may still require network and signature approvals before sign-in finishes.
+
+1. Reload the app fully after updating. Disconnect and reconnect if an existing MetaMask session still has the old app metadata.
+2. Approve all sign-in requests in MetaMask. Confirm TravelPay returns to Home for an existing PIN, or PIN setup otherwise. Reject a request and confirm the error is visible when returning.
+3. Test both an installed build and Expo Go on the target phone. The OS may block background foreground requests or suspend JavaScript; automatic return is best effort, and MetaMask's return notification/manual app switch remains the fallback. This cannot be verified by unit tests or bundle export.
+4. Open the callback with the app terminated: it must follow the normal splash/authentication path, never bypass authentication.
+
 ## Tap to pay acceptance
 
 Start the app with `EXPO_PUBLIC_SETTLEMENT_ADDRESS` set to a testnet address you control (see the README). Then, on the phone:

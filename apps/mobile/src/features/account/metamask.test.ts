@@ -8,6 +8,9 @@ vi.mock('@metamask/connect-evm', () => ({
   createEVMClient: mocks.createEVMClient,
 }));
 vi.mock('react-native', () => ({ Linking: { openURL: mocks.openURL } }));
+vi.mock('expo-linking', () => ({
+  createURL: (path: string) => `travellerpay://${path}`,
+}));
 vi.mock('expo-secure-store', () => ({
   getItemAsync: async () => null,
   setItemAsync: async () => undefined,
@@ -35,6 +38,14 @@ async function fixture() {
     connect: vi.fn(async () => {
       emit();
     }),
+    connectAndSign: vi.fn(async () => {
+      emit();
+      return {
+        accounts: ['0x1234567890123456789012345678901234567890'],
+        chainId: '0xa5bf',
+        signature: '0xabcd',
+      };
+    }),
     switchChain: vi.fn(async () => {}),
     disconnect: vi.fn(async () => {}),
     getAccount: vi.fn<() => string | undefined>(() => undefined),
@@ -56,6 +67,27 @@ afterEach(() => {
 });
 
 describe('MetaMask native connection wiring', () => {
+  it('uses the SDK combined method and removes its pairing listener', async () => {
+    const { walletStore, sdk, handlers } = await fixture();
+    const stages: string[] = [];
+    await expect(
+      walletStore.connectAndSign?.('Sign in to Traveller', (stage) =>
+        stages.push(stage),
+      ),
+    ).resolves.toEqual({
+      account: {
+        address: '0x1234567890123456789012345678901234567890',
+        chainId: 42431,
+      },
+      signature: '0xabcd',
+    });
+    expect(sdk.connectAndSign).toHaveBeenCalledWith({
+      message: 'Sign in to Traveller',
+      chainIds: ['0xa5bf'],
+    });
+    expect(stages).toContain('combined');
+    expect(handlers.get('display_uri')?.size).toBe(0);
+  });
   it('returns the wallet signature to backend sign-in', async () => {
     const { walletStore, sdk } = await fixture();
     await walletStore.connect();
@@ -109,6 +141,13 @@ describe('MetaMask native connection wiring', () => {
   it('opens the headless pairing event emitted during connect and cleans up', async () => {
     const { walletStore, sdk, handlers } = await fixture();
     await walletStore.connect();
+    expect(mocks.createEVMClient).toHaveBeenCalledWith(
+      expect.objectContaining({
+        dapp: expect.objectContaining({
+          nativeScheme: 'travellerpay://wallet-return',
+        }),
+      }),
+    );
     expect(mocks.openURL).toHaveBeenCalledExactlyOnceWith(uri);
     expect(sdk.switchChain).toHaveBeenCalledOnce();
     expect(sdk.switchChain).toHaveBeenCalledWith(

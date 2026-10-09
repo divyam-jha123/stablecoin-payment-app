@@ -3,6 +3,7 @@ import { AppState, Pressable, StyleSheet, Text, View } from 'react-native';
 import { router, usePathname } from 'expo-router';
 import { shouldRelock } from '../features/account/app-lock-policy';
 import { authenticate, phoneHasLock } from '../features/account/device-lock';
+import { walletStore } from '../features/account/metamask';
 import { hasReturningUser } from '../features/account/returning-user';
 import { SplashBackdrop, SPLASH_DURATION_MS } from './splash-backdrop';
 
@@ -48,10 +49,15 @@ export function AppLock() {
     let cancelled = false;
     const timer = setTimeout(() => {
       void hasReturningUser()
-        .then((returning) => {
+        .then(async (returning) => {
           if (cancelled) return;
-          if (returning) setPhase('authenticate');
-          else {
+          if (returning) {
+            // Have Home's local account ready before the device prompt closes.
+            // Its backend session check can continue after Home opens.
+            await walletStore.restoreRemembered();
+            void walletStore.refresh();
+            if (!cancelled) setPhase('authenticate');
+          } else {
             setPhase('open');
             if (returnHome.current) router.replace('/onboarding');
           }
