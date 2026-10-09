@@ -3,6 +3,17 @@ import { accountAddress, TEMPO_CHAIN } from './tempo';
 import { walletFlowLog } from './wallet-flow-log';
 
 export type WalletAccount = { address: string; chainId: number };
+export type ConnectStage =
+  | 'preparing'
+  | 'connecting'
+  | 'combined'
+  | 'network'
+  | 'checking-session'
+  | 'challenge'
+  | 'signing'
+  | 'verifying'
+  | 'saving';
+export type StageListener = (stage: ConnectStage) => void;
 export type WalletSnapshot = {
   account: WalletAccount | null;
   busy: boolean;
@@ -11,11 +22,15 @@ export type WalletSnapshot = {
   restored: boolean;
 };
 export interface WalletAdapter {
-  connect(): Promise<void>;
-  switchToTempo(): Promise<void>;
+  connect(onStage?: StageListener): Promise<void>;
+  connectAndSign?(
+    message: string,
+    onStage?: StageListener,
+  ): Promise<{ account: WalletAccount; signature: `0x${string}` }>;
+  switchToTempo(onStage?: StageListener): Promise<void>;
   disconnect(): Promise<void>;
   account(): Promise<WalletAccount | null>;
-  signMessage(message: string): Promise<`0x${string}`>;
+  signMessage(message: string, onStage?: StageListener): Promise<`0x${string}`>;
   /** Sends one transaction from the connected account; resolves its hash. */
   sendTransaction(call: {
     to: `0x${string}`;
@@ -53,6 +68,8 @@ export function createWalletStore(
   let read = 0;
   let disconnected = false;
   let disconnecting = false;
+  let subscribers = 0;
+  let unsubscribeAdapter: (() => void) | undefined;
   const listeners = new Set<() => void>();
   function update(patch: Partial<WalletSnapshot>) {
     snapshot = { ...snapshot, ...patch };
@@ -62,21 +79,43 @@ export function createWalletStore(
     if (disconnected) return;
     const version = ++read;
     try {
-      // A live MetaMask account wins; otherwise the traveller who signed in
-      // on this phone, so a returning user opens straight to Home.
-      let account = await adapter.account();
-      // Always loaded, so screens can tell the remembered traveller apart
-      // once `restored` is true.
+      // Show the signed-in traveller as soon as secure storage responds.
+      // MetaMask can take several seconds to restore its own session.
       const remembered = memory ? await memory.load() : null;
+      if (version !== read || disconnected) return;
+      if (remembered && !snapshot.account) {
+        const account = { address: remembered, chainId: TEMPO_CHAIN.id };
+        accountAddress(account.address);
+        update({ account, restored: true });
+      }
+      // A live MetaMask account takes precedence once its session is ready.
+      let account = await adapter.account();
       if (!account && remembered) {
         account = { address: remembered, chainId: TEMPO_CHAIN.id };
       }
       if (account) accountAddress(account.address);
-      if (version === read) update({ account, restored: true });
+      if (version === read && !disconnected)
+        update({ account, restored: true });
     } catch (error) {
-      if (version === read)
-        update({ account: null, error: walletError(error), restored: true });
+      if (version === read && !disconnected)
+        update({
+          account: memory ? snapshot.account : null,
+          error: walletError(error),
+          restored: true,
+        });
     }
+  }
+  async function restoreRemembered() {
+    if (!memory || disconnected) return;
+    const version = ++read;
+    const remembered = await memory.load();
+    if (version !== read || disconnected || !remembered) return;
+    if (snapshot.account) return;
+    accountAddress(remembered);
+    update({
+      account: { address: remembered, chainId: TEMPO_CHAIN.id },
+      restored: true,
+    });
   }
   async function run(action: () => Promise<void>) {
     if (snapshot.busy) return;
@@ -119,31 +158,45 @@ export function createWalletStore(
       };
     },
     start() {
-      const unsubscribe = adapter.subscribe(() => {
+      subscribers++;
+      if (!unsubscribeAdapter) {
+        unsubscribeAdapter = adapter.subscribe(() => {
+          void refresh();
+        });
         void refresh();
-      });
-      void refresh();
-      return unsubscribe;
+      }
+      return () => {
+        subscribers--;
+        if (subscribers === 0) {
+          unsubscribeAdapter?.();
+          unsubscribeAdapter = undefined;
+        }
+      };
     },
     refresh,
+    restoreRemembered,
+    liveAccount: adapter.account,
     signMessage: adapter.signMessage,
+    connectAndSign: adapter.connectAndSign,
     sendTransaction: adapter.sendTransaction,
     setError(error: string) {
       update({ error });
     },
-    connect: () =>
+    connect: (onStage?: StageListener) =>
       run(async () => {
         disconnected = false;
         const version = operation;
-        await adapter.connect();
+        await adapter.connect(onStage);
         if (version === operation) {
           walletFlowLog.info(
             'Connection complete; starting Tempo network step',
           );
-          await adapter.switchToTempo();
+          onStage?.('network');
+          await adapter.switchToTempo(onStage);
         }
       }),
-    switchToTempo: () => run(() => adapter.switchToTempo()),
+    switchToTempo: (onStage?: StageListener) =>
+      run(() => adapter.switchToTempo(onStage)),
     async disconnect() {
       if (disconnecting) return;
       disconnecting = true;

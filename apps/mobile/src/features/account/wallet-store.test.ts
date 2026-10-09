@@ -61,6 +61,44 @@ describe('MetaMask account lifecycle', () => {
       restored: true,
     });
   });
+  it('opens the remembered account while MetaMask is still restoring', async () => {
+    const { adapter } = fixture();
+    let finish!: (account: WalletAccount | null) => void;
+    vi.mocked(adapter.account).mockImplementationOnce(
+      () =>
+        new Promise<WalletAccount | null>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const store = createWalletStore(adapter, { load: async () => address });
+    const pending = store.refresh();
+    await vi.waitFor(() => expect(adapter.account).toHaveBeenCalledOnce());
+    expect(store.getSnapshot()).toMatchObject({
+      account: { address, chainId: 42431 },
+      restored: true,
+    });
+    finish(null);
+    await pending;
+  });
+  it('primes Home from the remembered account before SDK restoration', async () => {
+    const { adapter } = fixture();
+    const store = createWalletStore(adapter, { load: async () => address });
+    await store.restoreRemembered();
+    expect(adapter.account).not.toHaveBeenCalled();
+    expect(store.getSnapshot()).toMatchObject({
+      account: { address, chainId: 42431 },
+      restored: true,
+    });
+  });
+  it('does not replace a different live wallet while priming Home', async () => {
+    const { adapter } = fixture();
+    const live = '0x9999999999999999999999999999999999999999';
+    vi.mocked(adapter.account).mockResolvedValue({ address: live, chainId: 1 });
+    const store = createWalletStore(adapter, { load: async () => address });
+    await store.refresh();
+    await store.restoreRemembered();
+    expect(store.getSnapshot().account).toEqual({ address: live, chainId: 1 });
+  });
   it('prefers the live MetaMask account over the remembered one', async () => {
     const { adapter } = fixture();
     const live = '0x9999999999999999999999999999999999999999';
@@ -103,6 +141,15 @@ describe('MetaMask account lifecycle', () => {
     f.change(null);
     await vi.waitFor(() => expect(f.store.getSnapshot().account).toBeNull());
     stop();
+  });
+  it('shares one adapter subscription across mounted account screens', () => {
+    const { adapter, store } = fixture();
+    const subscribe = vi.spyOn(adapter, 'subscribe');
+    const first = store.start();
+    const second = store.start();
+    expect(subscribe).toHaveBeenCalledOnce();
+    first();
+    second();
   });
   it('suppresses late approvals after cancel, and allows a fresh connection', async () => {
     const f = fixture();

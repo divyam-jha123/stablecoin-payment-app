@@ -5,10 +5,17 @@ let tracking = false;
 // visible even when only ERROR lines are copied from the terminal.
 let trail: string[] = [];
 let trailShown = false;
+let attemptStartedAt = 0;
+let lastStepAt = 0;
 const enabled = typeof __DEV__ !== 'undefined' && __DEV__;
 
 function prefix() {
-  return `[MetaMask flow #${attempt || '-'} step ${++step}]`;
+  const now = Date.now();
+  const timing = tracking
+    ? ` +${now - attemptStartedAt}ms (step +${now - lastStepAt}ms)`
+    : '';
+  lastStepAt = now;
+  return `[MetaMask flow #${attempt || '-'} step ${++step}${timing}]`;
 }
 
 function record(message: string) {
@@ -42,6 +49,8 @@ export const walletFlowLog = {
     tracking = true;
     trail = [];
     trailShown = false;
+    attemptStartedAt = Date.now();
+    lastStepAt = attemptStartedAt;
     console.info(`${prefix()} Connect button pressed`);
     record('Connect button pressed');
   },

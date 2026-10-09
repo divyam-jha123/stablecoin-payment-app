@@ -19,17 +19,49 @@ import {
   PREVIEW_PIN_OWNER,
 } from '../src/features/account/payment-pin';
 import { rememberedAccount } from '../src/features/account/remembered-account';
-import { authenticateWallet } from '../src/features/account/session';
+import {
+  authenticateWallet,
+  requestSignInChallenge,
+  verifySignInChallenge,
+} from '../src/features/account/session';
 import { TEMPO_CHAIN } from '../src/features/account/tempo';
-import { walletError } from '../src/features/account/wallet-store';
+import {
+  walletError,
+  type ConnectStage,
+} from '../src/features/account/wallet-store';
 import { walletFlowLog } from '../src/features/account/wallet-flow-log';
 import { uiPreviewEnabled } from '../src/ui-preview';
+import { returnFromWallet } from '../src/features/account/wallet-return';
+
+const stageText: Record<ConnectStage, string> = {
+  preparing: 'Preparing MetaMask connection…',
+  connecting: 'Approve the connection in MetaMask, then return here.',
+  combined: 'Approve connection and sign-in in MetaMask, then return here.',
+  network: 'Approve Tempo testnet in MetaMask, then return here.',
+  'checking-session': 'Checking your existing sign-in…',
+  challenge: 'Preparing your secure sign-in…',
+  signing: 'Confirm your sign-in in MetaMask, then return here.',
+  verifying: 'Verifying your wallet signature…',
+  saving: 'Saving your sign-in…',
+};
+
+function canRetryCombined(error: unknown) {
+  if (typeof error !== 'object' || error === null || !('code' in error))
+    return false;
+  return (
+    error.code === 4100 ||
+    error.code === 4902 ||
+    error.code === -32601 ||
+    error.code === -32602
+  );
+}
 
 export default function Connect() {
   const { wallet, onTempo, session } = useAccount();
   const queryClient = useQueryClient();
   const [signing, setSigning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [stage, setStage] = useState<ConnectStage | null>(null);
   const lock = useRef(false);
   const busy = signing || wallet.busy;
   const checking = Boolean(wallet.account && onTempo && session.isFetching);
@@ -65,18 +97,51 @@ export default function Connect() {
     lock.current = true;
     setSigning(true);
     setError(null);
+    setStage('preparing');
     try {
-      if (!walletStore.getSnapshot().account) {
-        walletFlowLog.info('Starting MetaMask connection');
-        await walletStore.connect();
-      } else if (
-        walletStore.getSnapshot().account?.chainId !== TEMPO_CHAIN.id
-      ) {
-        walletFlowLog.info('Wallet connected; requesting Tempo network');
-        await walletStore.switchToTempo();
-      } else {
-        walletFlowLog.info('Wallet already connected on Tempo');
+      let combined:
+        | {
+            account: { address: string; chainId: number };
+            signature: `0x${string}`;
+            challenge: Awaited<ReturnType<typeof requestSignInChallenge>>;
+          }
+        | undefined;
+      const remembered = await rememberedAccount.load();
+      const liveAccount = remembered
+        ? await walletStore.liveAccount()
+        : walletStore.getSnapshot().account;
+      if (remembered && !liveAccount && walletStore.connectAndSign) {
+        const challenge = await requestSignInChallenge(remembered, setStage);
+        try {
+          const signed = await walletStore.connectAndSign(
+            challenge.message,
+            setStage,
+          );
+          if (signed.account.address.toLowerCase() !== remembered.toLowerCase())
+            throw new Error(
+              'MetaMask selected a different account. Sign in with the wallet you used before.',
+            );
+          combined = { ...signed, challenge };
+          await walletStore.refresh();
+        } catch (cause) {
+          if (!canRetryCombined(cause)) throw cause;
+          walletFlowLog.info(
+            'Combined sign-in unavailable; using wallet approval steps',
+          );
+        }
       }
+      if (!combined && !liveAccount) {
+        walletFlowLog.info('Starting MetaMask connection');
+        await walletStore.connect(setStage);
+      } else if (!combined && liveAccount?.chainId !== TEMPO_CHAIN.id) {
+        walletFlowLog.info('Wallet connected; requesting Tempo network');
+        await walletStore.switchToTempo(setStage);
+      } else if (!combined) {
+        walletFlowLog.info('Wallet already connected on Tempo');
+        await walletStore.refresh();
+      }
+      if (combined && combined.account.chainId !== TEMPO_CHAIN.id)
+        await walletStore.switchToTempo(setStage);
       const current = walletStore.getSnapshot();
       if (!current.account || current.account.chainId !== TEMPO_CHAIN.id) {
         throw new Error(
@@ -85,11 +150,25 @@ export default function Connect() {
       }
       walletFlowLog.info('Wallet account confirmed on Tempo testnet');
       const account = current.account;
+      if (
+        combined &&
+        account.address.toLowerCase() !== combined.account.address.toLowerCase()
+      )
+        throw new Error(
+          'Your wallet changed during sign-in. Please try again.',
+        );
       // Cancel a pending restore so it cannot overwrite this sign-in result.
       walletFlowLog.info('Cancelling any pending session check');
       await queryClient.cancelQueries({ queryKey: ['session'] });
       walletFlowLog.info('Starting backend wallet sign-in');
-      await authenticateWallet(account, walletStore.signMessage);
+      if (combined)
+        await verifySignInChallenge(
+          account,
+          combined.challenge,
+          combined.signature,
+          setStage,
+        );
+      else await authenticateWallet(account, walletStore.signMessage, setStage);
       walletFlowLog.info('Backend wallet sign-in completed');
       await walletStore.refresh();
       const after = walletStore.getSnapshot().account;
@@ -108,13 +187,18 @@ export default function Connect() {
         ['session', account.address, account.chainId],
         true,
       );
-      walletFlowLog.info('Session marked ready; dashboard navigation pending');
+      const hasPin = await pinStore.hasPin(account.address);
+      walletFlowLog.info('Session marked ready; opening next screen');
+      router.replace(hasPin ? '/home' : '/pin-setup');
+      void returnFromWallet();
     } catch (cause) {
       walletFlowLog.error('Sign-in stopped', cause);
       walletFlowLog.stop();
       setError(walletError(cause));
+      void returnFromWallet();
     } finally {
       setSigning(false);
+      setStage(null);
       lock.current = false;
     }
   }
@@ -154,7 +238,9 @@ export default function Connect() {
               <ActivityIndicator color="#fff" />
               <Text accessibilityLiveRegion="polite" style={styles.statusText}>
                 {busy
-                  ? 'Approve the request in MetaMask, then return here.'
+                  ? stage
+                    ? stageText[stage]
+                    : 'Connecting to MetaMask…'
                   : 'Checking your sign-in…'}
               </Text>
             </View>
@@ -178,7 +264,12 @@ export default function Connect() {
               {uiPreviewEnabled
                 ? 'Continue'
                 : busy
-                  ? 'Waiting for MetaMask…'
+                  ? stage === 'connecting' ||
+                    stage === 'combined' ||
+                    stage === 'signing' ||
+                    stage === 'network'
+                    ? 'Waiting for MetaMask…'
+                    : 'Signing you in…'
                   : checking
                     ? 'Checking sign-in…'
                     : !wallet.account

@@ -3,10 +3,15 @@ import {
   type MetamaskConnectEVM,
 } from '@metamask/connect-evm';
 import { Linking } from 'react-native';
-import { TEMPO_CHAIN, TEMPO_CHAIN_HEX } from './tempo';
+import { accountAddress, TEMPO_CHAIN, TEMPO_CHAIN_HEX } from './tempo';
 import { rememberedAccount } from './remembered-account';
-import { createWalletStore, type WalletAdapter } from './wallet-store';
+import {
+  createWalletStore,
+  type StageListener,
+  type WalletAdapter,
+} from './wallet-store';
 import { walletFlowLog } from './wallet-flow-log';
+import { walletReturnUrl } from './wallet-return';
 
 let client: MetamaskConnectEVM | undefined;
 let initializing: Promise<MetamaskConnectEVM> | undefined;
@@ -36,6 +41,7 @@ async function getClient() {
     dapp: {
       name: 'Traveller Pay',
       url: 'https://github.com/divyam-jha123/stablecoin-payment-app',
+      nativeScheme: walletReturnUrl(),
     },
     api: {
       supportedNetworks: {
@@ -59,6 +65,7 @@ async function getClient() {
       provider.on('accountsChanged', changed);
       provider.on('chainChanged', changed);
       provider.on('disconnect', changed);
+      changed();
       return value;
     })
     .catch((error: unknown) => {
@@ -69,7 +76,10 @@ async function getClient() {
   return initializing;
 }
 
-async function walletRequest<T>(action: () => Promise<T>): Promise<T> {
+async function walletRequest<T>(
+  action: () => Promise<T>,
+  timeoutMs = 90_000,
+): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   let rejectLink: ((error: Error) => void) | undefined;
   try {
@@ -81,14 +91,14 @@ async function walletRequest<T>(action: () => Promise<T>): Promise<T> {
         timer = setTimeout(() => {
           walletFlowLog.error(
             'MetaMask request timed out',
-            new Error('90 seconds elapsed'),
+            new Error(`${timeoutMs} milliseconds elapsed`),
           );
           reject(
             new Error(
               'MetaMask did not respond. Open MetaMask to finish or reject the pending request, then retry.',
             ),
           );
-        }, 90_000);
+        }, timeoutMs);
       }),
     ]);
   } finally {
@@ -106,43 +116,80 @@ function isUnauthorized(error: unknown) {
   );
 }
 
+async function withPairing<T>(
+  action: (sdk: MetamaskConnectEVM) => Promise<T>,
+  onStage?: StageListener,
+  timeoutMs = 90_000,
+): Promise<T | undefined> {
+  const version = ++generation;
+  let removePairingListener: (() => void) | undefined;
+  try {
+    return await walletRequest(async () => {
+      onStage?.('preparing');
+      const sdk = await getClient();
+      if (version !== generation) return undefined;
+      const provider = sdk.getProvider();
+      const opened = new Set<string>();
+      const onPairingUri = (uri: string) => {
+        if (version !== generation || opened.has(uri)) return;
+        opened.add(uri);
+        walletFlowLog.info('MetaMask pairing request created');
+        onStage?.('connecting');
+        openMetaMaskLink(uri);
+      };
+      provider.on('display_uri', onPairingUri);
+      removePairingListener = () =>
+        provider.removeListener('display_uri', onPairingUri);
+      onStage?.('connecting');
+      return action(sdk);
+    }, timeoutMs);
+  } finally {
+    if (version === generation) ++generation;
+    removePairingListener?.();
+  }
+}
+
 const adapter: WalletAdapter = {
-  async connect() {
-    const version = ++generation;
-    let removePairingListener: (() => void) | undefined;
+  async connect(onStage) {
     try {
-      await walletRequest(async () => {
-        const sdk = await getClient();
-        if (version !== generation) return;
-        const provider = sdk.getProvider();
-        const opened = new Set<string>();
-        const onPairingUri = (uri: string) => {
-          if (version !== generation || opened.has(uri)) return;
-          opened.add(uri);
-          walletFlowLog.info('MetaMask pairing request created');
-          openMetaMaskLink(uri);
-        };
-        // Headless mode emits this event instead of calling preferredOpenLink.
-        // Register before connect: the SDK can emit the URI immediately.
-        provider.on('display_uri', onPairingUri);
-        removePairingListener = () =>
-          provider.removeListener('display_uri', onPairingUri);
+      await withPairing(async (sdk) => {
         walletFlowLog.info('Waiting for MetaMask connection approval');
         await sdk.connect({ chainIds: [TEMPO_CHAIN_HEX] });
         walletFlowLog.info('MetaMask connection approved');
-      });
+      }, onStage);
     } catch (cause) {
       walletFlowLog.error('MetaMask connection failed', cause);
       throw cause;
-    } finally {
-      // Also clean up on timeout/OS failure while the SDK promise is pending.
-      if (version === generation) ++generation;
-      removePairingListener?.();
     }
   },
-  async switchToTempo() {
+  async connectAndSign(message, onStage) {
+    const result = await withPairing(
+      async (sdk) => {
+        walletFlowLog.info(
+          'Requesting combined MetaMask connection and sign-in',
+        );
+        onStage?.('combined');
+        return sdk.connectAndSign({
+          message,
+          chainIds: [TEMPO_CHAIN_HEX],
+        });
+      },
+      onStage,
+      180_000,
+    );
+    if (!result) throw new Error('MetaMask connection was cancelled.');
+    const address = accountAddress(result.accounts[0] ?? '');
+    if (!/^0x[0-9a-f]+$/i.test(result.signature))
+      throw new Error('MetaMask returned an invalid signature.');
+    return {
+      account: { address, chainId: Number(result.chainId) },
+      signature: result.signature as `0x${string}`,
+    };
+  },
+  async switchToTempo(onStage) {
     try {
       await walletRequest(async () => {
+        onStage?.('network');
         const sdk = await getClient();
         walletFlowLog.info(
           'Requesting Tempo network switch or addition in MetaMask',
@@ -180,20 +227,21 @@ const adapter: WalletAdapter = {
       client ??
       (await Promise.race([
         getClient().catch(() => undefined),
-        new Promise<undefined>((resolve) => setTimeout(resolve, 5_000)),
+        new Promise<undefined>((resolve) => setTimeout(resolve, 750)),
       ]));
     const address = sdk?.getAccount();
     const chain = sdk?.getChainId();
     return address && chain ? { address, chainId: Number(chain) } : null;
   },
-  async signMessage(message) {
+  async signMessage(message, onStage) {
     const sdk = await getClient();
     // Signed in from a previous launch but MetaMask's session lapsed.
-    if (!sdk.getAccount()) await adapter.connect();
+    if (!sdk.getAccount()) await adapter.connect(onStage);
     const sign = () => {
       const address = sdk.getAccount();
       if (!address) throw new Error('Connect a wallet before signing in.');
       walletFlowLog.info('Requesting sign-in signature from MetaMask');
+      onStage?.('signing');
       return walletRequest(() =>
         sdk.getProvider().request({
           method: 'personal_sign',
@@ -211,7 +259,7 @@ const adapter: WalletAdapter = {
       // that Tempo exists so signing on Tempo is authorized.
       walletFlowLog.error('MetaMask has not authorized Tempo yet', cause);
       walletFlowLog.info('Requesting MetaMask approval for Tempo');
-      await adapter.connect();
+      await adapter.connect(onStage);
       signature = await sign();
     }
     if (typeof signature !== 'string' || !/^0x[0-9a-f]+$/i.test(signature)) {

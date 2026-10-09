@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 import { AppState } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
@@ -14,6 +20,7 @@ export function useAccount() {
     walletStore.getSnapshot,
   );
   const [focused, setFocused] = useState(false);
+  const hasFocused = useRef(false);
   const [active, setActive] = useState(AppState.currentState === 'active');
   useEffect(() => {
     if (!uiPreviewEnabled) return walletStore.start();
@@ -21,7 +28,8 @@ export function useAccount() {
   useFocusEffect(
     useCallback(() => {
       setFocused(true);
-      if (!uiPreviewEnabled) void walletStore.refresh();
+      if (hasFocused.current && !uiPreviewEnabled) void walletStore.refresh();
+      hasFocused.current = true;
       return () => setFocused(false);
     }, []),
   );
@@ -46,7 +54,7 @@ export function useAccount() {
       !wallet.busy,
     ),
     retry: false,
-    staleTime: 0,
+    staleTime: 30_000,
     refetchInterval: focused && active ? 60_000 : false,
   });
   return { wallet, onTempo, session, foreground: focused && active };
