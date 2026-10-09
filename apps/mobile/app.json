@@ -24,6 +24,14 @@
           "savePhotosPermission": "Allow TravelPe to save your payment QR image.",
           "granularPermissions": ["photo"]
         }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": false,
+          "recordAudioAndroid": false,
+          "enableBackgroundPlayback": false
+        }
       ]
     ],
     "android": {

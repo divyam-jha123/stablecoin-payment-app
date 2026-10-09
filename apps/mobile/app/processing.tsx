@@ -12,7 +12,13 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Svg, { Circle } from 'react-native-svg';
+import Svg, {
+  Circle,
+  Defs,
+  LinearGradient,
+  Rect,
+  Stop,
+} from 'react-native-svg';
 import { AppIcon, colors } from '../src/components/payment-ui';
 import {
   IndiaFlagEmblem,
@@ -28,9 +34,9 @@ import { PreviewFlowBar } from '../src/components/preview-flow-bar';
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const skyline = require('../assets/figma/processing-skyline.png');
 // The token illustration in aligned layers: the base platform, the light
-// streaks around the coin (still), and the ₹ coin alone, which moves.
+// glow around the coin, and the ₹ coin, which moves.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const coinRays = require('../assets/figma/processing-coin-rays.png');
+const coinGlow = require('../assets/figma/processing-coin-glow.png');
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const coinDisc = require('../assets/figma/processing-coin-disc.png');
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -45,7 +51,8 @@ const RING_LENGTH = 2 * Math.PI * RING_RADIUS;
 
 // Simulated payment timeline, in seconds. Each step runs until its end, then
 // the next starts; after the last the payment completes.
-//   Convert  0.0–1.1  ₹ coin rises out of the base coin into a hover
+//   Convert  0.0–1.1  ₹ coin rises out of the token base into a hover: the
+//                     token becoming INR
 //   Settle   1.1–1.5  coin hovers
 //   Confirm  1.5–1.8  base rings green
 //   Done     1.8–2.2  ₹ coin moves up and fades out, then success opens
@@ -60,7 +67,7 @@ const STEPS: {
     label: 'Convert',
     icon: 'swap',
     title: 'Processing payment',
-    copy: (symbol) => `Converting INR to ${symbol} and preparing settlement`,
+    copy: (symbol) => `Converting ${symbol} to INR and preparing settlement`,
   },
   {
     label: 'Settle',
@@ -103,13 +110,37 @@ const COIN_TOP_Y = 204;
 const EMERGE_MS = 1000;
 const EXIT_MS = 380;
 const HOVER_MS = 1700;
+// Light streaks rising from the base face, in source-image pixels: the rays
+// area runs from the top of the artwork down to RAYS_BOTTOM_Y. `offset`
+// staggers each streak along the shared flow cycle.
+const RAYS_BOTTOM_Y = 750;
+// One streak for each light line in the original rays artwork, now drawn
+// moving over the soft glow left behind.
+const RAY_STREAKS = [
+  { x: 370, width: 12, length: 300, color: '#4f9dff', offset: 0 },
+  { x: 401, width: 10, length: 260, color: '#a9d8ff', offset: 0.46 },
+  { x: 429, width: 9, length: 220, color: '#ffd76e', offset: 0.78 },
+  { x: 456, width: 9, length: 240, color: '#ffc94d', offset: 0.22 },
+  { x: 520, width: 8, length: 180, color: '#ffd76e', offset: 0.6 },
+  { x: 550, width: 10, length: 320, color: '#ffc94d', offset: 0.08 },
+  { x: 671, width: 11, length: 300, color: '#ffe08a', offset: 0.36 },
+  { x: 764, width: 11, length: 300, color: '#ffe08a', offset: 0.7 },
+  { x: 810, width: 8, length: 200, color: '#ffc94d', offset: 0.15 },
+  { x: 855, width: 10, length: 320, color: '#ffc94d', offset: 0.52 },
+  { x: 898, width: 10, length: 260, color: '#a9d8ff', offset: 0.88 },
+  { x: 933, width: 12, length: 300, color: '#4f9dff', offset: 0.3 },
+  { x: 964, width: 9, length: 200, color: '#ffd76e', offset: 0.64 },
+];
+// Time for one streak to travel from the base to the top, per step
+// (Convert, Settle, Confirm, Done): the light speeds up as the payment moves.
+const RAY_CYCLE_MS = [1900, 1300, 850, 520];
 
 /**
- * The conversion illustration: the token base and the light streaks around
- * the coin stay perfectly still; only the gold ₹ coin moves. It rises out of
- * the base coin into a hover, and once the steps are done it moves up and
- * fades out. The base rim glows, turning green on Confirm. Reduced motion
- * shows the still artwork.
+ * The conversion illustration: the token base stays perfectly still while
+ * light streaks rise from it around the gold ₹ coin, faster with each step.
+ * The coin rises out of the base coin into a hover, and once the steps are
+ * done it moves up and fades out. The base rim glows, turning green on
+ * Confirm. Reduced motion shows the still artwork.
  */
 function CoinScene({
   scale,
@@ -125,8 +156,43 @@ function CoinScene({
   const hover = useRef(new Animated.Value(0)).current;
   const confirm = useRef(new Animated.Value(0)).current;
   const exit = useRef(new Animated.Value(0)).current;
+  const flow = useRef(new Animated.Value(0)).current;
   const exited = useRef(false);
   const reduceMotion = useRef(false);
+  const [raysMoving, setRaysMoving] = useState(false);
+
+  useEffect(() => {
+    if (!raysMoving) return;
+    // Finish the current cycle at the new speed, then keep looping at it, so
+    // the streaks speed up without jumping.
+    const cycle = RAY_CYCLE_MS[Math.min(stage, RAY_CYCLE_MS.length - 1)]!;
+    let stopped = false;
+    let animation: Animated.CompositeAnimation | undefined;
+    flow.stopAnimation((value) => {
+      if (stopped) return;
+      const toTop = (duration: number) =>
+        Animated.timing(flow, {
+          toValue: 1,
+          duration,
+          easing: Easing.linear,
+          useNativeDriver: true,
+        });
+      animation = toTop(cycle * (1 - (value % 1)));
+      animation.start(({ finished }) => {
+        if (!finished || stopped) return;
+        // A native loop repeats from the value it starts at, so start it
+        // from the bottom; otherwise every pass runs from 1 to 1 and the
+        // streaks freeze.
+        flow.setValue(0);
+        animation = Animated.loop(toTop(cycle));
+        animation.start();
+      });
+    });
+    return () => {
+      stopped = true;
+      animation?.stop();
+    };
+  }, [stage, raysMoving, flow]);
 
   useEffect(() => {
     const confirmLevel =
@@ -187,6 +253,7 @@ function CoinScene({
         rise.setValue(1);
         return;
       }
+      setRaysMoving(true);
       animation = Animated.parallel([
         // The streaks fade in, then the coin rises out of the base face with
         // a slight overshoot into its hover spot.
@@ -356,12 +423,87 @@ function CoinScene({
         </View>
       ) : null}
 
-      {/* Light streaks around the coin: part of the artwork, never moving. */}
+      {/* Soft glow around the coin: the rays artwork without its lines. */}
       <Animated.Image
-        source={coinRays}
+        source={coinGlow}
         resizeMode="contain"
         style={[styles.layer, { width, height, opacity: intro }]}
       />
+
+      {/* Light streaks rising from the base face and fading out at the top. */}
+      {raysMoving ? (
+        <View
+          pointerEvents="none"
+          style={[
+            styles.layer,
+            { width, height: RAYS_BOTTOM_Y * scale, overflow: 'hidden' },
+          ]}
+        >
+          {RAY_STREAKS.flatMap((ray) =>
+            // Two streaks per line, half a cycle apart, so every line always
+            // has light flowing up it.
+            [0, 0.5].map((phase) => ({ ...ray, offset: ray.offset + phase })),
+          ).map((ray, index) => {
+            const progress = Animated.modulo(Animated.add(flow, ray.offset), 1);
+            const rayWidth = ray.width * scale;
+            const rayLength = ray.length * scale;
+            return (
+              <Animated.View
+                key={index}
+                style={[
+                  styles.layer,
+                  {
+                    left: ray.x * scale - rayWidth / 2,
+                    width: rayWidth,
+                    height: rayLength,
+                    opacity: Animated.multiply(
+                      intro,
+                      progress.interpolate({
+                        inputRange: [0, 0.12, 0.7, 1],
+                        outputRange: [0, 1, 0.85, 0],
+                      }),
+                    ),
+                    transform: [
+                      {
+                        translateY: progress.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [RAYS_BOTTOM_Y * scale, -rayLength],
+                        }),
+                      },
+                    ],
+                  },
+                ]}
+              >
+                <Svg width={rayWidth} height={rayLength}>
+                  <Defs>
+                    <LinearGradient
+                      id={`ray-${index}`}
+                      x1="0"
+                      y1="0"
+                      x2="0"
+                      y2="1"
+                    >
+                      <Stop offset="0" stopColor="#ffffff" stopOpacity="1" />
+                      <Stop
+                        offset="0.25"
+                        stopColor={ray.color}
+                        stopOpacity="1"
+                      />
+                      <Stop offset="1" stopColor={ray.color} stopOpacity="0" />
+                    </LinearGradient>
+                  </Defs>
+                  <Rect
+                    width={rayWidth}
+                    height={rayLength}
+                    rx={rayWidth / 2}
+                    fill={`url(#ray-${index})`}
+                  />
+                </Svg>
+              </Animated.View>
+            );
+          })}
+        </View>
+      ) : null}
 
       {/* Clipped at the base face, so the coin comes up out of the base;
           open above, so it can shoot up and away at the end. */}
@@ -377,28 +519,6 @@ function CoinScene({
           },
         ]}
       >
-        {/* Soft blue glow under the coin's lower edge. */}
-        <Animated.View
-          style={[
-            styles.coinUnderGlow,
-            {
-              left: centerX - 0.17 * height,
-              top: height + COIN_BOTTOM_Y * scale - 0.035 * height,
-              width: 0.34 * height,
-              height: 0.07 * height,
-              borderRadius: 0.17 * height,
-              opacity: Animated.multiply(
-                coinOpacity,
-                pulse.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [0.35, 0.75],
-                }),
-              ),
-              transform: [{ translateY: coinY }],
-            },
-          ]}
-        />
-
         <Animated.Image
           source={coinDisc}
           resizeMode="contain"
@@ -434,7 +554,7 @@ function ProgressRing({ symbol }: { symbol: string }) {
 
   return (
     <View
-      accessibilityLabel={`Converting to ${symbol}`}
+      accessibilityLabel={`Converting ${symbol} to INR`}
       style={styles.ringWrap}
     >
       <Svg width={RING_SIZE} height={RING_SIZE} style={StyleSheet.absoluteFill}>
@@ -600,17 +720,17 @@ export default function Processing() {
               </Text>
 
               <View style={styles.pair}>
-                <IndiaFlagEmblem size={30} />
-                <Text style={styles.pairText}>INR</Text>
-                <AppIcon name="arrow" size={20} color="#7d8aa3" />
                 <TokenEmblem symbol={symbol} size={30} />
                 <Text style={styles.pairText}>{symbol}</Text>
+                <AppIcon name="arrow" size={20} color="#7d8aa3" />
+                <IndiaFlagEmblem size={30} />
+                <Text style={styles.pairText}>INR</Text>
               </View>
               <Text
                 accessibilityLiveRegion="polite"
                 style={[styles.converting, stepIndex > 0 && styles.ready]}
               >
-                {stepIndex > 0 ? `${symbol} ready` : `Converting to ${symbol}`}
+                {stepIndex > 0 ? 'INR ready' : `Converting ${symbol} to INR`}
               </Text>
             </View>
 
@@ -823,13 +943,6 @@ const styles = StyleSheet.create({
     shadowColor: '#22a35a',
     shadowOpacity: 0.8,
     shadowRadius: 12,
-  },
-  coinUnderGlow: {
-    position: 'absolute',
-    backgroundColor: 'rgba(90,160,255,0.35)',
-    shadowColor: '#3d8bff',
-    shadowOpacity: 0.8,
-    shadowRadius: 10,
   },
   card: {
     borderRadius: 24,
