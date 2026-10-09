@@ -372,7 +372,6 @@ export default function Home() {
                 params: {
                   merchantName: 'Sample merchant',
                   merchantVpa: 'sample@upi',
-                  inrAmount: '250',
                 },
               })
             }

@@ -68,8 +68,9 @@ const PAY_TOKENS = [
 type PayToken = (typeof PAY_TOKENS)[number]['symbol'];
 // Corner brackets sit just outside the cut-out, one colour per corner.
 const CORNER_OFFSET = 12;
+// No amount, so Pay Merchant starts at ₹0 and the amount is typed in.
 const SAMPLE_MERCHANT_QR =
-  'upi://pay?pa=sample@upi&pn=Sample%20merchant&am=250.00&cu=INR';
+  'upi://pay?pa=sample@upi&pn=Sample%20merchant&cu=INR';
 
 type ScannedPayment =
   | { travelPeQr: string }
@@ -621,7 +622,6 @@ export default function Scanner() {
                   recipientId: 'divyam@travelpe',
                   recipientName: 'Divyam Jha',
                   currency: 'USDC',
-                  inrAmount: '250',
                   note: 'Demo payment',
                 });
                 setPayment({ travelPeQr });
