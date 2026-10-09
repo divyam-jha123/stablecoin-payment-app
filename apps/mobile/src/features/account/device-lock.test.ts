@@ -9,7 +9,8 @@ vi.mock('expo-local-authentication', () => ({
   SecurityLevel: { NONE: 0, SECRET: 1, BIOMETRIC_STRONG: 3 },
 }));
 
-const { authenticate, phoneHasLock } = await import('./device-lock');
+const { authenticate, phoneHasBiometrics, phoneHasLock } =
+  await import('./device-lock');
 
 beforeEach(() => vi.resetAllMocks());
 
@@ -19,6 +20,15 @@ describe('native device authentication', () => {
     expect(await phoneHasLock()).toBe(true);
     native.getEnrolledLevelAsync.mockResolvedValue(0);
     expect(await phoneHasLock()).toBe(false);
+  });
+
+  it('counts only a fingerprint or face as biometrics', async () => {
+    native.getEnrolledLevelAsync.mockResolvedValue(3);
+    expect(await phoneHasBiometrics()).toBe(true);
+    native.getEnrolledLevelAsync.mockResolvedValue(1);
+    expect(await phoneHasBiometrics()).toBe(false);
+    native.getEnrolledLevelAsync.mockResolvedValue(0);
+    expect(await phoneHasBiometrics()).toBe(false);
   });
 
   it('allows the operating system to fall back to the phone passcode', async () => {

@@ -16,3 +16,9 @@ export async function authenticate(promptMessage: string) {
   });
   return result.success;
 }
+
+/** Whether the phone has a fingerprint or face enrolled, not only a passcode. */
+export async function phoneHasBiometrics() {
+  const level = await LocalAuthentication.getEnrolledLevelAsync();
+  return level > LocalAuthentication.SecurityLevel.SECRET;
+}

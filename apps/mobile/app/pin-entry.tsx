@@ -22,6 +22,7 @@ import {
 } from '../src/features/account/payment-pin';
 import { simulatedPaymentStore } from '../src/features/payment/simulated-payment-store';
 import { pinOwner } from '../src/features/account/pin-owner';
+import { recordLoginActivity } from '../src/features/account/login-activity-store';
 import { uiPreviewEnabled } from '../src/ui-preview';
 
 // Short pause after the last digit so the fourth box visibly fills before
@@ -165,6 +166,7 @@ export default function PinEntry() {
           return;
         }
         await pinStore.setPin(owner, pin);
+        recordLoginActivity(mode === 'change' ? 'pin-changed' : 'pin-set');
         await finish();
         return;
       }
