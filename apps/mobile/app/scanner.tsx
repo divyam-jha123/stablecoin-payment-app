@@ -18,6 +18,7 @@ import { router, Stack } from 'expo-router';
 import {
   Animated,
   Button,
+  Easing,
   Pressable,
   StyleSheet,
   Text,
@@ -45,13 +46,19 @@ import {
 
 const REQUEST_TIMEOUT_MS = 10_000;
 const RETRY_DELAY_MS = 1_500;
-const MAX_SCAN_SIZE = 320;
+const MAX_SCAN_SIZE = 280;
 const FRAME_PADDING = 12;
 const DEFAULT_MESSAGE = 'Scan any QR code to pay';
 const CORNER_COLOR = '#1a7cff';
 const CORNER_DETECTED_COLOR = '#00974f';
-// How long the corners stay green after a scan before moving on.
-const DETECTED_HOLD_MS = 500;
+// Corner capture motion after a scan: snap in, then straight back out.
+const CAPTURE_IN_MS = 180;
+const CAPTURE_OUT_MS = 200;
+// How long after a scan before moving on; leaves a beat after the corners
+// return.
+const DETECTED_HOLD_MS = CAPTURE_IN_MS + CAPTURE_OUT_MS + 70;
+// How far each corner moves in towards the QR when it is captured.
+const CORNER_CAPTURE_INSET = 9;
 const LOW_LIGHT_MESSAGE = 'Low light: flashlight turned on';
 const LOW_LIGHT_MESSAGE_MS = 2_000;
 const PAY_TOKENS = [
@@ -157,7 +164,14 @@ export default function Scanner() {
   const cornerColor = detected.interpolate({
     inputRange: [0, 1],
     outputRange: [CORNER_COLOR, CORNER_DETECTED_COLOR],
+    extrapolate: 'clamp',
   });
+  const capture = useRef(new Animated.Value(0)).current;
+  const captureIn = capture.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, CORNER_CAPTURE_INSET],
+  });
+  const captureOut = Animated.multiply(captureIn, -1);
 
   const frame = useMemo<ScanFrame | null>(() => {
     if (!cameraLayout) return null;
@@ -166,7 +180,7 @@ export default function Scanner() {
     const size = Math.max(
       1,
       Math.min(
-        cameraLayout.width - 96,
+        cameraLayout.width - 136,
         cameraLayout.height - top - 340,
         MAX_SCAN_SIZE,
       ),
@@ -343,11 +357,28 @@ export default function Scanner() {
   useEffect(() => {
     if (!payment || reading || navigationStarted.current) return;
     navigationStarted.current = true;
-    Animated.timing(detected, {
-      toValue: 1,
-      duration: 180,
-      useNativeDriver: false,
-    }).start();
+    Animated.parallel([
+      Animated.timing(detected, {
+        toValue: 1,
+        duration: CAPTURE_IN_MS,
+        useNativeDriver: false,
+      }),
+      // The corners snap in and return straight away, with no pause between.
+      Animated.sequence([
+        Animated.timing(capture, {
+          toValue: 1,
+          duration: CAPTURE_IN_MS,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: false,
+        }),
+        Animated.timing(capture, {
+          toValue: 0,
+          duration: CAPTURE_OUT_MS,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: false,
+        }),
+      ]),
+    ]).start();
     navigationTimer.current = setTimeout(() => {
       navigationTimer.current = null;
       router.replace({
@@ -355,7 +386,7 @@ export default function Scanner() {
         params: { ...payment, demoPaymentToken: payToken },
       });
     }, DETECTED_HOLD_MS);
-  }, [detected, payment, reading, payToken]);
+  }, [capture, detected, payment, reading, payToken]);
 
   if (!uiPreviewEnabled && !permission) {
     return (
@@ -473,28 +504,52 @@ export default function Scanner() {
                 style={[
                   styles.corner,
                   styles.topLeft,
-                  { borderColor: cornerColor },
+                  {
+                    borderColor: cornerColor,
+                    transform: [
+                      { translateX: captureIn },
+                      { translateY: captureIn },
+                    ],
+                  },
                 ]}
               />
               <Animated.View
                 style={[
                   styles.corner,
                   styles.topRight,
-                  { borderColor: cornerColor },
+                  {
+                    borderColor: cornerColor,
+                    transform: [
+                      { translateX: captureOut },
+                      { translateY: captureIn },
+                    ],
+                  },
                 ]}
               />
               <Animated.View
                 style={[
                   styles.corner,
                   styles.bottomLeft,
-                  { borderColor: cornerColor },
+                  {
+                    borderColor: cornerColor,
+                    transform: [
+                      { translateX: captureIn },
+                      { translateY: captureOut },
+                    ],
+                  },
                 ]}
               />
               <Animated.View
                 style={[
                   styles.corner,
                   styles.bottomRight,
-                  { borderColor: cornerColor },
+                  {
+                    borderColor: cornerColor,
+                    transform: [
+                      { translateX: captureOut },
+                      { translateY: captureOut },
+                    ],
+                  },
                 ]}
               />
             </View>
