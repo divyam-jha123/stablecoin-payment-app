@@ -38,7 +38,8 @@
         {
           "faceIDPermission": "Allow TravelPe to sign in securely with Face ID."
         }
-      ]
+      ],
+      "./plugins/with-crop-done-label"
     ],
     "android": {
       "package": "com.travellerpay.hackathon"

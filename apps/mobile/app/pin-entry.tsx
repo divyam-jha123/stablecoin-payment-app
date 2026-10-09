@@ -17,8 +17,10 @@ import {
   isValidPin,
   PIN_LENGTH,
   pinStore,
+  PREVIEW_PIN_OWNER,
   type PinCheck,
 } from '../src/features/account/payment-pin';
+import { simulatedPaymentStore } from '../src/features/payment/simulated-payment-store';
 import { pinOwner } from '../src/features/account/pin-owner';
 import { uiPreviewEnabled } from '../src/ui-preview';
 
@@ -176,12 +178,32 @@ export default function PinEntry() {
   }
 
   const forgotPin = () =>
-    Alert.alert(
-      'Forgot your PIN?',
-      uiPreviewEnabled
-        ? 'Open UI pages and choose Reset preview and onboarding to set a new PIN. This also clears simulated payments.'
-        : 'Disconnect your wallet in Profile, then sign in again with MetaMask to set a new PIN.',
-    );
+    uiPreviewEnabled
+      ? Alert.alert(
+          'Forgot your PIN?',
+          'Reset the preview to set a new PIN. This also clears simulated payments and restarts onboarding.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Reset preview',
+              style: 'destructive',
+              onPress: () => {
+                void Promise.all([
+                  pinStore.clear(PREVIEW_PIN_OWNER),
+                  simulatedPaymentStore.clearPreview(),
+                ])
+                  .then(() => router.replace('/onboarding'))
+                  .catch(() =>
+                    Alert.alert('Reset failed', 'Please try again.'),
+                  );
+              },
+            },
+          ],
+        )
+      : Alert.alert(
+          'Forgot your PIN?',
+          'Disconnect your wallet in Profile, then sign in again with MetaMask to set a new PIN.',
+        );
 
   return (
     <SafeAreaView style={styles.screen}>
