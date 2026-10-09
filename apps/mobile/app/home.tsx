@@ -183,16 +183,14 @@ export default function Home() {
       await tempoService.fund(address);
       setNotice({
         address,
-        text: 'Test funds requested. Refresh your balance to check delivery.',
+        text: 'Test funds requested. Your balance updates automatically.',
       });
       if (walletStore.getSnapshot().account?.address === address)
         await balance.refetch();
     } catch (cause) {
       setNotice({
         address,
-        text:
-          walletError(cause) +
-          ' Refresh your balance before requesting funds again.',
+        text: walletError(cause) + ' Please try again after the cooldown.',
       });
     } finally {
       fundingLock.current = false;
@@ -291,26 +289,10 @@ export default function Home() {
               onActivity={() => router.push('/activity')}
               monthlyChange={uiPreviewEnabled ? '12.4%' : undefined}
             />
-            {!uiPreviewEnabled && (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Refresh balance"
-                accessibilityState={{
-                  disabled: balance.isFetching || wallet.busy,
-                }}
-                disabled={balance.isFetching || wallet.busy}
-                onPress={() => void balance.refetch()}
-                style={styles.refresh}
-              >
-                <Text style={styles.link}>
-                  {balance.isFetching ? 'Refreshing…' : 'Refresh balance'}
-                </Text>
-              </Pressable>
-            )}
             {!uiPreviewEnabled && balance.isError && (
               <Text accessibilityRole="alert" style={ui.error}>
-                Could not read your balance. {walletError(balance.error)} Use
-                Refresh to retry.
+                Could not read your balance. {walletError(balance.error)} Check
+                your connection; your balance updates automatically.
               </Text>
             )}
             {notice?.address === address && (
@@ -532,11 +514,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 24,
     gap: 20,
-  },
-  refresh: {
-    minHeight: homeTheme.layout.touchTarget,
-    justifyContent: 'center',
-    alignSelf: 'flex-end',
   },
   bannerImage: { width: '100%', height: '100%', position: 'absolute' },
   bannerCopy: {
