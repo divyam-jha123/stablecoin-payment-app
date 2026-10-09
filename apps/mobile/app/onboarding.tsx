@@ -65,6 +65,7 @@ const TINTS: { color: string; stops: [number, number][] }[] = [
   },
 ];
 
+// Choose a sign-in method before setting up the payment PIN.
 function start() {
   router.replace('/connect');
 }
@@ -134,7 +135,7 @@ export default function Onboarding() {
         <View style={styles.spacer} />
         <Pressable
           accessibilityRole="button"
-          onPress={start}
+          onPress={() => void start()}
           style={({ pressed }) => [styles.button, pressed && styles.pressed]}
         >
           <Text style={styles.buttonText}>Get Started</Text>
@@ -143,7 +144,7 @@ export default function Onboarding() {
         {/* No separate sign-in flow yet: it opens wallet connect too. */}
         <Pressable
           accessibilityRole="button"
-          onPress={start}
+          onPress={() => void start()}
           style={({ pressed }) => [styles.signIn, pressed && styles.pressed]}
         >
           <Text style={styles.signInText}>

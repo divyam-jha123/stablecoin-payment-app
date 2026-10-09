@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppIcon, colors } from '../src/components/payment-ui';
 
 /**
- * "Set your payment PIN" intro. Shown once after connecting the wallet, or
+ * "Set your payment PIN" intro. Shown after Google signup, or
  * before the first payment for a traveller who has no PIN yet. `next` and the
  * payment details pass through to the PIN entry screen.
  */

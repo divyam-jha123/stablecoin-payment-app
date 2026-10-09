@@ -110,6 +110,16 @@ export function createPinStore(storage: KeyStorage = SecureStore) {
       await write(owner, { ...stored, failed, lockedUntil: 0 });
       return { ok: false, attemptsLeft: MAX_ATTEMPTS - failed };
     },
+    /**
+     * Older builds kept the PIN per wallet address. Move it to `to` so the
+     * traveller keeps the PIN they already set; never overwrites a PIN.
+     */
+    async adopt(from: string, to: string) {
+      if (from.toLowerCase() === to.toLowerCase()) return;
+      if (await storage.getItemAsync(item(to))) return;
+      const raw = await storage.getItemAsync(item(from));
+      if (raw) await storage.setItemAsync(item(to), raw);
+    },
     async clear(owner: string) {
       await storage.deleteItemAsync(item(owner));
     },
@@ -120,3 +130,9 @@ export const pinStore = createPinStore();
 
 /** The UI preview has no wallet; its PIN is kept under this name. */
 export const PREVIEW_PIN_OWNER = 'preview';
+
+/**
+ * The PIN belongs to this phone, not to a wallet: it is set once at
+ * onboarding, before the traveller signs in with Google or MetaMask.
+ */
+export const DEVICE_PIN_OWNER = 'device';

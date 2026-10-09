@@ -1,4 +1,4 @@
-# Traveller Pay mobile interface
+# TravelPay mobile interface
 
 The Figma TravelPe frames guide the onboarding, sign-in, dashboard, payment review, activity, and processing previews. The QR scanner retains its existing design.
 

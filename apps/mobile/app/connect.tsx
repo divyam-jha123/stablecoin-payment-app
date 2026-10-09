@@ -10,201 +10,68 @@ import {
 } from 'react-native';
 import { Redirect, router, Stack } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ui } from '../src/components/payment-ui';
+import {
+  connectStatusText,
+  useWalletSignIn,
+} from '../src/features/account/use-wallet-sign-in';
 import { useAccount } from '../src/features/account/use-account';
-import { walletStore } from '../src/features/account/metamask';
+import { googleAccount } from '../src/features/account/google-account';
 import {
-  pinStore,
-  PREVIEW_PIN_OWNER,
-} from '../src/features/account/payment-pin';
-import { rememberedAccount } from '../src/features/account/remembered-account';
-import {
-  authenticateWallet,
-  requestSignInChallenge,
-  verifySignInChallenge,
-} from '../src/features/account/session';
-import { TEMPO_CHAIN } from '../src/features/account/tempo';
-import {
-  walletError,
-  type ConnectStage,
-} from '../src/features/account/wallet-store';
-import { walletFlowLog } from '../src/features/account/wallet-flow-log';
+  GoogleSignInError,
+  signInWithGoogle,
+} from '../src/features/account/google-sign-in';
+import { pinStore } from '../src/features/account/payment-pin';
+import { pinOwner } from '../src/features/account/pin-owner';
 import { uiPreviewEnabled } from '../src/ui-preview';
-import { returnFromWallet } from '../src/features/account/wallet-return';
 
-const stageText: Record<ConnectStage, string> = {
-  preparing: 'Preparing MetaMask connection…',
-  connecting: 'Approve the connection in MetaMask, then return here.',
-  combined: 'Approve connection and sign-in in MetaMask, then return here.',
-  network: 'Approve Tempo testnet in MetaMask, then return here.',
-  'checking-session': 'Checking your existing sign-in…',
-  challenge: 'Preparing your secure sign-in…',
-  signing: 'Confirm your sign-in in MetaMask, then return here.',
-  verifying: 'Verifying your wallet signature…',
-  saving: 'Saving your sign-in…',
+// Sample Google identity for the UI preview only; wallet mode uses the real one.
+const PREVIEW_GOOGLE_PROFILE = {
+  sub: 'preview',
+  name: 'Rupesh Kumar',
+  email: 'rupesh@gmail.com',
 };
-
-function canRetryCombined(error: unknown) {
-  if (typeof error !== 'object' || error === null || !('code' in error))
-    return false;
-  return (
-    error.code === 4100 ||
-    error.code === 4902 ||
-    error.code === -32601 ||
-    error.code === -32602
-  );
-}
 
 export default function Connect() {
   const { wallet, onTempo, session } = useAccount();
-  const queryClient = useQueryClient();
-  const [signing, setSigning] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [stage, setStage] = useState<ConnectStage | null>(null);
+  const [localError, setError] = useState<string | null>(null);
   const lock = useRef(false);
-  const busy = signing || wallet.busy;
+  const { signIn, busy, stage, error: walletSignInError } = useWalletSignIn();
+  const error = localError ?? walletSignInError;
+  const [googleBusy, setGoogleBusy] = useState(false);
   const checking = Boolean(wallet.account && onTempo && session.isFetching);
   const signedIn = Boolean(
     !uiPreviewEnabled && wallet.account && onTempo && session.data === true,
   );
-  // After sign-in: set the TravelPe payment PIN, then Home.
-  const nextStep = useQuery({
-    queryKey: ['after-sign-in', wallet.account?.address],
-    queryFn: async () =>
-      (await pinStore.hasPin(wallet.account!.address))
-        ? ('/home' as const)
-        : ('/pin-setup' as const),
-    enabled: signedIn,
-    retry: false,
-  });
-
-  async function signIn() {
-    if (uiPreviewEnabled) {
-      setSigning(true);
-      try {
-        const hasPin = await pinStore.hasPin(PREVIEW_PIN_OWNER);
-        router.replace(hasPin ? '/' : '/pin-setup');
-      } catch {
-        setError('Could not load your PIN. Try again.');
-      } finally {
-        setSigning(false);
-      }
-      return;
-    }
-    if (lock.current || walletStore.getSnapshot().busy) return;
-    walletFlowLog.begin();
+  // Explore without a wallet: Google proves who you are, MetaMask is only
+  // needed later, from Home, to see balances and pay.
+  async function signUpWithGoogle() {
+    if (lock.current || googleBusy || busy) return;
     lock.current = true;
-    setSigning(true);
+    setGoogleBusy(true);
     setError(null);
-    setStage('preparing');
     try {
-      let combined:
-        | {
-            account: { address: string; chainId: number };
-            signature: `0x${string}`;
-            challenge: Awaited<ReturnType<typeof requestSignInChallenge>>;
-          }
-        | undefined;
-      const remembered = await rememberedAccount.load();
-      const liveAccount = remembered
-        ? await walletStore.liveAccount()
-        : walletStore.getSnapshot().account;
-      if (remembered && !liveAccount && walletStore.connectAndSign) {
-        const challenge = await requestSignInChallenge(remembered, setStage);
-        try {
-          const signed = await walletStore.connectAndSign(
-            challenge.message,
-            setStage,
-          );
-          if (signed.account.address.toLowerCase() !== remembered.toLowerCase())
-            throw new Error(
-              'MetaMask selected a different account. Sign in with the wallet you used before.',
-            );
-          combined = { ...signed, challenge };
-          await walletStore.refresh();
-        } catch (cause) {
-          if (!canRetryCombined(cause)) throw cause;
-          walletFlowLog.info(
-            'Combined sign-in unavailable; using wallet approval steps',
-          );
-        }
-      }
-      if (!combined && !liveAccount) {
-        walletFlowLog.info('Starting MetaMask connection');
-        await walletStore.connect(setStage);
-      } else if (!combined && liveAccount?.chainId !== TEMPO_CHAIN.id) {
-        walletFlowLog.info('Wallet connected; requesting Tempo network');
-        await walletStore.switchToTempo(setStage);
-      } else if (!combined) {
-        walletFlowLog.info('Wallet already connected on Tempo');
-        await walletStore.refresh();
-      }
-      if (combined && combined.account.chainId !== TEMPO_CHAIN.id)
-        await walletStore.switchToTempo(setStage);
-      const current = walletStore.getSnapshot();
-      if (!current.account || current.account.chainId !== TEMPO_CHAIN.id) {
-        throw new Error(
-          current.error ?? 'Connect MetaMask on Tempo testnet to continue.',
-        );
-      }
-      walletFlowLog.info('Wallet account confirmed on Tempo testnet');
-      const account = current.account;
-      if (
-        combined &&
-        account.address.toLowerCase() !== combined.account.address.toLowerCase()
-      )
-        throw new Error(
-          'Your wallet changed during sign-in. Please try again.',
-        );
-      // Cancel a pending restore so it cannot overwrite this sign-in result.
-      walletFlowLog.info('Cancelling any pending session check');
-      await queryClient.cancelQueries({ queryKey: ['session'] });
-      walletFlowLog.info('Starting backend wallet sign-in');
-      if (combined)
-        await verifySignInChallenge(
-          account,
-          combined.challenge,
-          combined.signature,
-          setStage,
-        );
-      else await authenticateWallet(account, walletStore.signMessage, setStage);
-      walletFlowLog.info('Backend wallet sign-in completed');
-      await walletStore.refresh();
-      const after = walletStore.getSnapshot().account;
-      if (
-        after?.address.toLowerCase() !== account.address.toLowerCase() ||
-        after.chainId !== account.chainId
-      ) {
-        throw new Error(
-          'Your wallet changed during sign-in. Please try again.',
-        );
-      }
-      walletFlowLog.info('Wallet still matches signed-in account');
-      // Next launch opens straight to Home, behind the app lock.
-      await rememberedAccount.remember(account.address);
-      queryClient.setQueryData(
-        ['session', account.address, account.chainId],
-        true,
-      );
-      const hasPin = await pinStore.hasPin(account.address);
-      walletFlowLog.info('Session marked ready; opening next screen');
+      const profile = uiPreviewEnabled
+        ? PREVIEW_GOOGLE_PROFILE
+        : await signInWithGoogle();
+      if (!profile) return;
+      await googleAccount.save(profile);
+      // Google signup comes first; PIN creation completes setup.
+      const hasPin = await pinStore.hasPin(pinOwner());
       router.replace(hasPin ? '/home' : '/pin-setup');
-      void returnFromWallet();
     } catch (cause) {
-      walletFlowLog.error('Sign-in stopped', cause);
-      walletFlowLog.stop();
-      setError(walletError(cause));
-      void returnFromWallet();
+      setError(
+        cause instanceof GoogleSignInError
+          ? cause.message
+          : 'Could not sign in with Google. Try again.',
+      );
     } finally {
-      setSigning(false);
-      setStage(null);
+      setGoogleBusy(false);
       lock.current = false;
     }
   }
 
-  if (signedIn && !busy && nextStep.isFetched)
-    return <Redirect href={nextStep.data ?? '/home'} />;
+  if (signedIn && !busy && !googleBusy) return <Redirect href="/home" />;
 
   return (
     <SafeAreaView style={styles.screen}>
@@ -237,23 +104,22 @@ export default function Connect() {
             <View style={styles.status}>
               <ActivityIndicator color="#fff" />
               <Text accessibilityLiveRegion="polite" style={styles.statusText}>
-                {busy
-                  ? stage
-                    ? stageText[stage]
-                    : 'Connecting to MetaMask…'
-                  : 'Checking your sign-in…'}
+                {busy ? connectStatusText(stage) : 'Checking your sign-in…'}
               </Text>
             </View>
           ) : null}
-          {error || wallet.error ? (
+          {error ? (
             <Text accessibilityRole="alert" style={styles.error}>
-              {error ?? wallet.error}
+              {error}
             </Text>
           ) : null}
           <Pressable
             accessibilityRole="button"
-            disabled={!uiPreviewEnabled && (busy || checking)}
-            onPress={() => void signIn()}
+            disabled={!uiPreviewEnabled && (busy || checking || googleBusy)}
+            onPress={() => {
+              setError(null);
+              void signIn();
+            }}
             style={({ pressed }) => [
               styles.mainButton,
               pressed && ui.pressed,
@@ -277,6 +143,27 @@ export default function Connect() {
                       : !onTempo
                         ? 'Switch network & sign in'
                         : 'Sign in with MetaMask'}
+            </Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Sign up with Google"
+            accessibilityState={{ disabled: busy || checking || googleBusy }}
+            disabled={busy || checking || googleBusy}
+            onPress={() => void signUpWithGoogle()}
+            style={({ pressed }) => [
+              styles.googleButton,
+              pressed && ui.pressed,
+              (busy || checking || googleBusy) && styles.disabled,
+            ]}
+          >
+            {googleBusy ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.googleMark}>G</Text>
+            )}
+            <Text style={styles.googleText}>
+              {googleBusy ? 'Opening Google…' : 'Sign up with Google'}
             </Text>
           </Pressable>
           {!uiPreviewEnabled && (
@@ -357,6 +244,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   mainButtonText: { color: '#061a42', fontSize: 16, fontWeight: '700' },
+  googleButton: {
+    flexDirection: 'row',
+    gap: 10,
+    borderWidth: 1,
+    borderColor: '#97b7e6',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 28,
+    minHeight: 54,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  googleMark: { color: '#fff', fontSize: 18, fontWeight: '800' },
+  googleText: { color: '#fff', fontSize: 16, fontWeight: '700' },
   secondaryButton: {
     borderWidth: 1,
     borderColor: '#97b7e6',

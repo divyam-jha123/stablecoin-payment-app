@@ -1,4 +1,4 @@
-# Traveller Pay
+# TravelPay
 
 <!-- impeccable:product-schema 1 -->
 
@@ -20,4 +20,4 @@ Tempo Moderato and pathUSD test funds only. INR settlement and TravelPe Receive 
 
 ## Brand Commitments
 
-Traveller Pay. Clear, approachable payment language. Android-first native Expo interface.
+TravelPay. Clear, approachable payment language. Android-first native Expo interface.

@@ -16,8 +16,11 @@ import { DashboardNav } from '../src/components/dashboard-nav';
 import { AppIcon, colors, TestNotice } from '../src/components/payment-ui';
 import { useAccount } from '../src/features/account/use-account';
 import { walletStore } from '../src/features/account/metamask';
+import { googleAccount } from '../src/features/account/google-account';
+import { useWalletSignIn } from '../src/features/account/use-wallet-sign-in';
+import { useExplorer } from '../src/features/account/use-explorer';
 import { openPinSettings } from '../src/features/account/open-pin-settings';
-import { pinStore } from '../src/features/account/payment-pin';
+import { routeAfterSignOut } from '../src/features/account/returning-user';
 import { rememberedAccount } from '../src/features/account/remembered-account';
 import { logoutSession } from '../src/features/account/session';
 import {
@@ -117,52 +120,79 @@ export default function Profile() {
   const [leaving, setLeaving] = useState(false);
   const lock = useRef(false);
   const address = wallet.account?.address;
+  const { profile: googleProfile, explorer } = useExplorer();
+  // Connect MetaMask right here; onboarding is only for signed-out visitors.
+  const connecting = useWalletSignIn({
+    onDone: () => {},
+  });
 
   // Security opens the TravelPe PIN: change it, or set one if missing.
   async function openSecurity() {
     if (!(await openPinSettings())) notAvailable('Security');
   }
 
-  async function disconnect() {
-    if (uiPreviewEnabled || lock.current || walletStore.getSnapshot().busy)
+  async function signOutOfGoogle() {
+    if (lock.current || connecting.busy || walletStore.getSnapshot().busy)
       return;
     lock.current = true;
     setLeaving(true);
     try {
-      await rememberedAccount.forget();
-      // A forgotten PIN is reset by signing in again.
-      const signedIn = walletStore.getSnapshot().account?.address;
-      if (signedIn) await pinStore.clear(signedIn);
-      await logoutSession();
+      await googleAccount.clear();
+      router.replace(await routeAfterSignOut());
     } catch {
-      /* The local session is cleared even if revocation is unavailable. */
+      Alert.alert('Could not sign out', 'Please try again.');
     } finally {
-      await walletStore.disconnect();
-      await queryClient.cancelQueries({ queryKey: ['session'] });
-      queryClient.removeQueries({ queryKey: ['session'] });
-      queryClient.removeQueries({ queryKey: ['tempo-pathUSD'] });
-      router.replace('/connect');
       lock.current = false;
       setLeaving(false);
     }
   }
 
-  // Details saved on Edit Profile; the preview starts with a sample identity.
+  async function disconnect() {
+    if (
+      uiPreviewEnabled ||
+      lock.current ||
+      connecting.busy ||
+      walletStore.getSnapshot().busy
+    )
+      return;
+    lock.current = true;
+    setLeaving(true);
+    try {
+      await rememberedAccount.forget();
+      await queryClient.cancelQueries({ queryKey: ['session'] });
+      // Remote revocation may be unavailable; still clear the wallet locally.
+      await logoutSession().catch(() => undefined);
+      await walletStore.disconnect();
+      queryClient.removeQueries({ queryKey: ['session'] });
+      queryClient.removeQueries({ queryKey: ['tempo-pathUSD'] });
+      router.replace(await routeAfterSignOut());
+    } catch {
+      Alert.alert('Could not disconnect', 'Please try again.');
+    } finally {
+      lock.current = false;
+      setLeaving(false);
+    }
+  }
+
+  // Details saved on Edit Profile win; a Google sign-in fills what is missing.
   const details = useProfileDetails(address);
-  const name = details?.name || 'Traveller';
+  const name = details?.name || googleProfile?.name || 'Traveller';
   const detail =
     details?.email ||
+    googleProfile?.email ||
     (address ? shortAddress(address) : 'Wallet not connected');
   // The picture is always the first letter of the first name.
   const initial = profileInitial(name);
   const editProfile = () => router.push('/edit-profile');
-  const status = uiPreviewEnabled
-    ? 'Verified Account'
-    : address
-      ? onTempo
-        ? 'Wallet connected'
-        : 'Switch to Tempo Moderato'
-      : null;
+  const status = explorer
+    ? 'Google account · wallet not connected'
+    : uiPreviewEnabled
+      ? 'Verified Account'
+      : address
+        ? onTempo
+          ? 'Wallet connected'
+          : 'Switch to Tempo Moderato'
+        : null;
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
@@ -287,11 +317,14 @@ export default function Profile() {
               onPress={() =>
                 item.title === 'Personal Information'
                   ? editProfile()
-                  : item.title === 'Tap to Pay'
-                    ? router.push('/setup-payments')
-                    : item.title === 'Security'
-                      ? void openSecurity()
-                      : notAvailable(item.title)
+                  : explorer &&
+                      (item.title === 'Tap to Pay' || item.title === 'Security')
+                    ? void connecting.signIn()
+                    : item.title === 'Tap to Pay'
+                      ? router.push('/setup-payments')
+                      : item.title === 'Security'
+                        ? void openSecurity()
+                        : notAvailable(item.title)
               }
               style={({ pressed }) => [styles.row, pressed && styles.pressed]}
             >
@@ -308,13 +341,32 @@ export default function Profile() {
             </Pressable>
           ))}
 
-          {!uiPreviewEnabled ? (
+          {googleProfile ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Sign out of Google, ${googleProfile.email}`}
+              onPress={() => void signOutOfGoogle()}
+              style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+            >
+              <View style={[styles.rowIcon, styles.walletIcon]}>
+                <AppIcon name="person" color={colors.error} size={24} />
+              </View>
+              <View style={styles.rowCopy}>
+                <Text style={[styles.rowTitle, styles.walletTitle]}>
+                  Sign out of Google
+                </Text>
+                <Text style={styles.rowSubtitle}>{googleProfile.email}</Text>
+              </View>
+            </Pressable>
+          ) : null}
+
+          {!uiPreviewEnabled || explorer ? (
             <Pressable
               accessibilityRole="button"
               accessibilityState={{ disabled: leaving || wallet.busy }}
               disabled={leaving || wallet.busy}
               onPress={() =>
-                address ? void disconnect() : router.push('/connect')
+                address ? void disconnect() : void connecting.signIn()
               }
               style={({ pressed }) => [styles.row, pressed && styles.pressed]}
             >

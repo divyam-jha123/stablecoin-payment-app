@@ -15,11 +15,11 @@ export type HomeAd = {
   content: ReactNode;
 };
 
-const AUTO_ADVANCE_MS = 5000;
+const AUTO_ADVANCE_MS = 3000;
 const REWIND_DELAY_MS = 600;
 
 /**
- * Home promo banners that slide right to left every five seconds. A copy of
+ * Home promo banners that slide right to left every three seconds. A copy of
  * the first ad sits after the last one so the loop never scrolls backwards.
  */
 export function HomeAdCarousel({

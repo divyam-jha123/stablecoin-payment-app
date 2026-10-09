@@ -119,7 +119,7 @@ export default function PinEntry() {
         Alert.alert('PIN changed', 'Use your new PIN for your next payment.');
       router.back();
     } else {
-      // First visit: PIN set, on to Home.
+      // Google signup is complete once the PIN is saved.
       router.replace('/home');
     }
   }
@@ -202,7 +202,7 @@ export default function PinEntry() {
         )
       : Alert.alert(
           'Forgot your PIN?',
-          'Disconnect your wallet in Profile, then sign in again with MetaMask to set a new PIN.',
+          'Sign out of both Google and MetaMask in Profile, then sign in with Google to set a new PIN.',
         );
 
   return (

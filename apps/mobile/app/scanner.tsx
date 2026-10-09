@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { ConnectWalletGate } from '../src/components/connect-wallet-gate';
 import Constants from 'expo-constants';
 import {
   CameraView,
@@ -15,6 +16,7 @@ import {
 } from 'expo-camera';
 import { launchImageLibraryAsync } from 'expo-image-picker';
 import { router, Stack } from 'expo-router';
+import { useExplorer } from '../src/features/account/use-explorer';
 import {
   Animated,
   Button,
@@ -139,7 +141,7 @@ function apiErrorMessage(value: unknown): string | null {
   return null;
 }
 
-export default function Scanner() {
+function ScannerScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const [cameraLayout, setCameraLayout] = useState<CameraLayout | null>(null);
   const insets = useSafeAreaInsets();
@@ -416,7 +418,7 @@ export default function Scanner() {
           </Pressable>
         ) : (
           <Text style={styles.permissionText}>
-            Enable camera access for Traveller Pay in your device settings.
+            Enable camera access for TravelPay in your device settings.
           </Text>
         )}
         <Pressable
@@ -987,3 +989,13 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
+
+// Paying and receiving need a wallet: Google-only visitors connect one first.
+export default function Scanner() {
+  const { explorer } = useExplorer();
+  return explorer ? (
+    <ConnectWalletGate message="Connect your wallet to scan a UPI QR and pay." />
+  ) : (
+    <ScannerScreen />
+  );
+}

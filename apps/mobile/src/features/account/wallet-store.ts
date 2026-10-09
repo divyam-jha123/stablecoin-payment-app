@@ -46,7 +46,7 @@ export function walletError(error: unknown): string {
       : null;
   if (code === 4001) return 'Request declined in MetaMask. You can try again.';
   if (code === 4100)
-    return 'MetaMask has not approved Tempo for Traveller Pay. Approve the connection in MetaMask, then try again.';
+    return 'MetaMask has not approved Tempo for TravelPay. Approve the connection in MetaMask, then try again.';
   if (code === -32002)
     return 'A request is already waiting in MetaMask. Open MetaMask to finish it.';
   return error instanceof Error

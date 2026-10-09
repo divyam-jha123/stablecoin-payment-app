@@ -4,7 +4,10 @@ import { router, usePathname } from 'expo-router';
 import { shouldRelock } from '../features/account/app-lock-policy';
 import { authenticate, phoneHasLock } from '../features/account/device-lock';
 import { walletStore } from '../features/account/metamask';
-import { hasReturningUser } from '../features/account/returning-user';
+import {
+  entryRoute,
+  hasReturningUser,
+} from '../features/account/returning-user';
 import { SplashBackdrop, SPLASH_DURATION_MS } from './splash-backdrop';
 
 /** The phone's native unlock prompt appears over the splash after it finishes. */
@@ -18,6 +21,7 @@ export function AppLock() {
   const [attempt, setAttempt] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const returnHome = useRef(true);
+  const destination = useRef<'/home' | '/pin-setup'>('/home');
   const prompting = useRef(false);
   const backgroundedAt = useRef<number | null>(null);
   const mounted = useRef(true);
@@ -48,10 +52,11 @@ export function AppLock() {
     if (!ready) return;
     let cancelled = false;
     const timer = setTimeout(() => {
-      void hasReturningUser()
-        .then(async (returning) => {
+      void entryRoute()
+        .then(async (route) => {
           if (cancelled) return;
-          if (returning) {
+          if (route !== '/onboarding') {
+            destination.current = route;
             // Have Home's local account ready before the device prompt closes.
             // Its backend session check can continue after Home opens.
             await walletStore.restoreRemembered();
@@ -91,7 +96,7 @@ export function AppLock() {
       if (!mounted.current) return;
       if (success) {
         setPhase('open');
-        if (returnHome.current) router.replace('/home');
+        if (returnHome.current) router.replace(destination.current);
       } else
         setError('Use your phone’s fingerprint, face or passcode to continue.');
     } catch {
