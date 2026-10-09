@@ -38,6 +38,7 @@ import {
   useWalletSignIn,
 } from '../src/features/account/use-wallet-sign-in';
 import { useExplorer } from '../src/features/account/use-explorer';
+import { useProfileDetails } from '../src/features/account/profile-details-store';
 import { HomeAdCarousel } from '../src/components/home-ad-carousel';
 import { homeTheme } from '../src/theme/home';
 import { DashboardNav } from '../src/components/dashboard-nav';
@@ -65,6 +66,9 @@ export default function Home() {
     loaded: googleLoaded,
     explorer,
   } = useExplorer();
+  const profileDetails = useProfileDetails(address);
+  const displayName =
+    profileDetails?.name || googleProfile?.name || 'Traveller';
   // Google-only travellers connect MetaMask from here, never via onboarding.
   const connecting = useWalletSignIn({
     onDone: () => {},
@@ -240,13 +244,8 @@ export default function Home() {
         keyboardShouldPersistTaps="handled"
       >
         <HomeGreeting
-          name={
-            googleProfile
-              ? googleProfile.name.split(' ')[0]!
-              : uiPreviewEnabled
-                ? 'Rupesh'
-                : 'traveller'
-          }
+          name={displayName}
+          photoUri={profileDetails?.photoUri ?? null}
           unread={uiPreviewEnabled}
           onProfile={() => router.push('/profile')}
           onNotifications={() => setNotificationsOpen(true)}

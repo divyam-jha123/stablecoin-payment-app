@@ -3,7 +3,6 @@ import { router, Stack } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   Alert,
-  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -14,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import { DashboardNav } from '../src/components/dashboard-nav';
 import { AppIcon, colors, TestNotice } from '../src/components/payment-ui';
+import { ProfileAvatar } from '../src/components/profile-avatar';
 import { useAccount } from '../src/features/account/use-account';
 import { walletStore } from '../src/features/account/metamask';
 import { googleAccount } from '../src/features/account/google-account';
@@ -23,10 +23,6 @@ import { routeAfterSignOut } from '../src/features/account/returning-user';
 import { recordLoginActivity } from '../src/features/account/login-activity-store';
 import { rememberedAccount } from '../src/features/account/remembered-account';
 import { logoutSession } from '../src/features/account/session';
-import {
-  profileAvatarColor,
-  profileInitial,
-} from '../src/features/account/profile-details';
 import { useProfileDetails } from '../src/features/account/profile-details-store';
 import { uiPreviewEnabled } from '../src/ui-preview';
 
@@ -177,8 +173,6 @@ export default function Profile() {
     details?.email ||
     googleProfile?.email ||
     (address ? shortAddress(address) : 'Wallet not connected');
-  // The picture is always the first letter of the first name.
-  const initial = profileInitial(name);
   const editProfile = () => router.push('/edit-profile');
   const status = explorer
     ? 'Google account · wallet not connected'
@@ -227,24 +221,11 @@ export default function Profile() {
           style={({ pressed }) => [styles.identity, pressed && styles.pressed]}
         >
           <View style={styles.avatarWrap}>
-            <View style={styles.avatarRing}>
-              <View
-                style={[
-                  styles.avatar,
-                  { backgroundColor: profileAvatarColor(name) },
-                ]}
-              >
-                {details?.photoUri ? (
-                  <Image
-                    source={{ uri: details.photoUri }}
-                    accessibilityIgnoresInvertColors
-                    style={styles.avatarImage}
-                  />
-                ) : (
-                  <Text style={styles.avatarInitial}>{initial}</Text>
-                )}
-              </View>
-            </View>
+            <ProfileAvatar
+              name={name}
+              photoUri={details?.photoUri ?? null}
+              size={68}
+            />
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Edit profile"
@@ -443,16 +424,6 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   avatarWrap: { width: 68, height: 68 },
-  avatarRing: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
-    borderWidth: 3,
-    borderColor: '#000000',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#ffffff',
-  },
   editBadge: {
     position: 'absolute',
     right: -2,
@@ -486,17 +457,6 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     borderWidth: 1,
   },
-  avatar: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    backgroundColor: '#dce8fb',
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
-  avatarImage: { width: '100%', height: '100%' },
-  avatarInitial: { color: '#ffffff', fontSize: 28, fontWeight: '500' },
   identityCopy: { flex: 1, gap: 3 },
   name: { color: '#0b0f1f', fontSize: 18, fontWeight: '800', flexShrink: 1 },
   email: { color: colors.muted, fontSize: 14 },
