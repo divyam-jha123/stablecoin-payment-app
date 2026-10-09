@@ -3,10 +3,14 @@
   "private": true,
   "version": "0.0.0",
   "packageManager": "pnpm@12.3.4",
-  "engines": { "node": ">=24.13.0 <25" },
+  "engines": {
+    "node": ">=24.13.0 <25"
+  },
   "scripts": {
     "dev": "pnpm -r --parallel --filter './apps/*' dev",
     "dev:mobile": "pnpm --filter @traveller/mobile dev",
+    "dev:mobile:ios-preview": "pnpm --filter @traveller/shared build && pnpm --filter @traveller/mobile exec expo start --go --ios",
+    "dev:mobile:android-preview": "pnpm --filter @traveller/shared build && EXPO_PUBLIC_UI_PREVIEW=1 pnpm --filter @traveller/mobile exec expo start --go --android",
     "dev:api": "pnpm --filter @traveller/api dev",
     "build": "pnpm -r build",
     "lint": "eslint . --max-warnings 0",

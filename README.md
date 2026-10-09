@@ -50,17 +50,25 @@ Your first visit goes from onboarding and wallet connection to setting a 4-digit
 
 ### Preview the dashboard without a wallet
 
-From the repository root, start Expo with the UI preview flag:
+On an iOS simulator, start the preview from the repository root:
 
 ```sh
-EXPO_PUBLIC_UI_PREVIEW=1 pnpm dev:mobile
+pnpm dev:mobile:ios-preview
 ```
 
-Open the app in Expo Go and tap **Get Started**, then **Continue**. Set and confirm a 4-digit PIN to reach the dashboard. Tap the PIN boxes to focus the field; on the iPhone simulator you can type the digits with your Mac keyboard. If the simulator's software keyboard is hidden, use **I/O → Keyboard → Toggle Software Keyboard** (⌘K). On later launches, preview shows the splash, then opens the phone’s native authentication prompt. Use device authentication to reach the dashboard; the payment PIN is only for payments. If Expo is already running, restart it with the command above so it picks up the environment variable.
+This opens the app in **Expo Go**. If another Expo server is already running, stop it first; its development-build mode will keep trying to open an app that is not installed. On onboarding, tap **Continue to Dashboard**. The iOS development preview uses simulated data without Google, MetaMask or PIN setup. You do not need a custom development build for this preview.
 
-To start again after signing in, tap **Forgot PIN?** on the PIN screen and choose **Reset preview**. This clears the saved preview PIN and simulated payments, then opens onboarding. Clearing Metro's cache with `pnpm dev:mobile -- --clear` only refreshes bundled code; it does not clear saved app data. For a full simulator reset, use **Device → Erase All Content and Settings** in the Simulator app.
+On Android, start the Expo Go preview from the repository root:
 
-This mode is for visual review in development. It includes a sample balance, monthly totals, and illustrative transactions; activity search and filters work on the sample data. Payments made in preview are simulated. Processing holds on each step so it can be reviewed: use the **UI preview** bar at the bottom of the screen to move between steps or go on to the success or failed screen. Success, failed, and transaction details screens have the same bar for moving through the flow, and it can be hidden while you review a screen. Completed payments come off the sample balance and appear in monthly totals and activity; they are saved on the device only. This mode does not connect a wallet, read a balance, scan a live QR, or submit a payment on-chain. Start normally with `pnpm dev:mobile` to use the wallet flow.
+```sh
+pnpm dev:mobile:android-preview
+```
+
+On Android preview, open the app in Expo Go and tap **Get Started**, then **Continue**. Set and confirm a 4-digit PIN to reach the dashboard. On later launches, preview shows the splash, then opens the phone’s native authentication prompt. Use device authentication to reach the dashboard; the payment PIN is only for payments. If Expo is already running, restart it with the command above so it picks up the environment variable.
+
+To restart the Android preview after signing in, tap **Forgot PIN?** on the PIN screen and choose **Reset preview**. This clears the saved preview PIN and simulated payments, then opens onboarding. Clearing Metro's cache only refreshes bundled code; it does not clear saved app data. For a full simulator reset, use **Device → Erase All Content and Settings** in the Simulator app.
+
+This mode is for visual review in development. It includes a sample balance, monthly totals, and illustrative transactions; activity search and filters work on the sample data. Payments made in preview are simulated. Processing holds on each step so it can be reviewed: use the **UI preview** bar at the bottom of the screen to move between steps or go on to the success or failed screen. Success, failed, and transaction details screens have the same bar for moving through the flow, and it can be hidden while you review a screen. Completed payments come off the sample balance and appear in monthly totals and activity; they are saved on the device only. This mode does not connect a wallet, read a balance, scan a live QR, or submit a payment on-chain. Android uses the wallet flow when started without the preview flag.
 
 ```sh
 curl http://localhost:3000/health

@@ -4,7 +4,7 @@ Context for coding agents working in this repository. Read [SKILL.md](SKILL.md) 
 
 ## Project
 
-TravelPe / Traveller Pay: an Android-first Expo app for travellers in India to scan a UPI QR and pay with a USD stablecoin on the Tempo testnet. INR settlement is simulated; no real INR moves.
+TravelPe / TravelPay: an Android-first Expo app for travellers in India to scan a UPI QR and pay with a USD stablecoin on the Tempo testnet. INR settlement is simulated; no real INR moves.
 
 | Path              | What lives there                                                                                                                    |
 | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------- |

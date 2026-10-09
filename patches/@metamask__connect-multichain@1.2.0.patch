@@ -1,0 +1,119 @@
+diff --git a/dist/browser/es/connect-multichain.mjs b/dist/browser/es/connect-multichain.mjs
+index 9498270120ebec8e70200d72100185c405885d0b..b53977c534de98a0c8e0c952ad4bbdaead944e38 100644
+--- a/dist/browser/es/connect-multichain.mjs
++++ b/dist/browser/es/connect-multichain.mjs
+@@ -1467,6 +1467,12 @@ var init_mwp = __esm({
+           );
+           this.request({ method: "wallet_revokeSession", params: { scopes } }).catch(
+             (err) => {
++              // Revocation is best effort after local disconnect; an inactive wallet
++              // can time out while resuming. Keep unexpected failures visible.
++              if (err instanceof Error && err.message === "Failed to resume session: Resume timeout") {
++                logger("Wallet unavailable for session revocation after disconnect", err);
++                return;
++              }
+               console.error("error revoking session", err);
+             }
+           );
+diff --git a/dist/browser/iife/connect-multichain.js b/dist/browser/iife/connect-multichain.js
+index 58dd43b3162be540164e713940638e3ff32d2085..8cc5bc49d442032d8cae433c0405bfabdb7746f5 100644
+--- a/dist/browser/iife/connect-multichain.js
++++ b/dist/browser/iife/connect-multichain.js
+@@ -26071,6 +26071,12 @@ var MetaMaskSDK = (() => {
+             );
+             this.request({ method: "wallet_revokeSession", params: { scopes } }).catch(
+               (err3) => {
++                // Revocation is best effort after local disconnect; an inactive wallet
++                // can time out while resuming. Keep unexpected failures visible.
++                if (err3 instanceof Error && err3.message === "Failed to resume session: Resume timeout") {
++                  logger("Wallet unavailable for session revocation after disconnect", err3);
++                  return;
++                }
+                 console.error("error revoking session", err3);
+               }
+             );
+diff --git a/dist/browser/umd/connect-multichain.js b/dist/browser/umd/connect-multichain.js
+index 5d75b1d714b3b74d9e88ee31edcbd0c18491714c..cf3a9eb0d18091443c890864a318b0805bdcba83 100644
+--- a/dist/browser/umd/connect-multichain.js
++++ b/dist/browser/umd/connect-multichain.js
+@@ -1483,6 +1483,12 @@ var init_mwp = __esm({
+           );
+           this.request({ method: "wallet_revokeSession", params: { scopes } }).catch(
+             (err) => {
++              // Revocation is best effort after local disconnect; an inactive wallet
++              // can time out while resuming. Keep unexpected failures visible.
++              if (err instanceof Error && err.message === "Failed to resume session: Resume timeout") {
++                logger("Wallet unavailable for session revocation after disconnect", err);
++                return;
++              }
+               console.error("error revoking session", err);
+             }
+           );
+diff --git a/dist/node/cjs/connect-multichain.js b/dist/node/cjs/connect-multichain.js
+index 5fbc130ad16f88231e317f85a9697171a0ac9d22..e2790b4389d534b934f7179206b929fdc238c43e 100644
+--- a/dist/node/cjs/connect-multichain.js
++++ b/dist/node/cjs/connect-multichain.js
+@@ -1483,6 +1483,12 @@ var init_mwp = __esm({
+           );
+           this.request({ method: "wallet_revokeSession", params: { scopes } }).catch(
+             (err) => {
++              // Revocation is best effort after local disconnect; an inactive wallet
++              // can time out while resuming. Keep unexpected failures visible.
++              if (err instanceof Error && err.message === "Failed to resume session: Resume timeout") {
++                logger("Wallet unavailable for session revocation after disconnect", err);
++                return;
++              }
+               console.error("error revoking session", err);
+             }
+           );
+diff --git a/dist/node/es/connect-multichain.mjs b/dist/node/es/connect-multichain.mjs
+index a142bc65840331c81a03e2101d5f0a7503583e61..fd150875d7934da3d14f3c91f130a1a29d7a9208 100644
+--- a/dist/node/es/connect-multichain.mjs
++++ b/dist/node/es/connect-multichain.mjs
+@@ -1467,6 +1467,12 @@ var init_mwp = __esm({
+           );
+           this.request({ method: "wallet_revokeSession", params: { scopes } }).catch(
+             (err) => {
++              // Revocation is best effort after local disconnect; an inactive wallet
++              // can time out while resuming. Keep unexpected failures visible.
++              if (err instanceof Error && err.message === "Failed to resume session: Resume timeout") {
++                logger("Wallet unavailable for session revocation after disconnect", err);
++                return;
++              }
+               console.error("error revoking session", err);
+             }
+           );
+diff --git a/dist/react-native/es/connect-multichain.mjs b/dist/react-native/es/connect-multichain.mjs
+index 5fd6bf3ac723774cd74d080ed6a93c92dad1c423..8e0c17923b79a72f1329680b34704e46b4df479b 100644
+--- a/dist/react-native/es/connect-multichain.mjs
++++ b/dist/react-native/es/connect-multichain.mjs
+@@ -1467,6 +1467,12 @@ var init_mwp = __esm({
+           );
+           this.request({ method: "wallet_revokeSession", params: { scopes } }).catch(
+             (err) => {
++              // Revocation is best effort after local disconnect; an inactive wallet
++              // can time out while resuming. Keep unexpected failures visible.
++              if (err instanceof Error && err.message === "Failed to resume session: Resume timeout") {
++                logger("Wallet unavailable for session revocation after disconnect", err);
++                return;
++              }
+               console.error("error revoking session", err);
+             }
+           );
+diff --git a/dist/src/multichain/transports/mwp/index.js b/dist/src/multichain/transports/mwp/index.js
+index 60051da9b0ffacd9491d775e3b18cf5ff6921196..d5ed564d9b6843106b2c297c7a5935d5a894baef 100644
+--- a/dist/src/multichain/transports/mwp/index.js
++++ b/dist/src/multichain/transports/mwp/index.js
+@@ -305,6 +305,12 @@ export class MWPTransport {
+             // This might not actually get executed on the wallet if the user doesn't open
+             // their wallet before the message TTL or if the underlying transport isn't actually connected
+             this.request({ method: 'wallet_revokeSession', params: { scopes } }).catch((err) => {
++                // Revocation is best effort after local disconnect; an inactive wallet
++                // can time out while resuming. Keep unexpected failures visible.
++                if (err instanceof Error && err.message === "Failed to resume session: Resume timeout") {
++                  logger("Wallet unavailable for session revocation after disconnect", err);
++                  return;
++                }
+                 console.error('error revoking session', err);
+             });
+             // Clear the cached values for eth_accounts and eth_chainId if all eip155 scopes were removed.
