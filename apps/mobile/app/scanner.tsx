@@ -16,6 +16,7 @@ import {
 import { launchImageLibraryAsync } from 'expo-image-picker';
 import { router, Stack } from 'expo-router';
 import {
+  Animated,
   Button,
   Pressable,
   StyleSheet,
@@ -36,6 +37,7 @@ import {
   parseUpiPaymentDraft,
 } from '@traveller/shared';
 import { uiPreviewEnabled } from '../src/ui-preview';
+import { useLowLight } from '../src/features/scanner/use-low-light';
 import {
   UsdcTokenEmblem,
   UsdtTokenEmblem,
@@ -47,6 +49,11 @@ const MAX_SCAN_SIZE = 320;
 const FRAME_PADDING = 12;
 const DEFAULT_MESSAGE = 'Scan any QR code to pay';
 const CORNER_COLOR = '#1a7cff';
+const CORNER_DETECTED_COLOR = '#00974f';
+// How long the corners stay green after a scan before moving on.
+const DETECTED_HOLD_MS = 500;
+const LOW_LIGHT_MESSAGE = 'Low light: flashlight turned on';
+const LOW_LIGHT_MESSAGE_MS = 2_000;
 const PAY_TOKENS = [
   { symbol: 'USDT', Emblem: UsdtTokenEmblem },
   { symbol: 'USDC', Emblem: UsdcTokenEmblem },
@@ -133,12 +140,24 @@ export default function Scanner() {
   const [payment, setPayment] = useState<ScannedPayment | null>(null);
   const [reading, setReading] = useState(false);
   const [torchOn, setTorchOn] = useState(false);
+  // Once the user taps the torch, auto-flash leaves it alone.
+  const [torchTouched, setTorchTouched] = useState(false);
   const [pickingImage, setPickingImage] = useState(false);
   const [payToken, setPayToken] = useState<PayToken>('USDC');
   const navigationStarted = useRef(false);
   const requestInProgress = useRef(false);
   const activeRequest = useRef<AbortController | null>(null);
   const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const navigationTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lowLightMessageTimer = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const lowLight = useLowLight(!uiPreviewEnabled && scanning && !torchOn);
+  const detected = useRef(new Animated.Value(0)).current;
+  const cornerColor = detected.interpolate({
+    inputRange: [0, 1],
+    outputRange: [CORNER_COLOR, CORNER_DETECTED_COLOR],
+  });
 
   const frame = useMemo<ScanFrame | null>(() => {
     if (!cameraLayout) return null;
@@ -159,9 +178,27 @@ export default function Scanner() {
     () => () => {
       activeRequest.current?.abort();
       if (retryTimer.current) clearTimeout(retryTimer.current);
+      if (navigationTimer.current) clearTimeout(navigationTimer.current);
+      if (lowLightMessageTimer.current) {
+        clearTimeout(lowLightMessageTimer.current);
+      }
     },
     [],
   );
+
+  // Turn the torch on in dim light. It is never turned off automatically: the
+  // torch itself can brighten the sensor reading and cause on/off loops.
+  useEffect(() => {
+    if (!lowLight || torchTouched) return;
+    setTorchOn(true);
+    setMessage(LOW_LIGHT_MESSAGE);
+    lowLightMessageTimer.current = setTimeout(() => {
+      lowLightMessageTimer.current = null;
+      setMessage((current) =>
+        current === LOW_LIGHT_MESSAGE ? DEFAULT_MESSAGE : current,
+      );
+    }, LOW_LIGHT_MESSAGE_MS);
+  }, [lowLight, torchTouched]);
 
   const resumeScanning = useCallback((nextMessage: string) => {
     setReading(false);
@@ -301,16 +338,24 @@ export default function Scanner() {
     setCameraLayout({ height, width });
   }, []);
 
-  // A valid scan goes straight to confirmation with the chosen token; it can
-  // still be changed there.
+  // A valid scan turns the corners green, then goes to confirmation with the
+  // chosen token; it can still be changed there.
   useEffect(() => {
     if (!payment || reading || navigationStarted.current) return;
     navigationStarted.current = true;
-    router.replace({
-      pathname: '/confirmation',
-      params: { ...payment, demoPaymentToken: payToken },
-    });
-  }, [payment, reading, payToken]);
+    Animated.timing(detected, {
+      toValue: 1,
+      duration: 180,
+      useNativeDriver: false,
+    }).start();
+    navigationTimer.current = setTimeout(() => {
+      navigationTimer.current = null;
+      router.replace({
+        pathname: '/confirmation',
+        params: { ...payment, demoPaymentToken: payToken },
+      });
+    }, DETECTED_HOLD_MS);
+  }, [detected, payment, reading, payToken]);
 
   if (!uiPreviewEnabled && !permission) {
     return (
@@ -424,10 +469,34 @@ export default function Scanner() {
                 },
               ]}
             >
-              <View style={[styles.corner, styles.topLeft]} />
-              <View style={[styles.corner, styles.topRight]} />
-              <View style={[styles.corner, styles.bottomLeft]} />
-              <View style={[styles.corner, styles.bottomRight]} />
+              <Animated.View
+                style={[
+                  styles.corner,
+                  styles.topLeft,
+                  { borderColor: cornerColor },
+                ]}
+              />
+              <Animated.View
+                style={[
+                  styles.corner,
+                  styles.topRight,
+                  { borderColor: cornerColor },
+                ]}
+              />
+              <Animated.View
+                style={[
+                  styles.corner,
+                  styles.bottomLeft,
+                  { borderColor: cornerColor },
+                ]}
+              />
+              <Animated.View
+                style={[
+                  styles.corner,
+                  styles.bottomRight,
+                  { borderColor: cornerColor },
+                ]}
+              />
             </View>
 
             {!uiPreviewEnabled ? (
@@ -570,7 +639,10 @@ export default function Scanner() {
                 accessibilityLabel="Flashlight"
                 accessibilityState={{ checked: torchOn }}
                 hitSlop={6}
-                onPress={() => setTorchOn((on) => !on)}
+                onPress={() => {
+                  setTorchTouched(true);
+                  setTorchOn((on) => !on);
+                }}
                 style={({ pressed }) => [
                   styles.torchButton,
                   torchOn && styles.torchButtonOn,
