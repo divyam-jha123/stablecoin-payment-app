@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import {
   ActivityIndicator,
@@ -21,6 +21,10 @@ import {
 } from '../src/features/account/payment-pin';
 import { pinOwner } from '../src/features/account/pin-owner';
 import { uiPreviewEnabled } from '../src/ui-preview';
+
+// Short pause after the last digit so the fourth box visibly fills before
+// the PIN is checked or the next step appears.
+const AUTO_SUBMIT_DELAY_MS = 150;
 
 type Mode = 'create' | 'verify' | 'change';
 type Step = 'current' | 'new' | 'confirm';
@@ -86,6 +90,7 @@ export default function PinEntry() {
   const [busy, setBusy] = useState(false);
   const [focused, setFocused] = useState(true);
   const input = useRef<TextInput>(null);
+  const submitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const step = steps[stepIndex]!;
 
   const label = {
@@ -124,7 +129,14 @@ export default function PinEntry() {
     setStepIndex(mode === 'change' ? 1 : 0);
   }
 
-  async function submit() {
+  useEffect(
+    () => () => {
+      if (submitTimer.current) clearTimeout(submitTimer.current);
+    },
+    [],
+  );
+
+  async function submit(pin: string) {
     const owner = pinOwner();
     if (!isValidPin(pin) || busy || !owner) return;
     setBusy(true);
@@ -220,12 +232,23 @@ export default function PinEntry() {
               ref={input}
               value={pin}
               onChangeText={(text) => {
+                const digits = text.replace(/\D/g, '').slice(0, PIN_LENGTH);
                 setError(null);
-                setPin(text.replace(/\D/g, '').slice(0, PIN_LENGTH));
+                setPin(digits);
+                if (submitTimer.current) clearTimeout(submitTimer.current);
+                submitTimer.current = null;
+                // The last digit moves on by itself; there is no Continue
+                // button.
+                if (digits.length === PIN_LENGTH) {
+                  submitTimer.current = setTimeout(() => {
+                    submitTimer.current = null;
+                    void submit(digits);
+                  }, AUTO_SUBMIT_DELAY_MS);
+                }
               }}
               onFocus={() => setFocused(true)}
               onBlur={() => setFocused(false)}
-              onSubmitEditing={() => void submit()}
+              onSubmitEditing={() => void submit(pin)}
               keyboardType="number-pad"
               inputMode="numeric"
               maxLength={PIN_LENGTH}
@@ -240,6 +263,13 @@ export default function PinEntry() {
             />
           </View>
 
+          {busy ? (
+            <ActivityIndicator
+              accessibilityLabel="Checking PIN"
+              color="#0a5ce8"
+              style={styles.busy}
+            />
+          ) : null}
           {error ? (
             <Text accessibilityRole="alert" style={styles.error}>
               {error}
@@ -255,23 +285,6 @@ export default function PinEntry() {
               <Text style={styles.forgotText}>Forgot PIN?</Text>
             </Pressable>
           ) : null}
-        </View>
-
-        <View style={styles.footer}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityState={{ disabled: pin.length < PIN_LENGTH || busy }}
-            disabled={pin.length < PIN_LENGTH || busy}
-            onPress={() => void submit()}
-            style={({ pressed }) => [
-              styles.button,
-              (pin.length < PIN_LENGTH || busy) && styles.buttonDisabled,
-              pressed && styles.pressed,
-            ]}
-          >
-            {busy ? <ActivityIndicator color="#ffffff" /> : null}
-            <Text style={styles.buttonText}>Continue</Text>
-          </Pressable>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -331,19 +344,8 @@ const styles = StyleSheet.create({
     marginTop: 18,
     paddingHorizontal: 24,
   },
+  busy: { marginTop: 18 },
   forgot: { marginTop: 18, paddingVertical: 4 },
   forgotText: { color: '#0a5ce8', fontSize: 15, fontWeight: '600' },
-  footer: { paddingHorizontal: 20, paddingBottom: 12, paddingTop: 8 },
-  button: {
-    flexDirection: 'row',
-    gap: 10,
-    minHeight: 56,
-    borderRadius: 14,
-    backgroundColor: '#0a5ce8',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  buttonDisabled: { opacity: 0.45 },
-  buttonText: { color: '#ffffff', fontSize: 18, fontWeight: '700' },
   pressed: { opacity: 0.75 },
 });
