@@ -39,7 +39,7 @@ async function getClient() {
   if (!initializing) walletFlowLog.info('Initializing MetaMask Connect SDK');
   initializing ??= createEVMClient({
     dapp: {
-      name: 'Traveller Pay',
+      name: 'TravelPay',
       url: 'https://github.com/divyam-jha123/stablecoin-payment-app',
       nativeScheme: walletReturnUrl(),
     },

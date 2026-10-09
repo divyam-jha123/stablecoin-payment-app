@@ -45,6 +45,16 @@ describe('payment PIN', () => {
     await expect(store.setPin(owner, '12')).rejects.toThrow();
   });
 
+  it('moves an older per-wallet PIN to the phone without overwriting one', async () => {
+    const store = createPinStore(memoryStorage());
+    await store.setPin(owner, '1234');
+    await store.adopt(owner, 'device');
+    expect((await store.verify('device', '1234')).ok).toBe(true);
+    await store.setPin('device', '9999');
+    await store.adopt(owner, 'device');
+    expect((await store.verify('device', '9999')).ok).toBe(true);
+  });
+
   it('pauses entry after five wrong tries, then recovers', async () => {
     const store = createPinStore(memoryStorage());
     await store.setPin(owner, '0420');

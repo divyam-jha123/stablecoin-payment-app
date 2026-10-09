@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { ConnectWalletGate } from '../src/components/connect-wallet-gate';
 import { router, Stack } from 'expo-router';
+import { useExplorer } from '../src/features/account/use-explorer';
 import * as Clipboard from 'expo-clipboard';
 import * as MediaLibrary from 'expo-media-library/legacy';
 import * as Sharing from 'expo-sharing';
@@ -35,7 +37,7 @@ import { uiPreviewEnabled } from '../src/ui-preview';
 
 const CURRENCIES: TravelPeCurrency[] = ['USDC', 'USDT', 'pathUSD'];
 
-export default function ReceivePayment() {
+function ReceivePaymentScreen() {
   const { wallet } = useAccount();
   const [currency, setCurrency] = useState<TravelPeCurrency>('USDC');
   const [currencyOpen, setCurrencyOpen] = useState(false);
@@ -464,3 +466,13 @@ const styles = StyleSheet.create({
   },
   cancelText: { color: colors.accent, fontSize: 15, fontWeight: '700' },
 });
+
+// Paying and receiving need a wallet: Google-only visitors connect one first.
+export default function ReceivePayment() {
+  const { explorer } = useExplorer();
+  return explorer ? (
+    <ConnectWalletGate message="Connect your wallet to show your receive QR." />
+  ) : (
+    <ReceivePaymentScreen />
+  );
+}

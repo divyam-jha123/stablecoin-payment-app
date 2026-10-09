@@ -27,10 +27,10 @@ export function createChallenge(address: string) {
   const nonce = randomBytes(16).toString('hex');
   const expiresAt = Date.now() + challengeLifetimeMs;
   const message = [
-    'Traveller Pay wants you to sign in with your Ethereum account:',
+    'TravelPay wants you to sign in with your Ethereum account:',
     normalizedAddress,
     '',
-    'Sign in to Traveller Pay.',
+    'Sign in to TravelPay.',
     '',
     `Nonce: ${nonce}`,
     `Issued At: ${new Date().toISOString()}`,

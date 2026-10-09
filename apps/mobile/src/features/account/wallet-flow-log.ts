@@ -56,8 +56,8 @@ export const walletFlowLog = {
   },
   appState(state: string) {
     if (!enabled || !tracking) return;
-    console.info(`${prefix()} Traveller Pay app state: ${state}`);
-    record(`Traveller Pay app state: ${state}`);
+    console.info(`${prefix()} TravelPay app state: ${state}`);
+    record(`TravelPay app state: ${state}`);
   },
   stop() {
     tracking = false;

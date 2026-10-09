@@ -6,3 +6,6 @@ allowBuilds:
   protobufjs: false
 
 minimumReleaseAge: 1440
+
+patchedDependencies:
+  '@metamask/connect-multichain@1.2.0': patches/@metamask__connect-multichain@1.2.0.patch

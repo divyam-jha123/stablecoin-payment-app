@@ -1,14 +1,17 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { AppIcon } from './payment-ui';
+import { ProfileAvatar } from './profile-avatar';
 import { homeTheme as theme } from '../theme/home';
 
 export function HomeGreeting({
   name,
+  photoUri,
   unread = false,
   onProfile,
   onNotifications,
 }: {
   name: string;
+  photoUri: string | null;
   unread?: boolean;
   onProfile: () => void;
   onNotifications: () => void;
@@ -24,12 +27,12 @@ export function HomeGreeting({
           pressed && styles.pressed,
         ]}
       >
-        <View style={styles.avatar}>
-          <AppIcon name="person" color={theme.colors.primary} size={24} />
-        </View>
+        <ProfileAvatar name={name} photoUri={photoUri} size={36} />
       </Pressable>
       <View style={styles.copy}>
-        <Text style={styles.greeting}>Hi, {name} 👋</Text>
+        <Text style={styles.greeting}>
+          Hi, {name.trim().split(/\s+/u)[0] || 'Traveller'} 👋
+        </Text>
         <Text style={styles.subtitle}>Good to see you back!</Text>
       </View>
       <Pressable
@@ -63,17 +66,6 @@ const styles = StyleSheet.create({
   profileButton: {
     minHeight: theme.layout.touchTarget,
     width: theme.layout.touchTarget,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatar: {
-    width: theme.layout.avatar,
-    height: theme.layout.avatar,
-    borderRadius: theme.radius.pill,
-    overflow: 'hidden',
-    backgroundColor: theme.colors.surface,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },

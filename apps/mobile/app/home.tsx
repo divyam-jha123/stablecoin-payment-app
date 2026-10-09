@@ -32,8 +32,17 @@ import { uiPreviewEnabled } from '../src/ui-preview';
 import { HomeBalanceCard } from '../src/components/home-balance-card';
 import { HomeQuickActions } from '../src/components/home-quick-actions';
 import { HomeGreeting } from '../src/components/home-greeting';
+import { HomeConnectWalletCard } from '../src/components/home-connect-wallet-card';
+import {
+  connectStatusText,
+  useWalletSignIn,
+} from '../src/features/account/use-wallet-sign-in';
+import { useExplorer } from '../src/features/account/use-explorer';
+import { useProfileDetails } from '../src/features/account/profile-details-store';
+import { HomeAdCarousel } from '../src/components/home-ad-carousel';
 import { homeTheme } from '../src/theme/home';
 import { DashboardNav } from '../src/components/dashboard-nav';
+import { openPinSettings } from '../src/features/account/open-pin-settings';
 import { walletFlowLog } from '../src/features/account/wallet-flow-log';
 import { useSimulatedPayments } from '../src/features/payment/simulated-payment-store';
 import {
@@ -44,10 +53,27 @@ import {
 // Metro bundles this static Figma asset at build time.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const merchantBanner = require('../assets/figma/home-merchant-banner.png');
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const pinAd = require('../assets/ads/pin-ad.png');
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const historyAd = require('../assets/ads/history-ad.png');
 
 export default function Home() {
   const { wallet, onTempo, session, foreground } = useAccount();
   const address = wallet.account?.address;
+  const {
+    profile: googleProfile,
+    loaded: googleLoaded,
+    explorer,
+  } = useExplorer();
+  const profileDetails = useProfileDetails(address);
+  const displayName =
+    profileDetails?.name || googleProfile?.name || 'Traveller';
+  // Google-only travellers connect MetaMask from here, never via onboarding.
+  const connecting = useWalletSignIn({
+    onDone: () => {},
+  });
+  const connectWallet = connecting.signIn;
   const payments = useSimulatedPayments(uiPreviewEnabled ? null : address);
   const previewDashboard = previewDashboardWith(payments);
   const monthStart = new Date();
@@ -85,6 +111,7 @@ export default function Home() {
   const fundingLock = useRef(false);
   const authorized =
     uiPreviewEnabled ||
+    explorer ||
     Boolean(
       address &&
       onTempo &&
@@ -92,6 +119,10 @@ export default function Home() {
       // sign-in; they never see the login page again.
       (session.data === true || rememberedAccount.is(address)),
     );
+  // Connecting MetaMask from Home: a Google-signed-in traveller stays here
+  // (with the connect card) until the wallet is verified, never on login.
+  const connectingWallet =
+    !uiPreviewEnabled && Boolean(googleProfile) && !authorized;
   const dashboardLogged = useRef(false);
   useEffect(() => {
     if (
@@ -112,7 +143,12 @@ export default function Home() {
   const balance = useQuery({
     queryKey: ['tempo-pathUSD', address, wallet.account?.chainId],
     queryFn: () => tempoService.balance(address!),
-    enabled: !uiPreviewEnabled && authorized && foreground && !wallet.busy,
+    enabled:
+      !uiPreviewEnabled &&
+      Boolean(address) &&
+      authorized &&
+      foreground &&
+      !wallet.busy,
     retry: false,
     staleTime: 0,
     refetchInterval: foreground ? 15_000 : false,
@@ -147,16 +183,14 @@ export default function Home() {
       await tempoService.fund(address);
       setNotice({
         address,
-        text: 'Test funds requested. Refresh your balance to check delivery.',
+        text: 'Test funds requested. Your balance updates automatically.',
       });
       if (walletStore.getSnapshot().account?.address === address)
         await balance.refetch();
     } catch (cause) {
       setNotice({
         address,
-        text:
-          walletError(cause) +
-          ' Refresh your balance before requesting funds again.',
+        text: walletError(cause) + ' Please try again after the cooldown.',
       });
     } finally {
       fundingLock.current = false;
@@ -182,13 +216,16 @@ export default function Home() {
   if (
     !uiPreviewEnabled &&
     wallet.restored &&
+    googleLoaded &&
+    !explorer &&
+    !connectingWallet &&
     (!address ||
       !onTempo ||
       (!rememberedAccount.is(address) &&
         (session.data === false || session.isError)))
   )
     return <Redirect href="/connect" />;
-  if (!authorized)
+  if (!authorized && !connectingWallet)
     return (
       <PaymentScreen>
         <ActivityIndicator color={colors.ink} />
@@ -205,94 +242,128 @@ export default function Home() {
         keyboardShouldPersistTaps="handled"
       >
         <HomeGreeting
-          name={uiPreviewEnabled ? 'Rupesh' : 'traveller'}
+          name={displayName}
+          photoUri={profileDetails?.photoUri ?? null}
           unread={uiPreviewEnabled}
           onProfile={() => router.push('/profile')}
           onNotifications={() => setNotificationsOpen(true)}
         />
-        <HomeBalanceCard
-          {...paymentActions}
-          balance={
-            uiPreviewEnabled
-              ? previewDashboard.displayBalance
-              : balance.isError
-                ? 'Unavailable'
-                : balance.data === undefined
-                  ? 'Checking…'
-                  : simulatedBalance(balance.data, payments)
-          }
-          equivalent={
-            uiPreviewEnabled
-              ? previewDashboard.displayEquivalent
-              : 'Tempo Moderato · test funds'
-          }
-          currency={uiPreviewEnabled ? 'USDC' : 'pathUSD'}
-          visible={balanceVisible}
-          onToggleVisibility={() => setBalanceVisible((visible) => !visible)}
-          onCurrencyPress={() =>
-            Alert.alert(
-              'Currency',
-              uiPreviewEnabled
-                ? 'USDC is selected for this design preview. Currency switching is not available yet.'
-                : 'This wallet uses pathUSD on Tempo Moderato testnet.',
-            )
-          }
-          onActivity={() => router.push('/activity')}
-          monthlyChange={uiPreviewEnabled ? '12.4%' : undefined}
-        />
-        {!uiPreviewEnabled && (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Refresh balance"
-            accessibilityState={{ disabled: balance.isFetching || wallet.busy }}
-            disabled={balance.isFetching || wallet.busy}
-            onPress={() => void balance.refetch()}
-            style={styles.refresh}
-          >
-            <Text style={styles.link}>
-              {balance.isFetching ? 'Refreshing…' : 'Refresh balance'}
-            </Text>
-          </Pressable>
-        )}
-        {!uiPreviewEnabled && balance.isError && (
-          <Text accessibilityRole="alert" style={ui.error}>
-            Could not read your balance. {walletError(balance.error)} Use
-            Refresh to retry.
-          </Text>
-        )}
-        {notice?.address === address && (
-          <Text accessibilityLiveRegion="polite" style={ui.caption}>
-            {notice?.text}
-          </Text>
-        )}
-        <View style={uiPreviewEnabled ? styles.quickActionsSpacing : undefined}>
-          <HomeQuickActions
-            {...paymentActions}
-            onScan={() => router.push('/scanner')}
-            fundingHint={uiPreviewEnabled ? 'From bank' : 'Test faucet'}
+        {explorer || connectingWallet ? (
+          <HomeConnectWalletCard
+            onConnect={() => void connectWallet()}
+            busy={connecting.busy}
+            status={connectStatusText(connecting.stage)}
+            error={connecting.error}
           />
-        </View>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Scan and pay across India"
-          accessibilityState={{ disabled: navigatingDisabled }}
+        ) : (
+          <>
+            <HomeBalanceCard
+              {...paymentActions}
+              balance={
+                uiPreviewEnabled
+                  ? previewDashboard.displayBalance
+                  : balance.isError
+                    ? 'Unavailable'
+                    : balance.data === undefined
+                      ? 'Checking…'
+                      : simulatedBalance(balance.data, payments)
+              }
+              equivalent={
+                uiPreviewEnabled
+                  ? previewDashboard.displayEquivalent
+                  : 'Tempo Moderato · test funds'
+              }
+              currency={uiPreviewEnabled ? 'USDC' : 'pathUSD'}
+              visible={balanceVisible}
+              onToggleVisibility={() =>
+                setBalanceVisible((visible) => !visible)
+              }
+              onCurrencyPress={() =>
+                Alert.alert(
+                  'Currency',
+                  uiPreviewEnabled
+                    ? 'USDC is selected for this design preview. Currency switching is not available yet.'
+                    : 'This wallet uses pathUSD on Tempo Moderato testnet.',
+                )
+              }
+              onActivity={() => router.push('/activity')}
+              monthlyChange={uiPreviewEnabled ? '12.4%' : undefined}
+            />
+            {!uiPreviewEnabled && balance.isError && (
+              <Text accessibilityRole="alert" style={ui.error}>
+                Could not read your balance. {walletError(balance.error)} Check
+                your connection; your balance updates automatically.
+              </Text>
+            )}
+            {notice?.address === address && (
+              <Text accessibilityLiveRegion="polite" style={ui.caption}>
+                {notice?.text}
+              </Text>
+            )}
+            <View
+              style={uiPreviewEnabled ? styles.quickActionsSpacing : undefined}
+            >
+              <HomeQuickActions
+                {...paymentActions}
+                onScan={() => router.push('/scanner')}
+                fundingHint={uiPreviewEnabled ? 'From bank' : 'Test faucet'}
+              />
+            </View>
+          </>
+        )}
+        <HomeAdCarousel
           disabled={navigatingDisabled}
-          onPress={() => router.push('/scanner')}
-          style={[styles.banner, navigatingDisabled && styles.disabledAction]}
-        >
-          <Image
-            source={merchantBanner}
-            resizeMode="cover"
-            style={styles.bannerImage}
-          />
-          <View style={styles.bannerCopy}>
-            <Text style={styles.bannerTitle}>Scan a merchant QR</Text>
-            <Text style={styles.bannerSub}>
-              Review UPI details before you pay.
-            </Text>
-            <Text style={styles.bannerLink}>Open scanner →</Text>
-          </View>
-        </Pressable>
+          ads={[
+            {
+              key: 'scan',
+              accessibilityLabel: 'Scan and pay across India',
+              onPress: () => router.push('/scanner'),
+              content: (
+                <>
+                  <Image
+                    source={merchantBanner}
+                    resizeMode="cover"
+                    style={styles.bannerImage}
+                  />
+                  <View style={styles.bannerCopy}>
+                    <Text style={styles.bannerTitle}>Scan a merchant QR</Text>
+                    <Text style={styles.bannerSub}>
+                      Review UPI details before you pay.
+                    </Text>
+                    <Text style={styles.bannerLink}>Open scanner →</Text>
+                  </View>
+                </>
+              ),
+            },
+            {
+              key: 'pin',
+              accessibilityLabel:
+                'Your PIN. Your payments. Set a 4-digit PIN to approve your TravelPe payments.',
+              onPress: () =>
+                explorer ? void connectWallet() : void openPinSettings(),
+              content: (
+                <Image
+                  source={pinAd}
+                  resizeMode="cover"
+                  style={styles.bannerImage}
+                />
+              ),
+            },
+            {
+              key: 'history',
+              accessibilityLabel:
+                'Every payment, in one place. View your TravelPe payment history.',
+              onPress: () => router.push('/activity'),
+              content: (
+                <Image
+                  source={historyAd}
+                  resizeMode="cover"
+                  style={styles.bannerImage}
+                />
+              ),
+            },
+          ]}
+        />
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={
@@ -443,19 +514,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 24,
     gap: 20,
-  },
-  refresh: {
-    minHeight: homeTheme.layout.touchTarget,
-    justifyContent: 'center',
-    alignSelf: 'flex-end',
-  },
-  disabledAction: { opacity: 0.5 },
-  banner: {
-    width: '100%',
-    height: 116,
-    borderRadius: 16,
-    overflow: 'hidden',
-    backgroundColor: '#ebeeff',
   },
   bannerImage: { width: '100%', height: '100%', position: 'absolute' },
   bannerCopy: {
