@@ -4,6 +4,7 @@ import { router, usePathname } from 'expo-router';
 import { shouldRelock } from '../features/account/app-lock-policy';
 import { authenticate, phoneHasLock } from '../features/account/device-lock';
 import { walletStore } from '../features/account/metamask';
+import { recordLoginActivity } from '../features/account/login-activity-store';
 import {
   entryRoute,
   hasReturningUser,
@@ -95,6 +96,7 @@ export function AppLock() {
       const success = await authenticate('Sign in to TravelPe');
       if (!mounted.current) return;
       if (success) {
+        recordLoginActivity('unlock');
         setPhase('open');
         if (returnHome.current) router.replace(destination.current);
       } else

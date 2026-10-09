@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { walletStore } from './metamask';
 import { DEVICE_PIN_OWNER, pinStore } from './payment-pin';
 import { rememberedAccount } from './remembered-account';
+import { recordLoginActivity } from './login-activity-store';
 import {
   authenticateWallet,
   requestSignInChallenge,
@@ -160,6 +161,7 @@ export function useWalletSignIn(options?: { onDone?: () => void }) {
       walletFlowLog.info('Wallet still matches signed-in account');
       // Next launch opens straight to Home, behind the app lock.
       await rememberedAccount.remember(account.address);
+      recordLoginActivity('sign-in', account.address);
       queryClient.setQueryData(
         ['session', account.address, account.chainId],
         true,

@@ -19,8 +19,8 @@ import { walletStore } from '../src/features/account/metamask';
 import { googleAccount } from '../src/features/account/google-account';
 import { useWalletSignIn } from '../src/features/account/use-wallet-sign-in';
 import { useExplorer } from '../src/features/account/use-explorer';
-import { openPinSettings } from '../src/features/account/open-pin-settings';
 import { routeAfterSignOut } from '../src/features/account/returning-user';
+import { recordLoginActivity } from '../src/features/account/login-activity-store';
 import { rememberedAccount } from '../src/features/account/remembered-account';
 import { logoutSession } from '../src/features/account/session';
 import {
@@ -126,11 +126,6 @@ export default function Profile() {
     onDone: () => {},
   });
 
-  // Security opens the TravelPe PIN: change it, or set one if missing.
-  async function openSecurity() {
-    if (!(await openPinSettings())) notAvailable('Security');
-  }
-
   async function signOutOfGoogle() {
     if (lock.current || connecting.busy || walletStore.getSnapshot().busy)
       return;
@@ -158,6 +153,7 @@ export default function Profile() {
     lock.current = true;
     setLeaving(true);
     try {
+      if (address) recordLoginActivity('sign-out', address);
       await rememberedAccount.forget();
       await queryClient.cancelQueries({ queryKey: ['session'] });
       // Remote revocation may be unavailable; still clear the wallet locally.
@@ -317,13 +313,12 @@ export default function Profile() {
               onPress={() =>
                 item.title === 'Personal Information'
                   ? editProfile()
-                  : explorer &&
-                      (item.title === 'Tap to Pay' || item.title === 'Security')
+                  : explorer && item.title === 'Tap to Pay'
                     ? void connecting.signIn()
                     : item.title === 'Tap to Pay'
                       ? router.push('/setup-payments')
                       : item.title === 'Security'
-                        ? void openSecurity()
+                        ? router.push('/security')
                         : notAvailable(item.title)
               }
               style={({ pressed }) => [styles.row, pressed && styles.pressed]}
