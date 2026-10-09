@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { router, Stack } from 'expo-router';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   Alert,
   Image,
@@ -13,28 +13,13 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import { DashboardNav } from '../src/components/dashboard-nav';
-import {
-  Action,
-  AppIcon,
-  colors,
-  TestNotice,
-  ui,
-} from '../src/components/payment-ui';
+import { AppIcon, colors, TestNotice } from '../src/components/payment-ui';
 import { useAccount } from '../src/features/account/use-account';
 import { walletStore } from '../src/features/account/metamask';
-import {
-  paymentKeyStore,
-  revokeKeyCall,
-} from '../src/features/account/payment-key';
-import { phoneHasLock } from '../src/features/account/device-lock';
 import { pinStore } from '../src/features/account/payment-pin';
 import { pinOwner } from '../src/features/account/pin-owner';
 import { rememberedAccount } from '../src/features/account/remembered-account';
 import { logoutSession } from '../src/features/account/session';
-import { publicClient } from '../src/features/account/tempo';
-import { walletError } from '../src/features/account/wallet-store';
-import { formatPathUsdAtomic } from '../src/features/payment/amount';
-import { previewTapToPay } from '../src/preview-data';
 import { uiPreviewEnabled } from '../src/ui-preview';
 
 // Sample identity for the UI preview only; wallet mode shows the wallet.
@@ -57,6 +42,13 @@ const MENU = [
     tint: '#5b4bdb',
     background: '#ebe7ff',
     icon: 'M3 6h18v12H3z M3 10h18 M6.5 14.5h4',
+  },
+  {
+    title: 'Tap to Pay',
+    subtitle: 'Contactless payments & devices',
+    tint: '#1f7cf5',
+    background: '#e6f0fd',
+    icon: 'M5 3h8a1.5 1.5 0 0 1 1.5 1.5v15A1.5 1.5 0 0 1 13 21H5a1.5 1.5 0 0 1-1.5-1.5v-15A1.5 1.5 0 0 1 5 3z M7.5 16.5h3 M17 9.5a3.5 3.5 0 0 1 0 5 M19.5 7a7 7 0 0 1 0 10',
   },
   {
     title: 'Security',
@@ -119,188 +111,30 @@ function notAvailable(title: string) {
   Alert.alert(title, `${title} is not available yet.`);
 }
 
-function shortDate(unixSeconds: number) {
-  return new Date(unixSeconds * 1000).toLocaleDateString('en-IN', {
-    day: 'numeric',
-    month: 'short',
-  });
-}
-
-/** App lock and payment confirmation, both using the phone's own lock. */
-function SecurityCard() {
-  const lock = useQuery({
-    queryKey: ['phone-lock'],
-    queryFn: phoneHasLock,
-    retry: false,
-  });
-  const owner = pinOwner();
-  const pin = useQuery({
-    queryKey: ['payment-pin', owner],
-    queryFn: () => pinStore.hasPin(owner!),
-    enabled: Boolean(owner),
-    retry: false,
-  });
-  return (
-    <View style={styles.card}>
-      <Text style={ui.heading}>Security</Text>
-      <Text style={ui.caption}>
-        {lock.isPending
-          ? 'Checking…'
-          : lock.data
-            ? 'App lock is on. When you come back to TravelPe, unlock it with your fingerprint, face or phone PIN.'
-            : 'Set a screen lock on your phone to protect TravelPe. Until then the app is not locked.'}
-      </Text>
-      <Text style={ui.caption}>
-        {pin.data
-          ? 'Payments are approved with your 4-digit TravelPe PIN.'
-          : 'Set a 4-digit TravelPe PIN to approve payments.'}
-      </Text>
-      {owner && pin.isFetched ? (
-        <Action
-          secondary
-          title={pin.data ? 'Change PIN' : 'Set PIN'}
-          onPress={() =>
-            router.push(
-              pin.data
-                ? {
-                    pathname: '/pin-entry',
-                    params: { mode: 'change', next: 'profile' },
-                  }
-                : { pathname: '/pin-setup', params: { next: 'profile' } },
-            )
-          }
-        />
-      ) : null}
-    </View>
-  );
-}
-
-/** Tap-to-pay state from the chain, with turn on / turn off. */
-function TapToPayCard({ owner }: { owner: string | undefined }) {
-  const queryClient = useQueryClient();
-  const [turningOff, setTurningOff] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const status = useQuery({
-    queryKey: ['payment-key', owner],
-    queryFn: () => paymentKeyStore.status(owner!),
-    enabled: Boolean(!uiPreviewEnabled && owner),
-    retry: false,
-  });
-
-  async function turnOff() {
-    const current = status.data;
-    if (!owner || !current || current.state === 'none') return;
-    setTurningOff(true);
-    setError(null);
-    try {
-      if (current.state === 'active') {
-        const hash = await walletStore.sendTransaction(
-          revokeKeyCall(current.key),
-        );
-        const receipt = await publicClient.waitForTransactionReceipt({
-          hash,
-          timeout: 90_000,
-        });
-        if (receipt.status !== 'success') {
-          throw new Error(
-            'Tempo rejected the request. Tap to pay is still on.',
-          );
-        }
-      }
-      await paymentKeyStore.remove(owner);
-      await queryClient.invalidateQueries({ queryKey: ['payment-key'] });
-    } catch (cause) {
-      setError(walletError(cause));
-    } finally {
-      setTurningOff(false);
-    }
-  }
-
-  const confirmTurnOff = () =>
-    Alert.alert(
-      'Turn off tap to pay?',
-      'Approve once in MetaMask. After that, each payment opens MetaMask.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Turn off',
-          style: 'destructive',
-          onPress: () => void turnOff(),
-        },
-      ],
-    );
-
-  let summary: string;
-  let detail: string | null = null;
-  let action: {
-    title: string;
-    onPress: () => void;
-    secondary?: boolean;
-  } | null = null;
-  const data = status.data;
-  if (uiPreviewEnabled) {
-    summary = `On · $${previewTapToPay.dailyLimitUsd} a day until ${shortDate(previewTapToPay.expiry)}`;
-    detail = `$${previewTapToPay.remainingUsd} left today`;
-    action = {
-      title: 'Turn off tap to pay',
-      onPress: confirmTurnOff,
-      secondary: true,
-    };
-  } else if (!owner) {
-    summary = 'Connect MetaMask to use tap to pay.';
-  } else if (status.isPending) {
-    summary = 'Checking…';
-  } else if (status.isError || !data) {
-    summary = "Couldn't check tap to pay. Try again shortly.";
-  } else if (data.state === 'active') {
-    summary = `On · $${data.key.dailyLimitUsd} a day until ${shortDate(data.key.expiry)}`;
-    detail = `$${formatPathUsdAtomic(data.remainingAtomic)} left today`;
-    action = {
-      title: turningOff ? 'Turning off…' : 'Turn off tap to pay',
-      onPress: confirmTurnOff,
-      secondary: true,
-    };
-  } else if (data.state === 'none') {
-    summary = 'Off. Each payment opens MetaMask.';
-    action = {
-      title: 'Turn on tap to pay',
-      onPress: () => router.push('/setup-payments'),
-    };
-  } else {
-    summary =
-      data.state === 'expired'
-        ? `Ended on ${shortDate(data.key.expiry)}. Each payment opens MetaMask.`
-        : 'Turned off. Each payment opens MetaMask.';
-    action = {
-      title: 'Turn on again',
-      onPress: () => router.push('/setup-payments'),
-    };
-  }
-
-  return (
-    <View style={styles.card}>
-      <Text style={ui.heading}>Tap to pay</Text>
-      <Text style={ui.caption}>{summary}</Text>
-      {detail ? <Text style={ui.caption}>{detail}</Text> : null}
-      {error ? <Text style={ui.error}>{error}</Text> : null}
-      {action ? (
-        <Action
-          title={action.title}
-          secondary={action.secondary ?? false}
-          disabled={turningOff}
-          onPress={action.onPress}
-        />
-      ) : null}
-    </View>
-  );
-}
-
 export default function Profile() {
   const { wallet, onTempo } = useAccount();
   const queryClient = useQueryClient();
   const [leaving, setLeaving] = useState(false);
   const lock = useRef(false);
   const address = wallet.account?.address;
+
+  // Security opens the TravelPe PIN: change it, or set one if missing.
+  async function openSecurity() {
+    const owner = pinOwner();
+    if (!owner) {
+      notAvailable('Security');
+      return;
+    }
+    const hasPin = await pinStore.hasPin(owner).catch(() => false);
+    router.push(
+      hasPin
+        ? {
+            pathname: '/pin-entry',
+            params: { mode: 'change', next: 'profile' },
+          }
+        : { pathname: '/pin-setup', params: { next: 'profile' } },
+    );
+  }
 
   async function disconnect() {
     if (uiPreviewEnabled || lock.current || walletStore.getSnapshot().busy)
@@ -455,7 +289,13 @@ export default function Profile() {
               key={item.title}
               accessibilityRole="button"
               accessibilityLabel={`${item.title}, ${item.subtitle}`}
-              onPress={() => notAvailable(item.title)}
+              onPress={() =>
+                item.title === 'Tap to Pay'
+                  ? router.push('/setup-payments')
+                  : item.title === 'Security'
+                    ? void openSecurity()
+                    : notAvailable(item.title)
+              }
               style={({ pressed }) => [styles.row, pressed && styles.pressed]}
             >
               <View
@@ -504,9 +344,6 @@ export default function Profile() {
           ) : null}
         </View>
 
-        <TapToPayCard owner={address} />
-        <SecurityCard />
-
         {!uiPreviewEnabled ? <TestNotice /> : null}
       </ScrollView>
       <DashboardNav disabled={leaving} />
@@ -526,7 +363,6 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   pressed: { opacity: 0.7 },
-  card: { backgroundColor: '#f4f8ff', borderRadius: 16, padding: 20, gap: 12 },
   header: { flexDirection: 'row', alignItems: 'flex-start' },
   headerCopy: { flex: 1, gap: 2 },
   title: { color: '#000000', fontSize: 42, fontWeight: '800' },
