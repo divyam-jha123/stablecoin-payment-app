@@ -327,17 +327,31 @@ export default function Scanner() {
           Camera access is required to scan payment QR codes.
         </Text>
         {permission.canAskAgain ? (
-          <Button
-            title="Allow camera access"
-            color="#ffffff"
+          <Pressable
+            accessibilityRole="button"
             onPress={() => void requestPermission()}
-          />
+            style={({ pressed }) => [
+              styles.permissionButton,
+              pressed && styles.permissionButtonPressed,
+            ]}
+          >
+            <Text style={styles.permissionButtonText}>Allow camera access</Text>
+          </Pressable>
         ) : (
           <Text style={styles.permissionText}>
             Enable camera access for Traveller Pay in your device settings.
           </Text>
         )}
-        <Button title="Back" color="#ffffff" onPress={() => router.back()} />
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => router.back()}
+          style={({ pressed }) => [
+            styles.permissionSecondaryButton,
+            pressed && styles.permissionButtonPressed,
+          ]}
+        >
+          <Text style={styles.permissionSecondaryButtonText}>Back</Text>
+        </Pressable>
       </SafeAreaView>
     );
   }
@@ -816,5 +830,33 @@ const styles = StyleSheet.create({
   permissionText: {
     color: '#ffffff',
     textAlign: 'center',
+  },
+  permissionButton: {
+    alignItems: 'center',
+    alignSelf: 'stretch',
+    backgroundColor: '#005ae1',
+    borderRadius: 28,
+    paddingVertical: 14,
+  },
+  permissionButtonPressed: {
+    opacity: 0.8,
+  },
+  permissionButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  permissionSecondaryButton: {
+    alignItems: 'center',
+    alignSelf: 'stretch',
+    borderColor: '#ffffff',
+    borderRadius: 28,
+    borderWidth: 1,
+    paddingVertical: 14,
+  },
+  permissionSecondaryButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
