@@ -20,18 +20,18 @@ import { openPinSettings } from '../src/features/account/open-pin-settings';
 import { pinStore } from '../src/features/account/payment-pin';
 import { rememberedAccount } from '../src/features/account/remembered-account';
 import { logoutSession } from '../src/features/account/session';
+import {
+  profileAvatarColor,
+  profileInitial,
+} from '../src/features/account/profile-details';
+import { useProfileDetails } from '../src/features/account/profile-details-store';
 import { uiPreviewEnabled } from '../src/ui-preview';
-
-// Sample identity for the UI preview only; wallet mode shows the wallet.
-const PREVIEW_PROFILE = { name: 'Rupesh Kumar', email: 'rupesh@gmail.com' };
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const previewAvatar = require('../assets/profile-avatar.png');
 
 // Outline icons on a 24px grid for the account menu.
 const MENU = [
   {
     title: 'Personal Information',
-    subtitle: 'Name, email, phone',
+    subtitle: 'Name, email, date of birth',
     tint: '#2f6bff',
     background: '#e3edff',
     icon: 'M10 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z M3 21c0-3.6 2.9-6 7-6 1 0 2 .2 2.8.4 M15 17h6v4h-6z M16.5 17v-1.5a1.5 1.5 0 0 1 3 0V17',
@@ -147,12 +147,15 @@ export default function Profile() {
     }
   }
 
-  const name = uiPreviewEnabled ? PREVIEW_PROFILE.name : 'Traveller';
-  const detail = uiPreviewEnabled
-    ? PREVIEW_PROFILE.email
-    : address
-      ? shortAddress(address)
-      : 'Wallet not connected';
+  // Details saved on Edit Profile; the preview starts with a sample identity.
+  const details = useProfileDetails(address);
+  const name = details?.name || 'Traveller';
+  const detail =
+    details?.email ||
+    (address ? shortAddress(address) : 'Wallet not connected');
+  // The picture is always the first letter of the first name.
+  const initial = profileInitial(name);
+  const editProfile = () => router.push('/edit-profile');
   const status = uiPreviewEnabled
     ? 'Verified Account'
     : address
@@ -194,28 +197,33 @@ export default function Profile() {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={`${name}, ${detail}. Personal information`}
-          onPress={() => notAvailable('Personal Information')}
+          onPress={editProfile}
           style={({ pressed }) => [styles.identity, pressed && styles.pressed]}
         >
           <View style={styles.avatarWrap}>
             <View style={styles.avatarRing}>
-              <View style={styles.avatar}>
-                {uiPreviewEnabled ? (
+              <View
+                style={[
+                  styles.avatar,
+                  { backgroundColor: profileAvatarColor(name) },
+                ]}
+              >
+                {details?.photoUri ? (
                   <Image
-                    source={previewAvatar}
+                    source={{ uri: details.photoUri }}
                     accessibilityIgnoresInvertColors
                     style={styles.avatarImage}
                   />
                 ) : (
-                  <AppIcon name="person" color="#ffffff" size={34} />
+                  <Text style={styles.avatarInitial}>{initial}</Text>
                 )}
               </View>
             </View>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Edit profile photo"
+              accessibilityLabel="Edit profile"
               hitSlop={6}
-              onPress={() => notAvailable('Profile photo')}
+              onPress={editProfile}
               style={({ pressed }) => [
                 styles.editBadge,
                 pressed && styles.pressed,
@@ -277,11 +285,13 @@ export default function Profile() {
               accessibilityRole="button"
               accessibilityLabel={`${item.title}, ${item.subtitle}`}
               onPress={() =>
-                item.title === 'Tap to Pay'
-                  ? router.push('/setup-payments')
-                  : item.title === 'Security'
-                    ? void openSecurity()
-                    : notAvailable(item.title)
+                item.title === 'Personal Information'
+                  ? editProfile()
+                  : item.title === 'Tap to Pay'
+                    ? router.push('/setup-payments')
+                    : item.title === 'Security'
+                      ? void openSecurity()
+                      : notAvailable(item.title)
               }
               style={({ pressed }) => [styles.row, pressed && styles.pressed]}
             >
@@ -391,7 +401,7 @@ const styles = StyleSheet.create({
     height: 68,
     borderRadius: 34,
     borderWidth: 3,
-    borderColor: '#4c8dff',
+    borderColor: '#000000',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#ffffff',
@@ -433,12 +443,13 @@ const styles = StyleSheet.create({
     width: 58,
     height: 58,
     borderRadius: 29,
-    backgroundColor: '#e5372f',
+    backgroundColor: '#dce8fb',
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
   },
   avatarImage: { width: '100%', height: '100%' },
+  avatarInitial: { color: '#ffffff', fontSize: 28, fontWeight: '500' },
   identityCopy: { flex: 1, gap: 3 },
   name: { color: '#0b0f1f', fontSize: 18, fontWeight: '800', flexShrink: 1 },
   email: { color: colors.muted, fontSize: 14 },
