@@ -2,10 +2,7 @@
   "expo": {
     "name": "TravelPay",
     "slug": "tempo-traveller-payments",
-    "scheme": [
-      "travellerpay",
-      "com.travellerpay.hackathon"
-    ],
+    "scheme": ["travellerpay", "com.travellerpay.hackathon"],
     "version": "0.0.1",
     "plugins": [
       "expo-router",
@@ -27,9 +24,7 @@
         "expo-media-library",
         {
           "savePhotosPermission": "Allow TravelPe to save your payment QR image.",
-          "granularPermissions": [
-            "photo"
-          ]
+          "granularPermissions": ["photo"]
         }
       ],
       [
@@ -51,6 +46,9 @@
     ],
     "android": {
       "package": "com.travellerpay.hackathon"
+    },
+    "ios": {
+      "bundleIdentifier": "com.travellerpay.hackathon"
     },
     "experiments": {
       "typedRoutes": true

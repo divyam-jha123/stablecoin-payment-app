@@ -1,4 +1,4 @@
-import { uiPreviewEnabled } from '../../ui-preview';
+import { iosDashboardPreview, uiPreviewEnabled } from '../../ui-preview';
 import { googleAccount } from './google-account';
 import { DEVICE_PIN_OWNER, pinStore, PREVIEW_PIN_OWNER } from './payment-pin';
 import { rememberedAccount } from './remembered-account';
@@ -7,6 +7,8 @@ import { rememberedAccount } from './remembered-account';
 export async function entryRoute(): Promise<
   '/onboarding' | '/pin-setup' | '/home'
 > {
+  // The iOS development demo always starts at onboarding, with one button to Home.
+  if (iosDashboardPreview) return '/onboarding';
   if (await googleAccount.load()) {
     const owner = uiPreviewEnabled ? PREVIEW_PIN_OWNER : DEVICE_PIN_OWNER;
     return (await pinStore.hasPin(owner)) ? '/home' : '/pin-setup';

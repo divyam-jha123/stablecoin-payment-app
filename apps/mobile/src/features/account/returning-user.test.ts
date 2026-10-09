@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const state = vi.hoisted(() => ({
   preview: false,
+  iosPreview: false,
   hasPin: vi.fn(),
   adopt: vi.fn(),
   clear: vi.fn(),
@@ -11,6 +12,9 @@ const state = vi.hoisted(() => ({
 vi.mock('../../ui-preview', () => ({
   get uiPreviewEnabled() {
     return state.preview;
+  },
+  get iosDashboardPreview() {
+    return state.iosPreview;
   },
 }));
 vi.mock('./payment-pin', () => ({
@@ -34,11 +38,21 @@ const { entryRoute, hasReturningUser, routeAfterSignOut } =
 beforeEach(() => {
   vi.resetAllMocks();
   state.preview = false;
+  state.iosPreview = false;
   state.google.mockResolvedValue(null);
   state.adopt.mockResolvedValue(undefined);
 });
 
 describe('returning sign-in', () => {
+  it('opens iOS development on onboarding without requiring stored sign-in or PIN', async () => {
+    state.iosPreview = true;
+    state.google.mockResolvedValue({ sub: '1' });
+    state.hasPin.mockResolvedValue(true);
+    expect(await entryRoute()).toBe('/onboarding');
+    expect(state.google).not.toHaveBeenCalled();
+    expect(state.hasPin).not.toHaveBeenCalled();
+  });
+
   it('shows onboarding only when neither account is signed in', async () => {
     state.load.mockResolvedValue(null);
     expect(await entryRoute()).toBe('/onboarding');

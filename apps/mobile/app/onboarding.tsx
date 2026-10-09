@@ -10,6 +10,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { AppIcon } from '../src/components/payment-ui';
+import { iosDashboardPreview } from '../src/ui-preview';
 
 // Metro bundles this static Figma asset at build time.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -135,23 +136,28 @@ export default function Onboarding() {
         <View style={styles.spacer} />
         <Pressable
           accessibilityRole="button"
-          onPress={() => void start()}
+          onPress={() =>
+            iosDashboardPreview ? router.replace('/home') : start()
+          }
           style={({ pressed }) => [styles.button, pressed && styles.pressed]}
         >
-          <Text style={styles.buttonText}>Get Started</Text>
+          <Text style={styles.buttonText}>
+            {iosDashboardPreview ? 'Continue to Dashboard' : 'Get Started'}
+          </Text>
           <AppIcon name="arrow" size={24} color="#ffffff" />
         </Pressable>
-        {/* No separate sign-in flow yet: it opens wallet connect too. */}
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => void start()}
-          style={({ pressed }) => [styles.signIn, pressed && styles.pressed]}
-        >
-          <Text style={styles.signInText}>
-            Already have an account?{' '}
-            <Text style={styles.signInAccent}>Sign In</Text>
-          </Text>
-        </Pressable>
+        {!iosDashboardPreview ? (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => void start()}
+            style={({ pressed }) => [styles.signIn, pressed && styles.pressed]}
+          >
+            <Text style={styles.signInText}>
+              Already have an account?{' '}
+              <Text style={styles.signInAccent}>Sign In</Text>
+            </Text>
+          </Pressable>
+        ) : null}
       </SafeAreaView>
     </View>
   );
