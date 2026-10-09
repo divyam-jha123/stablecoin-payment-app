@@ -24,6 +24,7 @@ import {
   requestSignInChallenge,
   verifySignInChallenge,
 } from '../src/features/account/session';
+import { recordLoginActivity } from '../src/features/account/login-activity-store';
 import { TEMPO_CHAIN } from '../src/features/account/tempo';
 import {
   walletError,
@@ -183,6 +184,7 @@ export default function Connect() {
       walletFlowLog.info('Wallet still matches signed-in account');
       // Next launch opens straight to Home, behind the app lock.
       await rememberedAccount.remember(account.address);
+      recordLoginActivity('sign-in', account.address);
       queryClient.setQueryData(
         ['session', account.address, account.chainId],
         true,

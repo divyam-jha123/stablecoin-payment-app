@@ -4,6 +4,7 @@ import {
   type SimulatedPayment,
   type TransactionItem,
 } from './features/payment/simulated-payments';
+import type { LoginActivityEntry } from './features/account/login-activity';
 
 /** Illustrative fixtures for the explicitly enabled local UI preview only. */
 export const previewTransactions: readonly TransactionItem[] = [
@@ -85,6 +86,38 @@ export const previewTapToPay = {
   remainingUsd: '238.42',
   expiry: Math.floor(Date.now() / 1000) + 12 * 86_400,
 };
+
+/** Sample Security settings for the UI preview; wallet mode reads the phone. */
+export const previewSecurity = {
+  biometrics: true,
+};
+
+/** Sample phone and sign-in history for Login Activity in the UI preview. */
+export const previewLoginDevice = {
+  name: 'iPhone 18 Pro',
+  detail: 'Pune, India',
+};
+
+const previewMinute = 60_000;
+const previewNow = Date.now();
+export const previewLoginActivity: readonly LoginActivityEntry[] = (
+  [
+    ['unlock', 2],
+    ['unlock', 3 * 60],
+    ['pin-changed', 26 * 60],
+    ['sign-in', 27 * 60],
+    ['sign-out', 27 * 60 + 5],
+    ['unlock', 3 * 24 * 60],
+    ['pin-set', 6 * 24 * 60],
+    ['sign-in', 6 * 24 * 60 + 2],
+  ] as const
+).map(([kind, minutesAgo], index) => ({
+  id: `preview-${index}`,
+  kind,
+  at: previewNow - minutesAgo * previewMinute,
+  device: previewLoginDevice.name,
+  detail: previewLoginDevice.detail,
+}));
 
 /** Shown on the success screen when it is opened directly in the UI preview. */
 export const previewSamplePayment: SimulatedPayment = {
