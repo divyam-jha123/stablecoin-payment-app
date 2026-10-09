@@ -129,6 +129,11 @@ export function createSimulatedPaymentStore(storage?: PaymentStorage) {
     },
     get: (id: string | undefined) =>
       id ? payments.find((payment) => payment.id === id) : undefined,
+    /** Reset wallet-free preview history without touching wallet payments. */
+    async clearPreview() {
+      publish(payments.filter((payment) => payment.address !== null));
+      await storage?.setItem(SIMULATED_PAYMENTS_KEY, JSON.stringify(payments));
+    },
   };
 }
 

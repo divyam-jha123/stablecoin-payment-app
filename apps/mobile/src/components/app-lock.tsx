@@ -1,115 +1,154 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, Pressable, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { AppIcon } from './payment-ui';
+import { router, usePathname } from 'expo-router';
 import { shouldRelock } from '../features/account/app-lock-policy';
 import { authenticate, phoneHasLock } from '../features/account/device-lock';
-import { rememberedAccount } from '../features/account/remembered-account';
+import { hasReturningUser } from '../features/account/returning-user';
+import { SplashBackdrop, SPLASH_DURATION_MS } from './splash-backdrop';
 
-/**
- * Locks TravelPe behind the phone's fingerprint, face or PIN for a returning
- * traveller: when the app opens already signed in, and in that session on
- * returning after 30 seconds or more in the background. A first visit
- * (onboarding and connecting) is never locked. A phone with no screen lock
- * has nothing to check, so the app stays open. Mounted once, above every
- * screen.
- */
+/** The phone's native unlock prompt appears over the splash after it finishes. */
 export function AppLock() {
-  const [locked, setLocked] = useState(false);
-  const [failed, setFailed] = useState(false);
+  const pathname = usePathname();
+  const previousPath = useRef(pathname);
+  const [phase, setPhase] = useState<
+    'splash' | 'authenticate' | 'open' | 'error'
+  >('splash');
+  const [ready, setReady] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+  const returnHome = useRef(true);
   const prompting = useRef(false);
   const backgroundedAt = useRef<number | null>(null);
-  // Set only when the app opened already signed in, so a first visit, where
-  // the traveller onboards and connects, is never locked.
-  const returningSession = useRef(false);
+  const mounted = useRef(true);
+  const splashReady = useCallback(() => setReady(true), []);
 
-  const lockIfProtected = useCallback(async () => {
-    if (
-      returningSession.current &&
-      rememberedAccount.signedIn() &&
-      (await phoneHasLock().catch(() => false))
-    )
-      setLocked(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
   }, []);
 
-  // Launch: lock if someone signed in on this phone before.
+  const start = useCallback((home: boolean) => {
+    returnHome.current = home;
+    setReady(false);
+    setError(null);
+    setPhase('splash');
+    setAttempt((value) => value + 1);
+  }, []);
+
+  // Visiting Splash from the preview menu repeats the real entry flow.
   useEffect(() => {
-    void rememberedAccount.load().then((address) => {
-      returningSession.current = Boolean(address);
-      return lockIfProtected();
-    });
-  }, [lockIfProtected]);
+    if (pathname === '/' && previousPath.current !== '/') start(true);
+    previousPath.current = pathname;
+  }, [pathname, start]);
 
   useEffect(() => {
-    const listener = AppState.addEventListener('change', (state) => {
-      // Only a real trip away counts; 'inactive' also fires for the unlock
-      // prompt itself on iOS.
-      if (state === 'background') {
-        backgroundedAt.current ??= Date.now();
-      } else if (state === 'active') {
-        const away = backgroundedAt.current;
-        backgroundedAt.current = null;
-        if (shouldRelock(away, Date.now())) void lockIfProtected();
-      }
-    });
-    return () => listener.remove();
-  }, [lockIfProtected]);
+    if (!ready) return;
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      void hasReturningUser()
+        .then((returning) => {
+          if (cancelled) return;
+          if (returning) setPhase('authenticate');
+          else {
+            setPhase('open');
+            if (returnHome.current) router.replace('/onboarding');
+          }
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setError('Could not load your sign-in. Please try again.');
+            setPhase('error');
+          }
+        });
+    }, SPLASH_DURATION_MS);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [ready, attempt]);
 
   const unlock = useCallback(async () => {
     if (prompting.current) return;
     prompting.current = true;
-    setFailed(false);
+    setError(null);
     try {
-      if (await authenticate('Unlock TravelPe')) setLocked(false);
-      else setFailed(true);
+      if (!(await phoneHasLock())) {
+        if (mounted.current)
+          setError(
+            'Set up a screen lock in your phone settings, then try again.',
+          );
+        return;
+      }
+      const success = await authenticate('Sign in to TravelPe');
+      if (!mounted.current) return;
+      if (success) {
+        setPhase('open');
+        if (returnHome.current) router.replace('/home');
+      } else
+        setError('Use your phone’s fingerprint, face or passcode to continue.');
     } catch {
-      setFailed(true);
+      if (mounted.current)
+        setError('Could not open device authentication. Please try again.');
     } finally {
       prompting.current = false;
     }
   }, []);
 
-  // Ask straight away whenever the app locks.
   useEffect(() => {
-    if (locked) void unlock();
-  }, [locked, unlock]);
+    if (phase === 'authenticate') void unlock();
+  }, [phase, unlock]);
 
-  if (!locked) return null;
+  useEffect(() => {
+    let disposed = false;
+    let check = 0;
+    const listener = AppState.addEventListener('change', (state) => {
+      if (state === 'background') {
+        check++;
+        backgroundedAt.current ??= Date.now();
+      } else if (state === 'active') {
+        const away = backgroundedAt.current;
+        backgroundedAt.current = null;
+        if (phase !== 'open' || !shouldRelock(away, Date.now())) return;
+        const request = ++check;
+        // Read setup again: it may have completed since this app launch.
+        void hasReturningUser()
+          .then((returning) => {
+            if (!disposed && request === check && returning) start(false);
+          })
+          .catch(() => {
+            // Keep the splash covering content while a storage error is retried.
+            if (!disposed && request === check) start(false);
+          });
+      }
+    });
+    return () => {
+      disposed = true;
+      listener.remove();
+    };
+  }, [phase, pathname, start]);
+
+  if (phase === 'open') return null;
   return (
-    <View
-      accessibilityViewIsModal
-      importantForAccessibility="yes"
-      style={styles.overlay}
-    >
-      <SafeAreaView style={styles.content}>
-        <Text style={styles.wordmark}>
-          Travel<Text style={styles.blue}>Pe</Text>
-        </Text>
-        <View style={styles.center}>
-          <View style={styles.badge}>
-            <AppIcon name="lock" size={40} color="#ffffff" />
-          </View>
-          <Text accessibilityRole="header" style={styles.title}>
-            TravelPe is locked
+    <View style={styles.overlay} accessibilityViewIsModal>
+      <SplashBackdrop key={attempt} onReady={splashReady} />
+      {error ? (
+        <View style={styles.retryArea}>
+          <Text accessibilityRole="alert" style={styles.errorText}>
+            {error}
           </Text>
-          <Text style={styles.copy}>
-            Use your fingerprint, face or phone PIN to continue.
-          </Text>
-          {failed ? (
-            <Text accessibilityRole="alert" style={styles.failed}>
-              Not unlocked. Try again.
-            </Text>
-          ) : null}
+          <Pressable
+            accessibilityRole="button"
+            onPress={() =>
+              phase === 'error' ? start(returnHome.current) : void unlock()
+            }
+            style={({ pressed }) => [styles.retry, pressed && styles.pressed]}
+          >
+            <Text style={styles.retryText}>Continue</Text>
+          </Pressable>
         </View>
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => void unlock()}
-          style={({ pressed }) => [styles.button, pressed && styles.pressed]}
-        >
-          <AppIcon name="lock" size={20} color="#081332" />
-          <Text style={styles.buttonText}>Unlock</Text>
-        </Pressable>
-      </SafeAreaView>
+      ) : null}
     </View>
   );
 }
@@ -119,44 +158,28 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFill,
     zIndex: 1000,
     elevation: 1000,
-    backgroundColor: '#081332',
+    backgroundColor: '#000000',
   },
-  content: { flex: 1, paddingHorizontal: 24, paddingBottom: 16 },
-  wordmark: { color: '#ffffff', fontSize: 17, marginTop: 16 },
-  blue: { color: '#0088ff' },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  badge: {
-    width: 88,
-    height: 88,
-    borderRadius: 28,
-    backgroundColor: '#005ae1',
-    alignItems: 'center',
-    justifyContent: 'center',
+  retryArea: {
+    position: 'absolute',
+    bottom: 100,
+    left: 24,
+    right: 24,
+    gap: 16,
   },
-  title: {
+  errorText: {
     color: '#ffffff',
-    fontSize: 26,
-    fontWeight: '800',
-    marginTop: 24,
-  },
-  copy: {
-    color: 'rgba(255,255,255,0.75)',
     fontSize: 16,
     lineHeight: 23,
     textAlign: 'center',
-    marginTop: 8,
-    maxWidth: 300,
   },
-  failed: { color: '#ffb4ab', fontSize: 14, marginTop: 14 },
-  button: {
-    flexDirection: 'row',
-    gap: 10,
-    minHeight: 58,
-    borderRadius: 30,
-    backgroundColor: '#ffffff',
+  retry: {
+    minHeight: 54,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#ffffff',
+    borderRadius: 14,
   },
-  buttonText: { color: '#081332', fontSize: 18, fontWeight: '700' },
-  pressed: { opacity: 0.8 },
+  retryText: { color: '#081332', fontSize: 17, fontWeight: '600' },
+  pressed: { opacity: 0.75 },
 });

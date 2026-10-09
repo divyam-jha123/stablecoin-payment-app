@@ -11,6 +11,7 @@ export async function authenticate(promptMessage: string) {
   const result = await LocalAuthentication.authenticateAsync({
     promptMessage,
     cancelLabel: 'Cancel',
+    fallbackLabel: 'Use device passcode',
     disableDeviceFallback: false,
   });
   return result.success;

@@ -14,7 +14,10 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ui } from '../src/components/payment-ui';
 import { useAccount } from '../src/features/account/use-account';
 import { walletStore } from '../src/features/account/metamask';
-import { pinStore } from '../src/features/account/payment-pin';
+import {
+  pinStore,
+  PREVIEW_PIN_OWNER,
+} from '../src/features/account/payment-pin';
 import { rememberedAccount } from '../src/features/account/remembered-account';
 import { authenticateWallet } from '../src/features/account/session';
 import { TEMPO_CHAIN } from '../src/features/account/tempo';
@@ -46,7 +49,15 @@ export default function Connect() {
 
   async function signIn() {
     if (uiPreviewEnabled) {
-      router.replace('/pin-setup');
+      setSigning(true);
+      try {
+        const hasPin = await pinStore.hasPin(PREVIEW_PIN_OWNER);
+        router.replace(hasPin ? '/' : '/pin-setup');
+      } catch {
+        setError('Could not load your PIN. Try again.');
+      } finally {
+        setSigning(false);
+      }
       return;
     }
     if (lock.current || walletStore.getSnapshot().busy) return;

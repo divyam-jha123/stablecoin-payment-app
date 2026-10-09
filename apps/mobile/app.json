@@ -36,7 +36,7 @@
       [
         "expo-local-authentication",
         {
-          "faceIDPermission": "Allow TravelPe to confirm payments with Face ID."
+          "faceIDPermission": "Allow TravelPe to sign in securely with Face ID."
         }
       ]
     ],

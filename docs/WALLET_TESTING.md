@@ -25,10 +25,10 @@ Start the app with `EXPO_PUBLIC_SETTLEMENT_ADDRESS` set to a testnet address you
 ## Returning user and app lock
 
 1. On a first visit, the splash, onboarding, **Connect MetaMask** and **Set your payment PIN** lead to Home with no lock, even if you leave the app for a while during sign-in.
-2. After signing in (with or without tap to pay), close the app completely and reopen it. **Unlock TravelPe** appears straight away (no splash wait); after your fingerprint, face or phone PIN the app opens on Home with your balance. Onboarding, the login page and MetaMask must not appear, even after the backend has restarted.
+2. After signing in (with or without tap to pay), close the app completely and reopen it. The splash appears for about 2.2 seconds, then the phone’s native authentication prompt opens over it. Use Face ID, fingerprint or the same passcode/PIN used to unlock the phone. Only after successful authentication does Home appear with your balance. Onboarding, the login page and MetaMask must not appear, even after the backend has restarted.
 3. Pay a QR with tap to pay: still no MetaMask and no fingerprint prompt.
-4. Switch to another app for less than 30 seconds and come back: no lock. Stay away for 30 seconds or more: the lock appears and asks again. Cancelling the prompt keeps the app locked; **Unlock** asks again.
-5. On a phone with no screen lock, the app doesn't lock and Profile → **Security** asks you to set one.
+4. Switch to another app for less than 30 seconds and come back: no lock. Stay away for 30 seconds or more: the splash appears and native authentication asks again. Cancelling keeps the splash visible; tap **Continue** to retry the system prompt.
+5. On a phone with no screen lock, returning sign-in asks you to set one in device settings. The payment PIN cannot bypass device authentication.
 6. Profile → **Security** → **Change PIN**: enter the current PIN, then the new one twice. The next payment needs the new PIN.
 7. Profile → **Disconnect wallet**, then reopen the app: onboarding appears again, and signing in asks for a new PIN (this is how a forgotten PIN is reset).
 

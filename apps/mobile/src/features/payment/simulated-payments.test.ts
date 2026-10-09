@@ -60,6 +60,20 @@ describe('simulated payments', () => {
     expect(restored.getSnapshot()).toEqual([saved]);
   });
 
+  it('resets preview history while preserving wallet payment records', async () => {
+    const { storage } = memoryStorage();
+    const store = createSimulatedPaymentStore(storage);
+    const walletPayment = store.record(payment);
+    store.record({ ...payment, address: null });
+
+    await store.clearPreview();
+    expect(store.getSnapshot()).toEqual([walletPayment]);
+
+    const restored = createSimulatedPaymentStore(storage);
+    await restored.hydrate();
+    expect(restored.getSnapshot()).toEqual([walletPayment]);
+  });
+
   it('keeps payments recorded before hydration and ignores bad data', async () => {
     const { storage } = memoryStorage({
       [SIMULATED_PAYMENTS_KEY]: JSON.stringify([{ id: 'broken' }]),

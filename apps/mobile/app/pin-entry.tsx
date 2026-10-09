@@ -20,6 +20,7 @@ import {
   type PinCheck,
 } from '../src/features/account/payment-pin';
 import { pinOwner } from '../src/features/account/pin-owner';
+import { uiPreviewEnabled } from '../src/ui-preview';
 
 type Mode = 'create' | 'verify' | 'change';
 type Step = 'current' | 'new' | 'confirm';
@@ -88,7 +89,12 @@ export default function PinEntry() {
   const step = steps[stepIndex]!;
 
   const label = {
-    current: mode === 'verify' ? 'Enter your PIN to pay' : 'Enter current PIN',
+    current:
+      mode === 'verify'
+        ? next === 'onboarding'
+          ? 'Enter your PIN to sign in'
+          : 'Enter your PIN to pay'
+        : 'Enter current PIN',
     new: 'Enter a new PIN',
     confirm: 'Re-enter your new PIN',
   }[step];
@@ -160,7 +166,9 @@ export default function PinEntry() {
   const forgotPin = () =>
     Alert.alert(
       'Forgot your PIN?',
-      'Disconnect your wallet in Profile, then sign in again with MetaMask to set a new PIN.',
+      uiPreviewEnabled
+        ? 'Open UI pages and choose Reset preview and onboarding to set a new PIN. This also clears simulated payments.'
+        : 'Disconnect your wallet in Profile, then sign in again with MetaMask to set a new PIN.',
     );
 
   return (
@@ -189,9 +197,8 @@ export default function PinEntry() {
           <Text style={styles.label}>{label}</Text>
           {paying ? <Text style={styles.paying}>{paying}</Text> : null}
 
-          <Pressable
+          <View
             accessibilityLabel={`${label}. ${pin.length} of ${PIN_LENGTH} digits entered`}
-            onPress={() => input.current?.focus()}
             style={styles.boxes}
           >
             {Array.from({ length: PIN_LENGTH }, (_, index) => {
@@ -209,27 +216,29 @@ export default function PinEntry() {
                 </View>
               );
             })}
-          </Pressable>
-          {/* The phone's own number keyboard types into this hidden field. */}
-          <TextInput
-            ref={input}
-            value={pin}
-            onChangeText={(text) => {
-              setError(null);
-              setPin(text.replace(/\D/g, '').slice(0, PIN_LENGTH));
-            }}
-            onFocus={() => setFocused(true)}
-            onBlur={() => setFocused(false)}
-            onSubmitEditing={() => void submit()}
-            keyboardType="number-pad"
-            maxLength={PIN_LENGTH}
-            autoFocus
-            caretHidden
-            autoComplete="off"
-            importantForAutofill="no"
-            contextMenuHidden
-            style={styles.hiddenInput}
-          />
+            <TextInput
+              ref={input}
+              value={pin}
+              onChangeText={(text) => {
+                setError(null);
+                setPin(text.replace(/\D/g, '').slice(0, PIN_LENGTH));
+              }}
+              onFocus={() => setFocused(true)}
+              onBlur={() => setFocused(false)}
+              onSubmitEditing={() => void submit()}
+              keyboardType="number-pad"
+              inputMode="numeric"
+              maxLength={PIN_LENGTH}
+              autoFocus
+              caretHidden
+              secureTextEntry
+              autoComplete="off"
+              importantForAutofill="no"
+              contextMenuHidden
+              style={styles.pinInput}
+              accessibilityLabel={label}
+            />
+          </View>
 
           {error ? (
             <Text accessibilityRole="alert" style={styles.error}>
@@ -310,7 +319,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
   },
   dot: { width: 14, height: 14, borderRadius: 7, backgroundColor: '#0a5ce8' },
-  hiddenInput: { position: 'absolute', width: 1, height: 1, opacity: 0 },
+  pinInput: {
+    ...StyleSheet.absoluteFill,
+    color: 'transparent',
+    opacity: 0.02,
+  },
   error: {
     color: colors.error,
     fontSize: 14,
