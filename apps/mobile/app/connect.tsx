@@ -15,6 +15,7 @@ import {
 } from 'react-native-safe-area-context';
 import Svg, { Defs, Line, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { ui } from '../src/components/payment-ui';
+import { GoogleLogo, MetaMaskLogo } from '../src/components/payment-logos';
 import {
   connectStatusText,
   useWalletSignIn,
@@ -249,9 +250,10 @@ export default function Connect() {
               (busy || checking) && styles.disabled,
             ]}
           >
+            <MetaMaskLogo size={26} />
             <Text style={styles.mainButtonText}>
               {uiPreviewEnabled
-                ? 'Continue'
+                ? 'Connect with MetaMask'
                 : busy
                   ? stage === 'connecting' ||
                     stage === 'combined' ||
@@ -262,7 +264,7 @@ export default function Connect() {
                   : checking
                     ? 'Checking sign-in…'
                     : !wallet.account
-                      ? 'Continue with MetaMask'
+                      ? 'Connect with MetaMask'
                       : !onTempo
                         ? 'Switch network & sign in'
                         : 'Sign in with MetaMask'}
@@ -270,7 +272,7 @@ export default function Connect() {
           </Pressable>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Sign up with Google"
+            accessibilityLabel="Sign in with Google"
             accessibilityState={{ disabled: busy || checking || googleBusy }}
             disabled={busy || checking || googleBusy}
             onPress={() => void signUpWithGoogle()}
@@ -283,10 +285,12 @@ export default function Connect() {
             {googleBusy ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.googleMark}>G</Text>
+              <View style={styles.googleMark}>
+                <GoogleLogo size={18} />
+              </View>
             )}
             <Text style={styles.googleText}>
-              {googleBusy ? 'Opening Google…' : 'Sign up with Google'}
+              {googleBusy ? 'Opening Google…' : 'Sign in with Google'}
             </Text>
           </Pressable>
           {!uiPreviewEnabled && (
@@ -361,6 +365,8 @@ const styles = StyleSheet.create({
   statusText: { color: '#fff', flex: 1, fontSize: 13 },
   error: { color: '#ffcbc7', fontSize: 14 },
   mainButton: {
+    flexDirection: 'row',
+    gap: 10,
     backgroundColor: '#fff',
     borderRadius: 28,
     minHeight: 54,
@@ -379,7 +385,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  googleMark: { color: '#fff', fontSize: 18, fontWeight: '800' },
+  googleMark: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   googleText: { color: '#fff', fontSize: 16, fontWeight: '700' },
   secondaryButton: {
     borderWidth: 1,

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ConnectWalletGate } from '../src/components/connect-wallet-gate';
 import { router, Stack } from 'expo-router';
-import { useExplorer } from '../src/features/account/use-explorer';
+import { useNeedsWallet } from '../src/features/account/use-wallet-signed-in';
 import * as Clipboard from 'expo-clipboard';
 import * as MediaLibrary from 'expo-media-library/legacy';
 import * as Sharing from 'expo-sharing';
@@ -469,9 +469,9 @@ const styles = StyleSheet.create({
 
 // Paying and receiving need a wallet: Google-only visitors connect one first.
 export default function ReceivePayment() {
-  const { explorer } = useExplorer();
-  return explorer ? (
-    <ConnectWalletGate message="Connect your wallet to show your receive QR." />
+  const needsWallet = useNeedsWallet(useAccount());
+  return needsWallet ? (
+    <ConnectWalletGate message="Link MetaMask to show your receive QR and get paid in stablecoins." />
   ) : (
     <ReceivePaymentScreen />
   );

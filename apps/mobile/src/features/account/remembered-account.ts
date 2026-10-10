@@ -37,6 +37,8 @@ export const rememberedAccount = {
     cached = null;
     notify();
   },
+  /** The remembered address, or null when unknown or not loaded yet. */
+  current: () => cached ?? null,
   /** Whether someone is signed in on this phone (known once loaded). */
   signedIn: () => Boolean(cached),
   /** Whether this address is the traveller signed in on this phone. */

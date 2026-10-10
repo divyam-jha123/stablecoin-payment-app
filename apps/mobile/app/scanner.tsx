@@ -16,7 +16,8 @@ import {
 } from 'expo-camera';
 import { launchImageLibraryAsync } from 'expo-image-picker';
 import { router, Stack } from 'expo-router';
-import { useExplorer } from '../src/features/account/use-explorer';
+import { useAccount } from '../src/features/account/use-account';
+import { useNeedsWallet } from '../src/features/account/use-wallet-signed-in';
 import {
   Animated,
   Button,
@@ -992,9 +993,9 @@ const styles = StyleSheet.create({
 
 // Paying and receiving need a wallet: Google-only visitors connect one first.
 export default function Scanner() {
-  const { explorer } = useExplorer();
-  return explorer ? (
-    <ConnectWalletGate message="Connect your wallet to scan a UPI QR and pay." />
+  const needsWallet = useNeedsWallet(useAccount());
+  return needsWallet ? (
+    <ConnectWalletGate message="Link MetaMask to scan UPI QR codes and pay with your stablecoins." />
   ) : (
     <ScannerScreen />
   );
