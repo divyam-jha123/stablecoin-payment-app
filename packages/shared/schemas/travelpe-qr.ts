@@ -53,6 +53,28 @@ export class InvalidTravelPeQrError extends Error {
   }
 }
 
+const WALLET_ID = /^([0-9a-f]{40})@travelpe$/;
+
+/** TravelPe ID for a wallet: its address without 0x, lowercase. */
+export function travelPeIdForAddress(address: string): string {
+  const hex = address.replace(/^0x/i, '').toLowerCase();
+  if (!/^[0-9a-f]{40}$/.test(hex)) {
+    throw new InvalidTravelPeQrError('Not a wallet address');
+  }
+  return `${hex}@travelpe`;
+}
+
+/**
+ * Wallet address behind a TravelPe ID, or null for IDs that are not tied to a
+ * wallet (such as the demo profile).
+ */
+export function travelPeRecipientAddress(
+  recipientId: string,
+): `0x${string}` | null {
+  const match = WALLET_ID.exec(recipientId.toLowerCase());
+  return match ? `0x${match[1]}` : null;
+}
+
 export function isTravelPeQr(input: string): boolean {
   return /^travelpe:/i.test(input);
 }

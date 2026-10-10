@@ -14,6 +14,8 @@ export const APPROVAL_TTL_MS = 60_000;
 export type PaymentRequest = {
   merchantName: string;
   merchantVpa?: string;
+  /** Wallet of a TravelPe user being paid directly, from their receive QR. */
+  recipientAddress?: string;
   location: string;
   inrAmount: string;
   token: (typeof PAYMENT_TOKENS)[number];
@@ -30,6 +32,7 @@ export function parsePaymentRequest(params: Params): PaymentRequest | null {
   const merchantName = first(params.merchantName);
   const location = first(params.location);
   const merchantVpa = first(params.merchantVpa);
+  const recipientAddress = first(params.recipientAddress).toLowerCase();
   const inrAmount = first(params.inrAmount);
   const token = PAYMENT_TOKENS.find((symbol) => symbol === first(params.token));
   if (
@@ -38,12 +41,14 @@ export function parsePaymentRequest(params: Params): PaymentRequest | null {
     location.length > 255 ||
     !token ||
     !inrAmountSchema.safeParse(inrAmount).success ||
-    (merchantVpa && !vpaSchema.safeParse(merchantVpa).success)
+    (merchantVpa && !vpaSchema.safeParse(merchantVpa).success) ||
+    (recipientAddress && !/^0x[0-9a-f]{40}$/.test(recipientAddress))
   )
     return null;
   return {
     merchantName,
     ...(merchantVpa ? { merchantVpa } : {}),
+    ...(recipientAddress ? { recipientAddress } : {}),
     location,
     inrAmount,
     token,
@@ -55,6 +60,9 @@ export function paymentParams(request: PaymentRequest) {
   return {
     merchantName: request.merchantName,
     ...(request.merchantVpa ? { merchantVpa: request.merchantVpa } : {}),
+    ...(request.recipientAddress
+      ? { recipientAddress: request.recipientAddress }
+      : {}),
     location: request.location,
     inrAmount: request.inrAmount,
     token: request.token,
@@ -65,6 +73,7 @@ function sameRequest(a: PaymentRequest, b: PaymentRequest) {
   return (
     a.merchantName === b.merchantName &&
     (a.merchantVpa ?? '') === (b.merchantVpa ?? '') &&
+    (a.recipientAddress ?? '') === (b.recipientAddress ?? '') &&
     a.location === b.location &&
     a.inrAmount === b.inrAmount &&
     a.token === b.token

@@ -18,10 +18,9 @@ import { previewDashboardWith, previewInr } from '../src/preview-data';
 import { TransactionCard } from '../src/components/transaction-card';
 import { walletStore } from '../src/features/account/metamask';
 import { useSimulatedPayments } from '../src/features/payment/simulated-payment-store';
-import {
-  toTransactionItem,
-  type TransactionItem,
-} from '../src/features/payment/simulated-payments';
+import { type TransactionItem } from '../src/features/payment/simulated-payments';
+import { activityItems } from '../src/features/payment/received-transfers';
+import { useReceivedTransfers } from '../src/features/payment/received-transfers-store';
 
 const filters = ['All', 'Sent', 'Received', 'Travel', 'Bills'];
 
@@ -56,9 +55,13 @@ export default function Activity() {
   const payments = useSimulatedPayments(
     uiPreviewEnabled ? null : wallet.account?.address,
   );
+  // Wallet mode lists real testnet pathUSD received next to sent payments.
+  const received = useReceivedTransfers(
+    uiPreviewEnabled ? null : wallet.account?.address,
+  );
   const source = uiPreviewEnabled
     ? previewDashboardWith(payments).transactions
-    : payments.map(toTransactionItem);
+    : activityItems(payments, received);
   const transactions = source.filter(
     (transaction) =>
       (filter === 'All' ||
@@ -175,7 +178,7 @@ export default function Activity() {
             <Text style={styles.emptyText}>
               {search || source.length > 0
                 ? 'Try another search term or filter.'
-                : 'Your payment activity will appear here after you pay a merchant.'}
+                : 'Your payment activity will appear here after you pay or get paid.'}
             </Text>
           </View>
         )}

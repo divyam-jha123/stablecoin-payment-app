@@ -38,6 +38,7 @@ export default function Failed() {
   const params = useLocalSearchParams<{
     merchantName?: string | string[];
     merchantVpa?: string | string[];
+    recipientAddress?: string | string[];
     location?: string | string[];
     inrAmount?: string | string[];
     token?: string | string[];
@@ -49,6 +50,7 @@ export default function Failed() {
   const merchantName = firstParam(params.merchantName) ?? sample?.merchantName;
   const location = firstParam(params.location) ?? sample?.location;
   const merchantVpa = firstParam(params.merchantVpa);
+  const recipientAddress = firstParam(params.recipientAddress);
   const token = firstParam(params.token) ?? sample?.token;
   const inrAmount = firstParam(params.inrAmount) ?? sample?.inrAmount;
   // Set when the stablecoin payment itself failed, before any conversion.
@@ -64,6 +66,7 @@ export default function Failed() {
       const request = parsePaymentRequest({
         merchantName,
         merchantVpa,
+        recipientAddress,
         location,
         inrAmount,
         token,

@@ -22,6 +22,19 @@ describe('payment approvals', () => {
     expect(parsePaymentRequest({ ...params, token: 'ETH' })).toBeNull();
     expect(parsePaymentRequest({ ...params, merchantVpa: 'x y' })).toBeNull();
     expect(parsePaymentRequest({ ...params, merchantName: '' })).toBeNull();
+    expect(
+      parsePaymentRequest({ ...params, recipientAddress: '0x1234' }),
+    ).toBeNull();
+  });
+
+  it('keeps a TravelPe recipient wallet in the approved details', () => {
+    const recipientAddress = '0x' + 'ab'.repeat(20);
+    const peer = parsePaymentRequest({ ...params, recipientAddress })!;
+    expect(peer.recipientAddress).toBe(recipientAddress);
+    const approvals = createPaymentApprovals();
+    // Approving a merchant payment never pays someone else's wallet.
+    const id = approvals.grant(request);
+    expect(approvals.spend(id, peer)).toBe(false);
   });
 
   it('pays only with a PIN approval for exactly this payment, once', () => {
