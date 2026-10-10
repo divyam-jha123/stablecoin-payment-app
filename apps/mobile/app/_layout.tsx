@@ -16,7 +16,15 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <QueryClientProvider client={queryClient}>
-        <Stack />
+        {/* Android's default transition fades the old page out while the new one
+            rises from below; slide instead, on white so the black window never
+            shows through mid-transition. */}
+        <Stack
+          screenOptions={{
+            animation: 'slide_from_right',
+            contentStyle: { backgroundColor: '#ffffff' },
+          }}
+        />
         <AppLock />
       </QueryClientProvider>
     </SafeAreaProvider>
