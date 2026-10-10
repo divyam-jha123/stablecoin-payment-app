@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "pnpm -r --parallel --filter './apps/*' dev",
     "dev:mobile": "pnpm --filter @traveller/mobile dev",
-    "dev:mobile:ios-preview": "pnpm --filter @traveller/shared build && pnpm --filter @traveller/mobile exec expo start --go --ios",
+    "dev:mobile:ios-preview": "pnpm --filter @traveller/shared build && EXPO_PUBLIC_UI_PREVIEW=1 pnpm --filter @traveller/mobile exec expo start --go --ios",
     "dev:mobile:android-preview": "pnpm --filter @traveller/shared build && EXPO_PUBLIC_UI_PREVIEW=1 pnpm --filter @traveller/mobile exec expo start --go --android",
     "dev:api": "pnpm --filter @traveller/api dev",
     "build": "pnpm -r build",
