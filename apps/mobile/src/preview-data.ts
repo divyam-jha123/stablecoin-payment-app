@@ -197,6 +197,10 @@ export const previewTapToPay = {
   expiry: Math.floor(Date.now() / 1000) + 12 * 86_400,
 };
 
+/** Sample connected wallet for the Profile card; wallet mode shows the real one. */
+export const previewWalletAddress =
+  '0x8F21a9c34b7d0e5f6a1b2c3d4e5f607182944E32';
+
 /** Sample Security settings for the UI preview; wallet mode reads the phone. */
 export const previewSecurity = {
   biometrics: true,
