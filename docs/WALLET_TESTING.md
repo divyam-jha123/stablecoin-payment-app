@@ -31,7 +31,7 @@ The SDK now receives a native return URL, and TravelPay requests foreground afte
 
 Start the app with `EXPO_PUBLIC_SETTLEMENT_ADDRESS` set to a testnet address you control (see the README). Then, on the phone:
 
-1. Sign up with Google. **Set your payment PIN** follows: tap **Set PIN**, type 4 digits on the phone keyboard, then type them again. Mismatched entries start over. Home follows. Connect MetaMask from Home without another PIN setup screen. Open Profile → **Tap to pay** → **Turn on tap to pay**. Pick a daily limit and trip length, tap **Approve in MetaMask** and approve exactly **one** transaction in MetaMask. Return to the app: it shows **Confirming on Tempo…**, then **Tap to pay is on**.
+1. Sign in with Google. **Set your payment PIN** follows: tap **Set PIN**, type 4 digits on the phone keyboard, then type them again. Mismatched entries start over. Home follows. Connect MetaMask from Home without another PIN setup screen. Open Profile → **Tap to pay** → **Turn on tap to pay**. Pick a daily limit and trip length, tap **Approve in MetaMask** and approve exactly **one** transaction in MetaMask. Return to the app: it shows **Confirming on Tempo…**, then **Tap to pay is on**.
 2. Profile → **Tap to pay** shows the limit, today's remaining amount and the end date.
 3. Scan a QR, choose **pathUSD** and tap Pay. **Enter PIN** appears with the amount and merchant; enter your TravelPe PIN and tap **Continue**. No fingerprint or face prompt appears, and MetaMask must **not** open. A wrong PIN shows the tries left; five wrong tries pause PIN entry for five minutes. The success screen's details show a Tempo transaction; check it on the explorer and confirm the pathUSD left your MetaMask account for the settlement address.
 4. Pay again: still no MetaMask. Then pay more than today's remaining limit: MetaMask opens for that one payment only.
@@ -40,7 +40,7 @@ Start the app with `EXPO_PUBLIC_SETTLEMENT_ADDRESS` set to a testnet address you
 
 ## Returning user and app lock
 
-1. On a first visit, all splash/onboarding screens appear before sign-in. **Get Started** opens the sign-in choices, **Sign up with Google** completes Google authentication, then **Set your payment PIN** leads to Home. Cancelling Google must not open PIN setup. Restart after Google signup but before saving a PIN: after device unlock, PIN setup resumes. MetaMask sign-in opens Home without PIN setup.
+1. On a first visit, all splash/onboarding screens appear before sign-in. **Get Started** opens the sign-in choices, **Sign in with Google** completes Google authentication, then **Set your payment PIN** leads to Home. Cancelling Google must not open PIN setup. Restart after Google signup but before saving a PIN: after device unlock, PIN setup resumes. MetaMask sign-in opens Home without PIN setup.
 2. After signing in (with or without tap to pay), close the app completely and reopen it. The splash appears for about 2.2 seconds, then the phone’s native authentication prompt opens over it. Use Face ID, fingerprint or the same passcode/PIN used to unlock the phone. Only after successful authentication does Home appear with your balance. Onboarding, the login page and MetaMask must not appear, even after the backend has restarted.
 3. Pay a QR with tap to pay: still no MetaMask and no fingerprint prompt.
 4. Switch to another app for less than 30 seconds and come back: no lock. Stay away for 30 seconds or more: the splash appears and native authentication asks again. Cancelling keeps the splash visible; tap **Continue** to retry the system prompt.

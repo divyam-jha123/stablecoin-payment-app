@@ -222,9 +222,6 @@ function ReceiptBody({
   return (
     <ScrollView contentContainerStyle={styles.content}>
       <View style={styles.hero}>
-        <View style={styles.demoPill}>
-          <Text style={styles.demoText}>Demo receipt</Text>
-        </View>
         <View style={styles.avatarRing}>
           <View
             style={[
@@ -363,15 +360,7 @@ const styles = StyleSheet.create({
     paddingBottom: homeTheme.spacing.xl,
     gap: homeTheme.spacing.lg,
   },
-  hero: { alignItems: 'center', gap: 4 },
-  demoPill: {
-    borderRadius: homeTheme.radius.pill,
-    backgroundColor: '#e3efff',
-    paddingHorizontal: 16,
-    paddingVertical: 5,
-    marginBottom: 8,
-  },
-  demoText: { color: colors.accent, fontSize: 13, fontWeight: '500' },
+  hero: { alignItems: 'center', gap: 4, marginTop: 8 },
   avatarRing: {
     width: 92,
     height: 92,

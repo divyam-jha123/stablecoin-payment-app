@@ -21,7 +21,7 @@ import {
   PaymentScreen,
   ui,
 } from '../src/components/payment-ui';
-import { rememberedAccount } from '../src/features/account/remembered-account';
+import { useWalletSignedIn } from '../src/features/account/use-wallet-signed-in';
 import { useAccount } from '../src/features/account/use-account';
 import { walletStore } from '../src/features/account/metamask';
 import { TEMPO_CHAIN, tempoService } from '../src/features/account/tempo';
@@ -115,16 +115,10 @@ export default function Home() {
     text: string;
   } | null>(null);
   const fundingLock = useRef(false);
-  const authorized =
-    uiPreviewEnabled ||
-    explorer ||
-    Boolean(
-      address &&
-      onTempo &&
-      // The traveller signed in on this phone proved their wallet at first
-      // sign-in; they never see the login page again.
-      (session.data === true || rememberedAccount.is(address)),
-    );
+  // The traveller signed in on this phone proved their wallet at first
+  // sign-in; they never see the login page again.
+  const walletSignedIn = useWalletSignedIn({ wallet, onTempo, session });
+  const authorized = uiPreviewEnabled || explorer || walletSignedIn;
   // Connecting MetaMask from Home: a Google-signed-in traveller stays here
   // (with the connect card) until the wallet is verified, never on login.
   const connectingWallet =
@@ -227,8 +221,7 @@ export default function Home() {
     !connectingWallet &&
     (!address ||
       !onTempo ||
-      (!rememberedAccount.is(address) &&
-        (session.data === false || session.isError)))
+      (!walletSignedIn && (session.data === false || session.isError)))
   )
     return <Redirect href="/connect" />;
   if (!authorized && !connectingWallet)

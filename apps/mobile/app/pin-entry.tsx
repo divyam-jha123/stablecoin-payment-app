@@ -131,9 +131,7 @@ export default function PinEntry() {
   const paying = payment
     ? `₹${Number(payment.inrAmount).toLocaleString('en-IN', {
         maximumFractionDigits: 2,
-      })} to ${payment.merchantName}${
-        payment.merchantVpa ? ` · ${payment.merchantVpa}` : ''
-      }`
+      })} to ${payment.merchantName}`
     : null;
 
   async function finish() {
@@ -267,7 +265,16 @@ export default function PinEntry() {
       >
         <View style={styles.content}>
           <Text style={styles.label}>{label}</Text>
-          {paying ? <Text style={styles.paying}>{paying}</Text> : null}
+          {paying ? (
+            <View style={styles.payee}>
+              <Text style={styles.paying}>{paying}</Text>
+              {payment?.merchantVpa ? (
+                <Text numberOfLines={1} style={styles.payingVpa}>
+                  {payment.merchantVpa}
+                </Text>
+              ) : null}
+            </View>
+          ) : null}
 
           <View
             accessibilityLabel={`${label}. ${pin.length} of ${PIN_LENGTH} digits entered`}
@@ -374,9 +381,26 @@ const styles = StyleSheet.create({
   },
   title: { color: '#000000', fontSize: 22, fontWeight: '800' },
   body: { flex: 1 },
-  content: { flex: 1, alignItems: 'center', paddingTop: 72 },
-  label: { color: '#111111', fontSize: 18, fontWeight: '600' },
-  paying: { color: colors.muted, fontSize: 15, marginTop: 6 },
+  content: {
+    flex: 1,
+    alignItems: 'center',
+    paddingTop: 72,
+    paddingHorizontal: 24,
+  },
+  label: {
+    color: '#111111',
+    fontSize: 18,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  payee: { alignSelf: 'stretch', alignItems: 'center', marginTop: 6, gap: 2 },
+  paying: {
+    color: colors.muted,
+    fontSize: 15,
+    lineHeight: 21,
+    textAlign: 'center',
+  },
+  payingVpa: { color: colors.muted, fontSize: 13, textAlign: 'center' },
   boxes: { flexDirection: 'row', gap: 16, marginTop: 28 },
   box: {
     width: 62,
