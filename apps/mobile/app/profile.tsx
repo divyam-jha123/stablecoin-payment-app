@@ -197,21 +197,6 @@ export default function Profile() {
               Manage your account, security & payments
             </Text>
           </View>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Settings"
-            onPress={() => notAvailable('Settings')}
-            style={({ pressed }) => [
-              styles.settings,
-              pressed && styles.pressed,
-            ]}
-          >
-            <Glyph
-              d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"
-              color={colors.ink}
-              size={24}
-            />
-          </Pressable>
         </View>
 
         <Pressable
@@ -304,7 +289,9 @@ export default function Profile() {
                           ? router.push('/notifications')
                           : item.title === 'Help & Support'
                             ? router.push('/help')
-                            : notAvailable(item.title)
+                            : item.title === 'Terms & Privacy'
+                              ? router.push('/terms')
+                              : notAvailable(item.title)
               }
               style={({ pressed }) => [styles.row, pressed && styles.pressed]}
             >
@@ -396,22 +383,6 @@ const styles = StyleSheet.create({
   headerCopy: { flex: 1, gap: 2 },
   title: { color: '#000000', fontSize: 42, fontWeight: '800' },
   subtitle: { color: colors.muted, fontSize: 15, fontWeight: '500' },
-  settings: {
-    width: 54,
-    height: 54,
-    borderRadius: 16,
-    backgroundColor: '#f7f9fd',
-    borderWidth: 1,
-    borderColor: '#e3e9f3',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 4,
-    shadowColor: '#081332',
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
-  },
   identity: {
     flexDirection: 'row',
     alignItems: 'center',

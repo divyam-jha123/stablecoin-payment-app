@@ -18,6 +18,7 @@ import Svg, {
 } from 'react-native-svg';
 import { AppIcon, colors, ui } from './payment-ui';
 import { MetaMaskLogo } from './payment-logos';
+import { NON_CUSTODIAL_NOTICE } from '../features/legal/legal-documents';
 import {
   connectStatusText,
   useWalletSignIn,
@@ -158,6 +159,7 @@ export function ConnectWalletGate({ message }: { message: string }) {
               Connecting won’t make a payment.
             </Text>
           </View>
+          <Text style={styles.custody}>{NON_CUSTODIAL_NOTICE}</Text>
 
           <Pressable
             accessibilityRole="button"
@@ -355,6 +357,13 @@ const styles = StyleSheet.create({
     marginTop: 14,
   },
   noteText: { color: colors.muted, fontSize: 14 },
+  custody: {
+    color: colors.muted,
+    fontSize: 12,
+    lineHeight: 17,
+    textAlign: 'center',
+    marginTop: 8,
+  },
   backLink: { marginTop: 14, paddingVertical: 6 },
   backLinkText: { color: colors.accent, fontSize: 16, fontWeight: '700' },
 });

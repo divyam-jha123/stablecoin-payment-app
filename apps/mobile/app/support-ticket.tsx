@@ -1,5 +1,5 @@
 import { useState, useSyncExternalStore } from 'react';
-import { router, Stack } from 'expo-router';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { launchImageLibraryAsync } from 'expo-image-picker';
 import {
   Alert,
@@ -25,9 +25,11 @@ import {
   type TransactionItem,
 } from '../src/features/payment/simulated-payments';
 import {
+  DATA_REQUESTS,
   DESCRIPTION_MAX,
   DESCRIPTION_MIN,
   ISSUE_TYPES,
+  parseDataRequest,
   type IssueType,
   type SupportTicket,
 } from '../src/features/support/support';
@@ -72,12 +74,14 @@ function transactionLabel(transaction: TransactionItem) {
   return `${transaction.name} - ₹${amount}`;
 }
 
-function goBack() {
-  if (router.canGoBack()) router.back();
-  else router.replace('/help');
-}
-
 export default function SupportTicketScreen() {
+  // Data requests from Terms & Privacy arrive as ?request=export|delete.
+  const dataRequest = parseDataRequest(useLocalSearchParams().request);
+  const request = dataRequest ? DATA_REQUESTS[dataRequest] : null;
+  function goBack() {
+    if (router.canGoBack()) router.back();
+    else router.replace(request ? '/terms' : '/help');
+  }
   const wallet = useSyncExternalStore(
     walletStore.subscribe,
     walletStore.getSnapshot,
@@ -93,14 +97,18 @@ export default function SupportTicketScreen() {
     ? 'ui-preview'
     : (address?.toLowerCase() ?? 'guest');
 
-  const [issueType, setIssueType] = useState<IssueType>('Transaction Issue');
+  const [issueType, setIssueType] = useState<IssueType>(
+    request ? 'Privacy & Data' : 'Transaction Issue',
+  );
   const [typesOpen, setTypesOpen] = useState(false);
   // The most recent payment is attached until the user picks another or none.
   const [transactionId, setTransactionId] = useState<string | null | undefined>(
-    undefined,
+    request ? null : undefined,
   );
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [description, setDescription] = useState('');
+  const [description, setDescription] = useState<string>(
+    request?.description ?? '',
+  );
   const [attachmentUri, setAttachmentUri] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState<SupportTicket | null>(null);
@@ -161,7 +169,7 @@ export default function SupportTicketScreen() {
             <Text style={styles.backText}>Back</Text>
           </Pressable>
           <Text accessibilityRole="header" style={styles.title}>
-            Raise a Support Ticket
+            {request?.title ?? 'Raise a Support Ticket'}
           </Text>
 
           {saved ? (
@@ -186,7 +194,9 @@ export default function SupportTicketScreen() {
                   pressed && styles.pressed,
                 ]}
               >
-                <Text style={styles.submitText}>Back to Help</Text>
+                <Text style={styles.submitText}>
+                  {request ? 'Back to Terms & Privacy' : 'Back to Help'}
+                </Text>
               </Pressable>
             </View>
           ) : (
