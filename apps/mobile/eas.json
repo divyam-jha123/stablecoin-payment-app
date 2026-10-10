@@ -4,15 +4,15 @@
     "appVersionSource": "remote"
   },
   "build": {
-    "development": {
-      "developmentClient": true,
-      "distribution": "internal"
-    },
-    "preview": {
-      "distribution": "internal"
-    },
-    "production": {
-      "autoIncrement": true
+    "production-apk": {
+      "developmentClient": false,
+      "distribution": "internal",
+      "environment": "production",
+      "node": "24.13.1",
+      "pnpm": "12.3.4",
+      "android": {
+        "buildType": "apk"
+      }
     }
   },
   "submit": {

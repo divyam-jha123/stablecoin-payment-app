@@ -9,6 +9,7 @@
     "preandroid": "pnpm --filter @traveller/shared build",
     "android": "expo run:android",
     "prebuild": "pnpm --filter @traveller/shared build",
+    "eas-build-post-install": "pnpm --filter @traveller/shared build",
     "build": "expo export --platform android",
     "typecheck": "tsc --noEmit"
   },
