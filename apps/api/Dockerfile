@@ -8,6 +8,8 @@ RUN corepack enable
 WORKDIR /app
 # Workspace manifests only, so dependency layers stay cached until they change.
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+# pnpm-workspace.yaml lists dependency patches; install fails without them.
+COPY patches patches
 COPY apps/api/package.json apps/api/
 COPY apps/mobile/package.json apps/mobile/
 COPY packages/shared/package.json packages/shared/
@@ -24,6 +26,8 @@ FROM base AS prod-deps
 RUN pnpm install --frozen-lockfile --prod --filter @traveller/api...
 
 FROM node:24-alpine AS runtime
+# SESSION_SECRET (32+ characters) is required at run time; pass it from the
+# host's secret settings, never bake it into the image.
 ENV NODE_ENV=production APP_ENV=hackathon-demo PORT=3000
 WORKDIR /app
 COPY --from=prod-deps /app/node_modules node_modules
