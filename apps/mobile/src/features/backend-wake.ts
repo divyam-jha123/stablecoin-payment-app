@@ -30,10 +30,17 @@ export function wakeBackend() {
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), wakeTimeoutMs);
+  console.log(`[backend-wake] GET ${baseUrl}/health`);
   // Best effort: a failed ping only means the next real request waits longer.
   fetch(`${baseUrl}/health`, { signal: controller.signal })
-    .catch(() => {
+    .then((response) => {
+      console.log(
+        `[backend-wake] /health responded ${response.status} in ${Date.now() - now}ms`,
+      );
+    })
+    .catch((error: unknown) => {
       lastWakeAt = 0;
+      console.log('[backend-wake] /health failed', error);
     })
     .finally(() => clearTimeout(timer));
 }
