@@ -302,7 +302,9 @@ export default function Profile() {
                         ? router.push('/security')
                         : item.title === 'Notifications'
                           ? router.push('/notifications')
-                          : notAvailable(item.title)
+                          : item.title === 'Help & Support'
+                            ? router.push('/help')
+                            : notAvailable(item.title)
               }
               style={({ pressed }) => [styles.row, pressed && styles.pressed]}
             >
