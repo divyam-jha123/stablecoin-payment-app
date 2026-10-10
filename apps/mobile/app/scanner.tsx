@@ -52,6 +52,11 @@ const RETRY_DELAY_MS = 1_500;
 const MAX_SCAN_SIZE = 280;
 const FRAME_PADDING = 12;
 const DEFAULT_MESSAGE = 'Scan any QR code to pay';
+// Failed scans show one of two lines; technical causes stay out of the UI.
+// The payment service failed: unreachable, timed out, 5xx or a bad response.
+const SCAN_ERROR_MESSAGE = 'There is some issue scanning the QR.';
+// The QR itself could not be read or is not a supported payment QR.
+const INVALID_QR_MESSAGE = 'Invalid QR code.';
 const CORNER_COLOR = '#1a7cff';
 const CORNER_DETECTED_COLOR = '#00974f';
 // Corner capture motion after a scan: snap in, then straight back out.
@@ -125,21 +130,6 @@ function getApiBaseUrl(): string | null {
   } catch {
     return null;
   }
-}
-
-function apiErrorMessage(value: unknown): string | null {
-  if (
-    typeof value === 'object' &&
-    value !== null &&
-    'error' in value &&
-    typeof value.error === 'object' &&
-    value.error !== null &&
-    'message' in value.error &&
-    typeof value.error.message === 'string'
-  ) {
-    return value.error.message;
-  }
-  return null;
 }
 
 function ScannerScreen() {
@@ -245,17 +235,15 @@ function ScannerScreen() {
           setPayment({ travelPeQr: qrData });
           setMessage(`Pay ${request.recipientName}`);
           setReading(false);
-        } catch (error) {
-          resumeScanning(
-            error instanceof Error ? error.message : 'Invalid TravelPe QR code',
-          );
+        } catch {
+          resumeScanning(INVALID_QR_MESSAGE);
         }
         return;
       }
 
       const apiBaseUrl = getApiBaseUrl();
       if (!apiBaseUrl) {
-        resumeScanning('Unable to reach the payment service');
+        resumeScanning(SCAN_ERROR_MESSAGE);
         return;
       }
 
@@ -270,18 +258,17 @@ function ScannerScreen() {
           body: JSON.stringify({ qrData }),
           signal: controller.signal,
         });
-        const responseBody: unknown = await response.json();
-
-        if (!response.ok) {
-          throw new Error(
-            apiErrorMessage(responseBody) ??
-              'This is not a supported UPI QR code',
-          );
+        if (response.status >= 400 && response.status < 500) {
+          resumeScanning(INVALID_QR_MESSAGE);
+          return;
         }
-
+        const responseBody: unknown = response.ok
+          ? await response.json().catch(() => null)
+          : null;
         const parsedResponse = parsedQrResponseSchema.safeParse(responseBody);
         if (!parsedResponse.success) {
-          throw new Error('The QR response could not be verified');
+          resumeScanning(SCAN_ERROR_MESSAGE);
+          return;
         }
 
         const { merchant, payment: parsedPayment } = parsedResponse.data.data;
@@ -293,14 +280,8 @@ function ScannerScreen() {
             ? {}
             : { inrAmount: parsedPayment.inrAmount }),
         });
-      } catch (error) {
-        resumeScanning(
-          error instanceof Error && error.name === 'AbortError'
-            ? 'The payment service did not respond'
-            : error instanceof Error
-              ? error.message
-              : 'Could not read this QR code',
-        );
+      } catch {
+        resumeScanning(SCAN_ERROR_MESSAGE);
       } finally {
         clearTimeout(timeout);
         activeRequest.current = null;
@@ -341,11 +322,11 @@ function ScannerScreen() {
         void submitQr(found.data);
       } else {
         requestInProgress.current = true;
-        resumeScanning('No QR code found in that image');
+        resumeScanning(INVALID_QR_MESSAGE);
       }
     } catch {
       requestInProgress.current = true;
-      resumeScanning('Could not read that image');
+      resumeScanning(INVALID_QR_MESSAGE);
     } finally {
       setPickingImage(false);
     }
