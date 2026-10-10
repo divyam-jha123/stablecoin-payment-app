@@ -46,7 +46,7 @@ function timeLabel(createdAt: number) {
   });
 }
 
-/** Everything paid to one recipient, oldest first, with Pay again. */
+/** Everything paid to one recipient, oldest first, with Pay. */
 export default function Recipient() {
   const params = useLocalSearchParams<{
     name?: string | string[];
@@ -248,14 +248,14 @@ export default function Recipient() {
             </Text>
           </View>
         )}
+      </ScrollView>
+
+      <View style={styles.footer}>
         <Text style={styles.disclosure}>
           {uiPreviewEnabled
             ? 'Sample data for design preview only. No funds moved.'
             : 'INR settlement is simulated. Receipts show the Tempo testnet debit.'}
         </Text>
-      </ScrollView>
-
-      <View style={styles.footer}>
         <Pressable
           accessibilityRole="button"
           accessibilityHint={
@@ -271,9 +271,7 @@ export default function Recipient() {
             pressed && styles.pressed,
           ]}
         >
-          <Text style={styles.payAgainLabel}>
-            {vpa ? 'Pay again' : 'Scan to pay again'}
-          </Text>
+          <Text style={styles.payAgainLabel}>Pay</Text>
         </Pressable>
       </View>
     </SafeAreaView>
@@ -377,13 +375,19 @@ const styles = StyleSheet.create({
     fontSize: 13,
     textAlign: 'center',
   },
-  disclosure: { color: homeTheme.colors.muted, fontSize: 12, lineHeight: 18 },
+  disclosure: {
+    color: homeTheme.colors.muted,
+    fontSize: 12,
+    lineHeight: 18,
+    textAlign: 'center',
+  },
   footer: {
     borderTopWidth: 1,
     borderTopColor: homeTheme.colors.border,
     paddingHorizontal: homeTheme.layout.pageGutter,
-    paddingTop: 12,
+    paddingTop: 10,
     paddingBottom: 8,
+    gap: 8,
   },
   payAgain: {
     minHeight: 54,

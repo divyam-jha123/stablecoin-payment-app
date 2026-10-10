@@ -140,7 +140,16 @@ export default function Activity() {
                   <TransactionCard
                     key={transaction.id}
                     transaction={transaction}
-                    onPress={() => router.push('/details')}
+                    // Sent payments open their receipt; money received has none.
+                    onPress={
+                      transaction.direction === 'Sent'
+                        ? () =>
+                            router.push({
+                              pathname: '/receipt',
+                              params: { id: transaction.id },
+                            })
+                        : undefined
+                    }
                   />
                 ))}
               </View>

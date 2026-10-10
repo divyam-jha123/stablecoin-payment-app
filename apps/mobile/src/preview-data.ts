@@ -124,6 +124,47 @@ export const previewRecipientPayments: readonly SimulatedPayment[] =
     })),
   );
 
+/** UPI ID and days ago (with hour and minute) of each sample Activity payment. */
+const previewActivityHistory: readonly (readonly [
+  string,
+  string,
+  number,
+  number,
+  number,
+])[] = [
+  ['coffee', 'starbucks@hdfcbank', 0, 11, 24],
+  ['grocery', 'blinkit@ybl', 0, 9, 12],
+  ['ride', 'uber@axisbank', 1, 22, 18],
+  ['dinner', 'zomato@hdfcbank', 1, 20, 11],
+];
+
+/** Sample receipts behind the sent payments in the preview Activity list. */
+const previewActivityPayments: readonly SimulatedPayment[] =
+  previewActivityHistory.flatMap(([id, vpa, days, hours, minutes], index) => {
+    const transaction = previewTransactions.find((item) => item.id === id);
+    return transaction
+      ? [
+          {
+            id,
+            reference: `TRV${String(910000000000 + index * 6271 + days)}`,
+            address: null,
+            merchantName: transaction.name,
+            merchantVpa: vpa,
+            location: vpa,
+            inrAmount: String(transaction.amount),
+            token: transaction.token ?? 'USDC',
+            createdAt: previewTimeAgo(days, hours, minutes),
+          },
+        ]
+      : [];
+  });
+
+/** Every sample payment a preview receipt can open. */
+export const previewReceiptPayments: readonly SimulatedPayment[] = [
+  ...previewRecipientPayments,
+  ...previewActivityPayments,
+];
+
 export function previewInr(amount: number) {
   return `₹${amount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
 }

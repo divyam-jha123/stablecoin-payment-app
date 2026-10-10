@@ -29,7 +29,7 @@ import {
   type SimulatedPayment,
 } from '../src/features/payment/simulated-payments';
 import { formatInr, SIMULATED_NOTICE } from '../src/features/payment/receipt';
-import { previewRecipientPayments } from '../src/preview-data';
+import { previewReceiptPayments } from '../src/preview-data';
 import { parsePaymentRequest } from '../src/features/payment/payment-authorization';
 import { openPaymentPin } from '../src/features/payment/open-payment-pin';
 import { useReceiptShare } from '../src/components/share-receipt-card';
@@ -103,7 +103,7 @@ export default function Receipt() {
   const payment: SimulatedPayment | undefined = id
     ? (payments.find((item) => item.id === id) ??
       (uiPreviewEnabled
-        ? previewRecipientPayments.find((item) => item.id === id)
+        ? previewReceiptPayments.find((item) => item.id === id)
         : undefined))
     : undefined;
   const receiptShare = useReceiptShare(payment);
