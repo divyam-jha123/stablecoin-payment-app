@@ -52,6 +52,7 @@ import {
 } from '../src/features/payment/scanner-accounts';
 import { ScannerTokenSelectionSheet } from '../src/components/scanner-payment-panel';
 import { TokenEmblem } from '../src/components/payment-logos';
+import { PAYMENT_FINALITY_NOTICE } from '../src/features/legal/legal-documents';
 
 function firstParam(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
@@ -613,6 +614,7 @@ export default function Confirmation() {
         </ScrollView>
 
         <View style={styles.footer}>
+          <Text style={styles.finality}>{PAYMENT_FINALITY_NOTICE}</Text>
           <SlideToPay
             label={payInr ? `Slide to Pay ₹${payInr}` : 'Slide to Pay'}
             disabled={!canPay}
@@ -774,6 +776,13 @@ const styles = StyleSheet.create({
   totalLabel: { color: colors.ink, fontSize: 16, fontWeight: '800' },
   totalValue: { color: colors.ink, fontSize: 16, fontWeight: '800' },
   footer: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 8 },
+  finality: {
+    color: colors.muted,
+    fontSize: 12,
+    lineHeight: 17,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
   keyboardBar: {
     flexDirection: 'row',
     justifyContent: 'flex-end',

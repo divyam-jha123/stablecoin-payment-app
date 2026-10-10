@@ -224,7 +224,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     color: colors.ink,
     fontSize: 15,
-    textAlign: 'center',
   },
   filters: { flexDirection: 'row', justifyContent: 'space-between', gap: 7 },
   filter: {
