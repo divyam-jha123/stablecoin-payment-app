@@ -6,6 +6,10 @@ import {
   type TransactionItem,
 } from './features/payment/simulated-payments';
 import type { LoginActivityEntry } from './features/account/login-activity';
+import {
+  buildNotifications,
+  type AppNotification,
+} from './features/notifications/notifications';
 
 /** Illustrative fixtures for the explicitly enabled local UI preview only. */
 export const previewTransactions: readonly TransactionItem[] = [
@@ -224,6 +228,32 @@ export const previewLoginActivity: readonly LoginActivityEntry[] = (
   device: previewLoginDevice.name,
   detail: previewLoginDevice.detail,
 }));
+
+/**
+ * Sample notifications for the UI preview, built from the same sample
+ * payments, sign-ins and activity the other preview screens show, so each one
+ * opens matching details. Offers have no real source, so they exist only
+ * here. Payments made in the preview are added on top.
+ */
+export const previewNotifications: readonly AppNotification[] = [
+  ...buildNotifications(previewActivityPayments, previewLoginActivity),
+  {
+    id: 'preview-received-topup',
+    kind: 'received',
+    title: 'Received ₹1,000.00',
+    body: 'From Archita via UPI.',
+    at: previewTimeAgo(0, 7, 45),
+    target: { pathname: '/activity', filter: 'Received' },
+  } satisfies AppNotification,
+  {
+    id: 'preview-offer',
+    kind: 'offer',
+    title: 'Get 10% cashback on your next transaction!',
+    body: 'Offer valid until end of week.',
+    at: previewNow - 2 * 60 * previewMinute,
+    target: { pathname: '/scanner' },
+  } satisfies AppNotification,
+].sort((a, b) => b.at - a.at);
 
 /** Shown on the success screen when it is opened directly in the UI preview. */
 export const previewSamplePayment: SimulatedPayment = {
