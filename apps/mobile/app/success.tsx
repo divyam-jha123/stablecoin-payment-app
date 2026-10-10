@@ -6,7 +6,6 @@ import {
   Animated,
   Easing,
   Pressable,
-  Share,
   StyleSheet,
   Text,
   View,
@@ -16,17 +15,15 @@ import { useAudioPlayer } from 'expo-audio';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppIcon, colors } from '../src/components/payment-ui';
 import { PreviewFlowBar } from '../src/components/preview-flow-bar';
-import {
-  previewRecipientPayments,
-  previewSamplePayment,
-} from '../src/preview-data';
+import { useReceiptShare } from '../src/components/share-receipt-card';
+import { previewSamplePayment } from '../src/preview-data';
 import { uiPreviewEnabled } from '../src/ui-preview';
 import { formatPathUsdAtomic } from '../src/features/payment/amount';
 import { simulatedPaymentStore } from '../src/features/payment/simulated-payment-store';
+import { formatInr, SIMULATED_NOTICE } from '../src/features/payment/receipt';
 import {
   formatPaymentTime,
   paymentPathUsdAtomic,
-  type SimulatedPayment,
 } from '../src/features/payment/simulated-payments';
 
 const GREEN = '#00974f';
@@ -61,15 +58,8 @@ const AnimatedPath = Animated.createAnimatedComponent(Path);
 // Played as the tick starts to draw.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const successTune = require('../assets/sounds/payment-success.m4a');
-const SIMULATED_NOTICE =
-  'Demo payment on the Tempo testnet. INR settlement is simulated; no INR reached the merchant.';
-
 function firstParam(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
-}
-
-function formatInr(amount: string) {
-  return Number(amount).toLocaleString('en-IN', { maximumFractionDigits: 2 });
 }
 
 function SummaryRow({ label, value }: { label: string; value: string }) {
@@ -308,41 +298,19 @@ function shortHash(hash: string) {
   return `${hash.slice(0, 8)}…${hash.slice(-6)}`;
 }
 
-function shareReceipt(payment: SimulatedPayment) {
-  const lines = [
-    'TravelPe payment receipt',
-    `Paid ₹${formatInr(payment.inrAmount)} to ${payment.merchantName}`,
-    payment.location,
-    `Debited: ${formatPathUsdAtomic(paymentPathUsdAtomic(payment))} ${payment.token}`,
-    `Reference: ${payment.reference}`,
-    ...(payment.txHash ? [`Tempo transaction: ${payment.txHash}`] : []),
-    formatPaymentTime(payment.createdAt),
-    '',
-    SIMULATED_NOTICE,
-  ];
-  void Share.share({ message: lines.join('\n') }).catch(() => undefined);
-}
-
 export default function Success() {
-  const params = useLocalSearchParams<{
-    id?: string | string[];
-    from?: string | string[];
-  }>();
+  const params = useLocalSearchParams<{ id?: string | string[] }>();
   const id = firstParam(params.id);
-  // A receipt opened from a recipient's history goes back to it.
-  const fromHistory = firstParam(params.from) === 'history';
   const payments = useSyncExternalStore(
     simulatedPaymentStore.subscribe,
     simulatedPaymentStore.getSnapshot,
   );
   const payment = id
-    ? (payments.find((item) => item.id === id) ??
-      (uiPreviewEnabled
-        ? previewRecipientPayments.find((item) => item.id === id)
-        : undefined))
+    ? payments.find((item) => item.id === id)
     : uiPreviewEnabled
       ? (payments[0] ?? previewSamplePayment)
       : undefined;
+  const receiptShare = useReceiptShare(payment);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const { progress, tick } = useSuccessReveal(payment !== undefined);
 
@@ -353,13 +321,9 @@ export default function Success() {
         {/* Going back would reopen a paid review, so leave to the wallet. */}
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={fromHistory ? 'Go back' : 'Back to wallet'}
+          accessibilityLabel="Back to wallet"
           hitSlop={8}
-          onPress={() =>
-            fromHistory && router.canGoBack()
-              ? router.back()
-              : router.replace('/home')
-          }
+          onPress={() => router.replace('/home')}
           style={({ pressed }) => [
             styles.iconButton,
             pressed && styles.pressed,
@@ -483,14 +447,18 @@ export default function Success() {
         {payment ? (
           <Pressable
             accessibilityRole="button"
-            onPress={() => shareReceipt(payment)}
+            accessibilityState={{ busy: receiptShare.busy }}
+            disabled={receiptShare.busy}
+            onPress={() => void receiptShare.share()}
             style={({ pressed }) => [
               styles.secondary,
               pressed && styles.pressed,
             ]}
           >
             <AppIcon name="share" size={20} color={colors.accent} />
-            <Text style={styles.secondaryText}>Share receipt</Text>
+            <Text style={styles.secondaryText}>
+              {receiptShare.busy ? 'Preparing…' : 'Share receipt'}
+            </Text>
           </Pressable>
         ) : null}
       </View>
@@ -503,6 +471,7 @@ export default function Success() {
           { label: 'Activity ›', onPress: () => router.replace('/activity') },
         ]}
       />
+      {receiptShare.card}
     </SafeAreaView>
   );
 }

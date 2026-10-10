@@ -54,11 +54,11 @@ import { RecentRecipients } from '../src/components/recent-recipients';
 
 // Metro bundles this static Figma asset at build time.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const merchantBanner = require('../assets/figma/home-merchant-banner.png');
+const merchantBanner = require('../assets/figma/home-merchant-banner.webp');
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const pinAd = require('../assets/ads/pin-ad.png');
+const pinAd = require('../assets/ads/pin-ad.webp');
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const historyAd = require('../assets/ads/history-ad.png');
+const historyAd = require('../assets/ads/history-ad.webp');
 
 export default function Home() {
   const { wallet, onTempo, session, foreground } = useAccount();

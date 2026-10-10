@@ -14,7 +14,7 @@ import { iosDashboardPreview } from '../src/ui-preview';
 
 // Metro bundles this static Figma asset at build time.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const landmarks = require('../assets/figma/onboarding-landmarks.png');
+const landmarks = require('../assets/figma/onboarding-landmarks.webp');
 const ART_WIDTH = 851;
 const ART_HEIGHT = 1848;
 // The artwork spans the screen width and is lifted so the globe's rim sits

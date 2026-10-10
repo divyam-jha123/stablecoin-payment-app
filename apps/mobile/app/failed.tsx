@@ -14,6 +14,8 @@ import { AppIcon, colors } from '../src/components/payment-ui';
 import { PreviewFlowBar } from '../src/components/preview-flow-bar';
 import { previewSamplePayment } from '../src/preview-data';
 import { uiPreviewEnabled } from '../src/ui-preview';
+import { parsePaymentRequest } from '../src/features/payment/payment-authorization';
+import { openPaymentPin } from '../src/features/payment/open-payment-pin';
 
 // Metro bundles this static illustration at build time.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -32,12 +34,6 @@ function firstParam(value: string | string[] | undefined): string | undefined {
   return raw?.trim() || undefined;
 }
 
-function formatInr(amount: string | undefined) {
-  const value = Number(amount);
-  if (!amount || !Number.isFinite(value) || value <= 0) return undefined;
-  return `₹${value.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
-}
-
 export default function Failed() {
   const params = useLocalSearchParams<{
     merchantName?: string | string[];
@@ -53,7 +49,6 @@ export default function Failed() {
   const merchantName = firstParam(params.merchantName) ?? sample?.merchantName;
   const location = firstParam(params.location) ?? sample?.location;
   const merchantVpa = firstParam(params.merchantVpa);
-  const amount = formatInr(firstParam(params.inrAmount) ?? sample?.inrAmount);
   const token = firstParam(params.token) ?? sample?.token;
   const inrAmount = firstParam(params.inrAmount) ?? sample?.inrAmount;
   // Set when the stablecoin payment itself failed, before any conversion.
@@ -66,18 +61,16 @@ export default function Failed() {
     if (retrying) return;
     setRetrying(true);
     retryTimer.current = setTimeout(() => {
-      if (merchantName && amount && token) {
-        // Run the same payment again; processing shows its result.
-        router.replace({
-          pathname: '/processing',
-          params: {
-            merchantName,
-            ...(merchantVpa ? { merchantVpa } : {}),
-            location,
-            inrAmount,
-            token,
-          },
-        });
+      const request = parsePaymentRequest({
+        merchantName,
+        merchantVpa,
+        location,
+        inrAmount,
+        token,
+      });
+      if (request) {
+        // A retry is a new payment, so it needs the PIN again.
+        void openPaymentPin(request).finally(() => setRetrying(false));
       } else if (router.canGoBack()) {
         // Nothing to resend: back to the payment review.
         router.back();
@@ -183,7 +176,7 @@ export default function Failed() {
       <PreviewFlowBar
         status="Failed"
         actions={[
-          { label: 'Retry ›', onPress: () => router.replace('/processing') },
+          { label: 'Retry ›', onPress: retry },
           { label: 'Success ›', onPress: () => router.replace('/success') },
           { label: 'Home ›', onPress: () => router.replace('/home') },
         ]}

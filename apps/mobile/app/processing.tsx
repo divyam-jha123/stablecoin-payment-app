@@ -31,18 +31,22 @@ import { payOnChain } from '../src/features/payment/pay-onchain';
 import { walletError } from '../src/features/account/wallet-store';
 import { uiPreviewEnabled } from '../src/ui-preview';
 import { PreviewFlowBar } from '../src/components/preview-flow-bar';
+import {
+  parsePaymentRequest,
+  paymentApprovals,
+} from '../src/features/payment/payment-authorization';
 
 // Metro bundles these static Figma illustrations at build time.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const skyline = require('../assets/figma/processing-skyline.png');
+const skyline = require('../assets/figma/processing-skyline.webp');
 // The token illustration in aligned layers: the base platform, the light
 // glow around the coin, and the ₹ coin, which moves.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const coinGlow = require('../assets/figma/processing-coin-glow.png');
+const coinGlow = require('../assets/figma/processing-coin-glow.webp');
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const coinDisc = require('../assets/figma/processing-coin-disc.png');
+const coinDisc = require('../assets/figma/processing-coin-disc.webp');
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const platform = require('../assets/figma/processing-platform.png');
+const platform = require('../assets/figma/processing-platform.webp');
 
 const BLUE = '#2f6bff';
 const GREEN = '#12a150';
@@ -597,14 +601,31 @@ export default function Processing() {
     location?: string | string[];
     inrAmount?: string | string[];
     token?: string | string[];
+    approval?: string | string[];
   }>();
-  const merchantName = firstParam(params.merchantName)?.trim() || 'Starbucks';
-  const merchantVpa = firstParam(params.merchantVpa)?.trim() || undefined;
-  const location = firstParam(params.location)?.trim() || 'Pune, Maharashtra';
-  const inrAmount = firstParam(params.inrAmount)?.trim() || '500';
-  const symbol = firstParam(params.token)?.trim() || 'USDC';
+  const [request] = useState(() => parsePaymentRequest(params));
+  const merchantName = request?.merchantName ?? '';
+  const merchantVpa = request?.merchantVpa;
+  const location = request?.location ?? '';
+  const inrAmount = request?.inrAmount ?? '';
+  const symbol = request?.token ?? 'USDC';
   const [stepIndex, setStepIndex] = useState(0);
   const recorded = useRef(false);
+  // Nothing moves or is recorded until this screen spends the one-time PIN
+  // approval for exactly these details. Opened any other way, it stops here.
+  const approvalId = firstParam(params.approval);
+  const approval = useRef<'pending' | 'spent' | 'denied'>('pending');
+  const [denied, setDenied] = useState(false);
+  const approved = useCallback(() => {
+    if (approval.current === 'pending')
+      approval.current = paymentApprovals.spend(approvalId, request)
+        ? 'spent'
+        : 'denied';
+    return approval.current === 'spent';
+  }, [approvalId, request]);
+  useEffect(() => {
+    if (!approved()) setDenied(true);
+  }, [approved]);
   // Wallet mode pays pathUSD on Tempo for real while the steps play; it is
   // the only token with a testnet contract. Other tokens, and the UI preview,
   // stay simulated. INR settlement is always simulated.
@@ -613,16 +634,26 @@ export default function Processing() {
   );
   useEffect(() => {
     const owner = walletStore.getSnapshot().account?.address;
-    if (uiPreviewEnabled || symbol !== 'pathUSD' || !owner || transfer.current)
+    if (
+      !approved() ||
+      uiPreviewEnabled ||
+      symbol !== 'pathUSD' ||
+      !owner ||
+      transfer.current
+    )
       return;
     const reference = `TRV${Date.now().toString().slice(-12)}`;
     const hash = payOnChain({ owner, inrAmount, reference });
     hash.catch(() => undefined);
     transfer.current = { reference, hash };
-  }, [inrAmount, symbol]);
+  }, [approved, inrAmount, symbol]);
 
   const complete = useCallback(async () => {
     if (recorded.current) return;
+    if (!approved()) {
+      setDenied(true);
+      return;
+    }
     recorded.current = true;
     let txHash: string | undefined;
     if (transfer.current) {
@@ -657,7 +688,7 @@ export default function Processing() {
       txHash,
     });
     router.replace({ pathname: '/success', params: { id: payment.id } });
-  }, [merchantName, merchantVpa, location, inrAmount, symbol]);
+  }, [approved, merchantName, merchantVpa, location, inrAmount, symbol]);
 
   // Each step plays its part of the coin story, then the next step starts.
   // The UI preview holds each step until it is advanced by hand; stepping
@@ -671,7 +702,7 @@ export default function Processing() {
     const start = step === 0 ? 0 : STEP_ENDS[step - 1]!;
     const end = STEP_ENDS[step]!;
     const next = () => {
-      if (cancelled || uiPreviewEnabled) return;
+      if (cancelled || uiPreviewEnabled || approval.current !== 'spent') return;
       if (stepIndex >= STEPS.length) void complete();
       else setStepIndex((index) => index + 1);
     };
@@ -710,6 +741,31 @@ export default function Processing() {
       ? null
       : Math.max(0, Math.min(MAX_ART_HEIGHT, stageHeight - STAGE_GAP * 2)) /
         ART_HEIGHT;
+
+  if (denied)
+    return (
+      <SafeAreaView style={styles.deniedScreen}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <AppIcon name="lock" size={48} color={colors.accent} />
+        <Text accessibilityRole="header" style={styles.deniedTitle}>
+          Payment not approved
+        </Text>
+        <Text style={styles.deniedCopy}>
+          Every payment needs your PIN. No funds were moved and nothing was
+          paid.
+        </Text>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => router.replace('/home')}
+          style={({ pressed }) => [
+            styles.deniedButton,
+            pressed && styles.pressed,
+          ]}
+        >
+          <Text style={styles.deniedButtonText}>Back to wallet</Text>
+        </Pressable>
+      </SafeAreaView>
+    );
 
   return (
     <View style={styles.screen}>
@@ -889,7 +945,13 @@ export default function Processing() {
             onPress: () =>
               router.replace({
                 pathname: '/failed',
-                params: { merchantName, location, inrAmount, token: symbol },
+                params: {
+                  merchantName,
+                  ...(merchantVpa ? { merchantVpa } : {}),
+                  location,
+                  inrAmount,
+                  token: symbol,
+                },
               }),
           },
         ]}
@@ -899,6 +961,31 @@ export default function Processing() {
 }
 
 const styles = StyleSheet.create({
+  deniedScreen: {
+    flex: 1,
+    backgroundColor: '#ffffff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+    gap: 12,
+  },
+  deniedTitle: { color: colors.ink, fontSize: 22, fontWeight: '700' },
+  deniedCopy: {
+    color: colors.muted,
+    fontSize: 15,
+    lineHeight: 22,
+    textAlign: 'center',
+  },
+  deniedButton: {
+    minHeight: 52,
+    alignSelf: 'stretch',
+    borderRadius: 999,
+    backgroundColor: colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 12,
+  },
+  deniedButtonText: { color: '#ffffff', fontSize: 16, fontWeight: '700' },
   screen: { flex: 1, backgroundColor: '#e8f3ff' },
   background: { flex: 1 },
   safe: { flex: 1 },

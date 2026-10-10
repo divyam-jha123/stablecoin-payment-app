@@ -24,6 +24,11 @@ import { simulatedPaymentStore } from '../src/features/payment/simulated-payment
 import { pinOwner } from '../src/features/account/pin-owner';
 import { recordLoginActivity } from '../src/features/account/login-activity-store';
 import { uiPreviewEnabled } from '../src/ui-preview';
+import {
+  parsePaymentRequest,
+  paymentApprovals,
+  paymentParams,
+} from '../src/features/payment/payment-authorization';
 
 // Short pause after the last digit so the fourth box visibly fills before
 // the PIN is checked or the next step appears.
@@ -72,20 +77,35 @@ export default function PinEntry() {
     inrAmount?: string;
     token?: string;
   }>();
-  const mode: Mode =
+  const requestedMode: Mode =
     first(params.mode) === 'change'
       ? 'change'
       : first(params.mode) === 'verify'
         ? 'verify'
         : 'create';
+  // Creating a PIN never replaces an existing one; that needs the current PIN.
+  const [pinExists, setPinExists] = useState<boolean | null>(
+    requestedMode === 'create' ? null : true,
+  );
+  useEffect(() => {
+    if (requestedMode !== 'create') return;
+    let live = true;
+    const owner = pinOwner();
+    void (owner ? pinStore.hasPin(owner) : Promise.resolve(false))
+      .catch(() => true)
+      .then((exists) => {
+        if (live) setPinExists(exists);
+      });
+    return () => {
+      live = false;
+    };
+  }, [requestedMode]);
+  const mode: Mode =
+    requestedMode === 'create' && pinExists ? 'verify' : requestedMode;
   const next = (first(params.next) ?? 'onboarding') as Next;
-  const payment = {
-    merchantName: first(params.merchantName) ?? '',
-    merchantVpa: first(params.merchantVpa) ?? '',
-    location: first(params.location) ?? '',
-    inrAmount: first(params.inrAmount) ?? '',
-    token: first(params.token) ?? '',
-  };
+  // A payment is only approved for these exact, validated details.
+  const payment = next === 'pay' ? parsePaymentRequest(params) : null;
+  const paymentInvalid = next === 'pay' && !payment;
 
   const steps = STEPS[mode];
   const [stepIndex, setStepIndex] = useState(0);
@@ -108,15 +128,22 @@ export default function PinEntry() {
     new: 'Enter a new PIN',
     confirm: 'Re-enter your new PIN',
   }[step];
-  const amount = Number(payment.inrAmount);
-  const paying =
-    mode === 'verify' && payment.merchantName && Number.isFinite(amount)
-      ? `₹${amount.toLocaleString('en-IN', { maximumFractionDigits: 2 })} to ${payment.merchantName}`
-      : null;
+  const paying = payment
+    ? `₹${Number(payment.inrAmount).toLocaleString('en-IN', {
+        maximumFractionDigits: 2,
+      })} to ${payment.merchantName}${
+        payment.merchantVpa ? ` · ${payment.merchantVpa}` : ''
+      }`
+    : null;
 
   async function finish() {
     if (next === 'pay') {
-      router.replace({ pathname: '/processing', params: payment });
+      if (!payment) return;
+      const approval = paymentApprovals.grant(payment);
+      router.replace({
+        pathname: '/processing',
+        params: { ...paymentParams(payment), approval },
+      });
     } else if (next === 'profile') {
       if (mode === 'change')
         Alert.alert('PIN changed', 'Use your new PIN for your next payment.');
@@ -143,7 +170,14 @@ export default function PinEntry() {
 
   async function submit(pin: string) {
     const owner = pinOwner();
-    if (!isValidPin(pin) || busy || !owner) return;
+    if (
+      !isValidPin(pin) ||
+      busy ||
+      !owner ||
+      pinExists === null ||
+      paymentInvalid
+    )
+      return;
     setBusy(true);
     setError(null);
     try {
@@ -296,9 +330,11 @@ export default function PinEntry() {
               style={styles.busy}
             />
           ) : null}
-          {error ? (
+          {error || paymentInvalid ? (
             <Text accessibilityRole="alert" style={styles.error}>
-              {error}
+              {paymentInvalid
+                ? 'These payment details are not valid. No payment was made.'
+                : error}
             </Text>
           ) : null}
           {step === 'current' ? (

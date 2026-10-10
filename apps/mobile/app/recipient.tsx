@@ -205,8 +205,8 @@ export default function Recipient() {
                   accessibilityLabel={`Paid ${previewInr(Number(payment.inrAmount))} to ${payment.merchantName}, completed at ${timeLabel(payment.createdAt)}. View receipt.`}
                   onPress={() =>
                     router.push({
-                      pathname: '/success',
-                      params: { id: payment.id, from: 'history' },
+                      pathname: '/receipt',
+                      params: { id: payment.id },
                     })
                   }
                   style={({ pressed }) => [
