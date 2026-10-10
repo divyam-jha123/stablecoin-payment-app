@@ -1,19 +1,66 @@
-# Traveller payments on Tempo
+<p align="center">
+  <img src="assets/TravelpeLogo.png" alt="TravelPe" width="320" />
+</p>
 
-An Android-first hackathon payment app for international travellers in India: scan an existing UPI QR, pay a USD stablecoin on Tempo, and demonstrate simulated INR merchant settlement.
+<p align="center">
+  <strong>Pay any UPI merchant in India with a USD stablecoin.</strong><br />
+  An Android-first payment app for international travellers, built on the Tempo.
+</p>
 
-The current prototype includes an Expo mobile interface, MetaMask sign-in, a Tempo testnet balance, QR scanning and payment review. Payment submission and real INR settlement are not enabled.
+<p align="center">
+  <a href="#overview">Overview</a> ·
+  <a href="#how-it-works">How it works</a> ·
+  <a href="#getting-started">Getting started</a> ·
+  <a href="#documentation">Documentation</a> ·
+  <a href="#contributing">Contributing</a>
+</p>
 
-Tempo is the core payment network. Its stablecoin payments, transfer memos and stablecoin fees underpin the planned verification and reconciliation flow. See the research and pending architecture choices in [ARCHITECTURE.md](docs/ARCHITECTURE.md), and the hard **September 15–October 4, 2026** build window in [ROADMAP.md](docs/ROADMAP.md).
+---
 
-Approved MVP settlement mode: a real Tempo testnet payment is independently verified, then a mock or provider-sandbox black box simulates fiat conversion and UPI payout. No stablecoin is sold and no INR reaches a merchant. Receipts must state this explicitly.
+> [!IMPORTANT]
+> TravelPe is at prototype stage right now. Payments use free Tempo **testnet** tokens with no monetary value. Conversion to INR and payout to the merchant over UPI are **simulated**: no real money moves, and every receipt states this.
 
-Local development uses a disposable developer-controlled wallet funded with free assets from the official Tempo testnet faucet. The wallet contains no valuable assets and signs the real testnet transaction; its private key or recovery phrase must never be placed in this repository, application configuration or the backend.
+## Overview
 
-## Prerequisites and setup
+UPI is accepted by almost every merchant in India, from retail stores to street vendors, but it requires an Indian bank account. International travellers are left relying on cash or on cards with high foreign exchange fees.
 
-- Node.js 24.13+ (24.x), pnpm 12.3.4.
-- Android device with compatible Expo Go, or an Android emulator. Wallet handoff still needs physical-device verification.
+TravelPe lets a traveller scan a merchant's existing UPI QR code, review the amount in INR, and pay from their own wallet in a USD stablecoin. Merchants keep their current QR code and do not need to install anything.
+
+### Features
+
+- **UPI QR scanning** with the camera or from an image in the gallery
+- **Multiple stablecoins:** pay with USDC, USDT or pathUSD
+- **Self-custody:** sign in with MetaMask; keys never leave the wallet
+- **Tap to pay:** a single wallet approval enables PIN-confirmed payments up to a daily limit
+- **Device security:** payment PIN plus biometric or passcode unlock
+- **Activity and receipts** with clearly labelled simulated settlement
+
+## How it works
+
+1. **Connect a wallet.** The traveller signs in with MetaMask and sets a 4-digit payment PIN.
+2. **Scan the QR code.** TravelPe reads the merchant name, UPI ID and INR amount.
+3. **Review the payment.** The traveller chooses a stablecoin and confirms the amount.
+4. **Approve with the PIN.** The stablecoin payment is submitted on the Tempo testnet.
+5. **Settle and record.** INR settlement to the merchant is simulated, and the payment appears in activity with a receipt.
+
+### Repository structure
+
+| Path                                 | Description                                                                         |
+| ------------------------------------ | ----------------------------------------------------------------------------------- |
+| [`apps/mobile`](apps/mobile)         | Expo (React Native) app: onboarding, wallet sign-in, scanner, payments and activity |
+| [`apps/api`](apps/api)               | Node.js API: health check, wallet sign-in and UPI QR parsing                        |
+| [`packages/shared`](packages/shared) | Shared Zod schemas, UPI and TravelPe QR parsers, payment statuses                   |
+| [`docs`](docs)                       | Architecture, roadmap and wallet testing guides                                     |
+
+## Getting started
+
+### Prerequisites
+
+- Node.js 24.13 or later (24.x) and pnpm 12.3.4
+- An Android device with Expo Go, or an Android emulator
+- MetaMask Mobile with a **disposable** test wallet for wallet mode. Do not use a wallet that holds real funds.
+
+### Installation
 
 ```sh
 pnpm install
@@ -21,70 +68,67 @@ cp .env.example .env
 pnpm --filter @traveller/shared build
 ```
 
-The repository pins the current Expo 57 template dependency family. Do not independently upgrade React Native or React; use Expo's compatibility check when adding native modules.
+### Running with a wallet
 
-## Run
+Start the API (port 3000) and the mobile app together:
 
 ```sh
-# Terminal 1: local API on port 3000
-pnpm dev:api
-
-# Terminal 2: Expo Router mobile app
-pnpm dev:mobile
-
-# Or start both
 pnpm dev
 ```
 
-Open the Expo terminal QR on an Android device, or press `a` with a configured emulator.
+They can also be started separately with `pnpm dev:api` and `pnpm dev:mobile`. Scan the Expo QR code with an Android device, or press `a` to open the emulator.
 
-To make real testnet payments in wallet mode, set the Tempo address that receives them before starting Expo:
-
-```sh
-EXPO_PUBLIC_SETTLEMENT_ADDRESS=0xYourTestnetSettlementAddress pnpm dev:mobile
-```
-
-Use a testnet address you control, such as a second MetaMask account. Turn on **tap to pay** from Profile: one MetaMask approval lets the app pay from your own account without opening MetaMask again, up to a daily limit and only to that address. Funds stay in MetaMask until you pay. Without the variable, tap to pay and on-chain payments are unavailable.
-
-Your first visit goes from onboarding and wallet connection to setting a 4-digit payment PIN, then the dashboard. Each payment is approved with that PIN; it is stored only as a salted hash on the phone. On later launches, the splash appears first, then the phone's native authentication prompt opens over it. Use your fingerprint, Face ID or the same passcode/PIN used to unlock your phone to open the dashboard. The operating system handles that credential; TravelPe never receives or stores it. During those sessions it locks again after 30 seconds or more in the background.
-
-### Preview the dashboard without a wallet
-
-On an iOS simulator, start the preview from the repository root:
+To submit testnet payments, set the Tempo testnet address that receives them, such as a second MetaMask account you control:
 
 ```sh
-pnpm dev:mobile:ios-preview
+EXPO_PUBLIC_SETTLEMENT_ADDRESS=0xYourTestnetAddress pnpm dev:mobile
 ```
 
-This opens the app in **Expo Go**. If another Expo server is already running, stop it first; its development-build mode will keep trying to open an app that is not installed. On onboarding, tap **Continue to Dashboard**. The iOS development preview uses simulated data without Google, MetaMask or PIN setup. You do not need a custom development build for this preview.
+Then enable **Tap to pay** in Profile. A single MetaMask approval allows TravelPe to pay from your account, only to that address and up to a daily limit, without reopening MetaMask for each payment. Funds remain in your wallet until a payment is made. The [wallet testing guide](docs/WALLET_TESTING.md) explains how to obtain testnet tokens from the faucet.
 
-On Android, start the Expo Go preview from the repository root:
+### Running in preview mode
+
+Preview mode runs the full interface without a wallet. It uses a sample balance and sample transactions; payments are simulated and stored only on the device.
 
 ```sh
-pnpm dev:mobile:android-preview
+pnpm dev:mobile:android-preview   # Android, in Expo Go
+pnpm dev:mobile:ios-preview       # iOS Simulator, in Expo Go
 ```
 
-On Android preview, open the app in Expo Go and tap **Get Started**, then **Continue**. Set and confirm a 4-digit PIN to reach the dashboard. On later launches, preview shows the splash, then opens the phone’s native authentication prompt. Use device authentication to reach the dashboard; the payment PIN is only for payments. If Expo is already running, restart it with the command above so it picks up the environment variable.
+- **Android:** tap **Get Started**, then **Continue**, and set a 4-digit PIN.
+- **iOS:** on the onboarding screen, tap **Continue to Dashboard**.
 
-To restart the Android preview after signing in, tap **Forgot PIN?** on the PIN screen and choose **Reset preview**. This clears the saved preview PIN and simulated payments, then opens onboarding. Clearing Metro's cache only refreshes bundled code; it does not clear saved app data. For a full simulator reset, use **Device → Erase All Content and Settings** in the Simulator app.
+The **UI preview** bar at the bottom of the screen steps through the payment flow, including the success and failure states. To reset, tap **Forgot PIN?** on the PIN screen and select **Reset preview**. Stop any running Expo server before starting preview mode.
 
-This mode is for visual review in development. It includes a sample balance, monthly totals, and illustrative transactions; activity search and filters work on the sample data. Payments made in preview are simulated. Processing holds on each step so it can be reviewed: use the **UI preview** bar at the bottom of the screen to move between steps or go on to the success or failed screen. Success, failed, and transaction details screens have the same bar for moving through the flow, and it can be hidden while you review a screen. Completed payments come off the sample balance and appear in monthly totals and activity; they are saved on the device only. This mode does not connect a wallet, read a balance, scan a live QR, or submit a payment on-chain. Android uses the wallet flow when started without the preview flag.
+## Security
 
-```sh
-curl http://localhost:3000/health
-```
+- Payments require a 4-digit PIN, stored on the device only as a salted hash.
+- The app is unlocked with the device's biometrics or passcode, which are handled entirely by the operating system.
+- The app locks again after 30 seconds or more in the background.
+- Private keys and recovery phrases remain in MetaMask and never reach the app, the API or this repository.
+- Merchant names, amounts and QR fields are treated as untrusted input and validated against shared schemas.
 
-The API reports `paymentsEnabled: false`. It has no payment routes. Express + PostgreSQL + Prisma remains a documented proposal awaiting the architecture answer; the standard-library health bootstrap makes the scaffold runnable without committing that decision. No database or provider credentials are required now.
+## Documentation
 
-The standalone shared QR parser is tested with payloads such as:
+| Document                                   | Contents                                                  |
+| ------------------------------------------ | --------------------------------------------------------- |
+| [Architecture](docs/ARCHITECTURE.md)       | System design, payment and settlement flow, key decisions |
+| [Roadmap](docs/ROADMAP.md)                 | Build plan and delivery status                            |
+| [Wallet testing](docs/WALLET_TESTING.md)   | MetaMask setup, testnet funding and acceptance checks     |
+| [API reference](apps/api/README.md)        | QR parsing endpoint, request and response formats         |
+| [Design guidelines](apps/mobile/DESIGN.md) | Visual language, layout and screen guidelines             |
+| [Product brief](apps/mobile/PRODUCT.md)    | Target users and product purpose                          |
+| [MetaMask SDK patch](patches/README.md)    | Reason for the SDK patch and the behaviour it changes     |
 
-```text
-upi://pay?pa=merchant@upi&pn=Coffee%20Shop&am=250&cu=INR
-```
+## Contributing
 
-The mobile app has the supplied TravelPe design on its onboarding, sign-in, dashboard and payment review screens. The QR scanner keeps its existing design. Activity and funding screens show development states where payment services are not connected.
+Contributions, bug reports and feature requests are welcome. For significant changes, please open an issue first to discuss the approach.
 
-## Checks
+1. Fork the repository and create a branch from `main`.
+2. Review the [architecture](docs/ARCHITECTURE.md) and, for interface changes, the [design guidelines](apps/mobile/DESIGN.md).
+3. Ensure changes work in both wallet mode and preview mode. Wallet mode must display only real data.
+4. Run the checks below and confirm they pass.
+5. Open a pull request that describes the change and how it was tested. Include screenshots for interface changes.
 
 ```sh
 pnpm typecheck
@@ -94,19 +138,13 @@ pnpm format:check
 pnpm build
 ```
 
-`build` compiles shared/API TypeScript and exports an Android JavaScript bundle. It does **not** produce an APK. Physical-device and native APK verification belongs to the remaining Week 1 gate. Tests cover QR parsing, payment state guards, fail-closed Tempo placeholders and deterministic isolated mock provider retries.
+Never commit private keys, recovery phrases or other credentials.
 
-## Structure and boundaries
+## Limitations
 
-- `apps/mobile`: Expo Router app with wallet sign-in, testnet balance, QR scanning, payment review and local UI preview.
-- `apps/api`: health bootstrap and Tempo/pricing/fiat/payout provider contracts. Mocks are isolated helpers, not connected payment services.
-- `packages/shared`: Zod domain schemas, central payment statuses, QR parser and tests.
-- `docs`: canonical architecture and weekly roadmap.
+- **Testnet only:** all stablecoins are Tempo testnet tokens with no monetary value.
+- **Simulated settlement:** no stablecoin is sold and no INR reaches a merchant. No production off-ramp, KYC/AML, banking or UPI provider is integrated.
+- **Local history:** transaction history is not yet persisted on a server.
+- **Distribution:** the app is not published on app stores, and support for other chains is out of scope.
 
-## Limitations and next phase
-
-The prototype uses Tempo test funds. Payment submission, durable transaction history and real INR settlement remain future work.
-
-Mock fiat settlement and payout return explicitly simulated results and remember idempotency only within one instance. They do not provide durable duplicate-payment protection; database orchestration must precede any real payment wiring. Tempo/pricing placeholders reject operations. No real INR, production off-ramp, KYC/AML, banking or UPI provider is implemented. SOL/Solana and public app-store releases are out of scope.
-
-Real stablecoin-to-INR services may be regulated and require appropriate partners. Every eventual demo receipt must disclose that INR settlement is simulated.
+Converting stablecoins to INR may be a regulated activity and would require licensed partners before real funds could be moved.
