@@ -1,6 +1,7 @@
 import {
   simulatedBalance,
   toTransactionItem,
+  type Recipient,
   type SimulatedPayment,
   type TransactionItem,
 } from './features/payment/simulated-payments';
@@ -58,6 +59,70 @@ export const previewTransactions: readonly TransactionItem[] = [
     brand: { mark: 'zomato', background: '#E23744', color: '#ffffff' },
   },
 ];
+
+const previewDay = 86_400_000;
+
+/** Days ago (with hour and minute) and INR amount of each sample payment. */
+const previewRecipientHistory: readonly (readonly [
+  string,
+  string,
+  readonly (readonly [number, number, number, string])[],
+])[] = [
+  [
+    'Cafe Lotus',
+    'cafelotus@upi',
+    [
+      [5, 10, 24, '100'],
+      [4, 9, 15, '10'],
+      [1, 18, 42, '250'],
+    ],
+  ],
+  ['Ujjwal', 'ujjwal@okaxis', [[2, 13, 5, '500']]],
+  [
+    'Satyam',
+    'satyam@ybl',
+    [
+      [3, 20, 10, '1200'],
+      [0, 8, 30, '150'],
+    ],
+  ],
+  ['Aarav', 'aarav@oksbi', [[6, 12, 0, '300']]],
+  ['Dinesh', 'dinesh@paytm', [[7, 19, 45, '80']]],
+  ['Priya', 'priya@okicici', [[8, 11, 20, '640']]],
+  ['Rupesh', 'rupesh@ybl', [[9, 16, 5, '220']]],
+  ['Starbucks', 'starbucks@hdfcbank', [[10, 10, 10, '480']]],
+  ['Archita', 'archita@okhdfcbank', [[12, 21, 0, '1000']]],
+];
+
+function previewTimeAgo(days: number, hours: number, minutes: number) {
+  const date = new Date(Date.now() - days * previewDay);
+  date.setHours(hours, minutes, 0, 0);
+  return date.getTime();
+}
+
+/** Sample people and merchants for Recent recipients in the UI preview. */
+export const previewRecipients: readonly Recipient[] =
+  previewRecipientHistory.map(([name, vpa]) => ({
+    id: `preview-${vpa}`,
+    name,
+    vpa,
+  }));
+
+/** Sample past payments behind each preview recipient's history. */
+export const previewRecipientPayments: readonly SimulatedPayment[] =
+  previewRecipientHistory.flatMap(([name, vpa, history]) =>
+    history.map(([days, hours, minutes, inrAmount], index) => ({
+      id: `preview-${vpa}-${index}`,
+      reference: `TRV${String(900000000000 + index * 7919 + days)}`,
+      address: null,
+      merchantName: name,
+      merchantVpa: vpa,
+      location: vpa,
+      inrAmount,
+      token: 'USDC',
+      createdAt: previewTimeAgo(days, hours, minutes),
+    })),
+  );
 
 export function previewInr(amount: number) {
   return `₹${amount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;

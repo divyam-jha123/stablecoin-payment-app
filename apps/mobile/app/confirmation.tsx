@@ -397,6 +397,10 @@ export default function Confirmation() {
         mode: 'verify',
         next: 'pay',
         merchantName: payeeName,
+        // TravelPe IDs are not UPI IDs; only UPI payees can be paid again.
+        ...(!isTravelPe && vpaSchema.safeParse(merchantVpa).success
+          ? { merchantVpa }
+          : {}),
         location: isFigmaPreview ? 'Pune, Maharashtra' : payeeId || 'India',
         inrAmount: amountResult.data,
         token: paymentSymbol,

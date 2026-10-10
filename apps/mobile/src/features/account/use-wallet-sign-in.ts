@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { walletStore } from './metamask';
 import { DEVICE_PIN_OWNER, pinStore } from './payment-pin';
+import { pinOwner } from './pin-owner';
 import { rememberedAccount } from './remembered-account';
 import { recordLoginActivity } from './login-activity-store';
 import {
@@ -44,10 +45,16 @@ export function connectStatusText(stage: ConnectStage | null) {
   return stage ? stageText[stage] : 'Connecting to MetaMask…';
 }
 
+/** After sign-in, a traveller without a payment PIN sets one before Home. */
+export async function routeAfterSignIn() {
+  const hasPin = await pinStore.hasPin(pinOwner()).catch(() => false);
+  router.replace(hasPin ? '/home' : '/pin-setup');
+}
+
 /**
  * MetaMask connection and backend sign-in, shared by the login screen and by
  * Home, so a signed-in traveller can connect a wallet without going back.
- * `onDone` runs after sign-in; by default it opens Home. PIN setup belongs to Google signup or payment settings.
+ * `onDone` runs after sign-in; by default it goes through `routeAfterSignIn`.
  */
 export function useWalletSignIn(options?: { onDone?: () => void }) {
   const queryClient = useQueryClient();
@@ -60,14 +67,14 @@ export function useWalletSignIn(options?: { onDone?: () => void }) {
   const [stage, setStage] = useState<ConnectStage | null>(null);
   const lock = useRef(false);
 
-  function finish() {
+  async function finish() {
     if (options?.onDone) options.onDone();
-    else router.replace('/home');
+    else await routeAfterSignIn();
   }
 
   async function signIn() {
     if (uiPreviewEnabled) {
-      finish();
+      await finish();
       return;
     }
     if (lock.current || walletStore.getSnapshot().busy) return;
@@ -170,7 +177,7 @@ export function useWalletSignIn(options?: { onDone?: () => void }) {
         .adopt(account.address, DEVICE_PIN_OWNER)
         .catch(() => undefined);
       walletFlowLog.info('Session marked ready; opening next screen');
-      finish();
+      await finish();
       void returnFromWallet();
     } catch (cause) {
       walletFlowLog.error('Sign-in stopped', cause);

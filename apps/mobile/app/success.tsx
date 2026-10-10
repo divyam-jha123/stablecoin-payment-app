@@ -16,7 +16,10 @@ import { useAudioPlayer } from 'expo-audio';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppIcon, colors } from '../src/components/payment-ui';
 import { PreviewFlowBar } from '../src/components/preview-flow-bar';
-import { previewSamplePayment } from '../src/preview-data';
+import {
+  previewRecipientPayments,
+  previewSamplePayment,
+} from '../src/preview-data';
 import { uiPreviewEnabled } from '../src/ui-preview';
 import { formatPathUsdAtomic } from '../src/features/payment/amount';
 import { simulatedPaymentStore } from '../src/features/payment/simulated-payment-store';
@@ -321,14 +324,22 @@ function shareReceipt(payment: SimulatedPayment) {
 }
 
 export default function Success() {
-  const params = useLocalSearchParams<{ id?: string | string[] }>();
+  const params = useLocalSearchParams<{
+    id?: string | string[];
+    from?: string | string[];
+  }>();
   const id = firstParam(params.id);
+  // A receipt opened from a recipient's history goes back to it.
+  const fromHistory = firstParam(params.from) === 'history';
   const payments = useSyncExternalStore(
     simulatedPaymentStore.subscribe,
     simulatedPaymentStore.getSnapshot,
   );
   const payment = id
-    ? payments.find((item) => item.id === id)
+    ? (payments.find((item) => item.id === id) ??
+      (uiPreviewEnabled
+        ? previewRecipientPayments.find((item) => item.id === id)
+        : undefined))
     : uiPreviewEnabled
       ? (payments[0] ?? previewSamplePayment)
       : undefined;
@@ -342,9 +353,13 @@ export default function Success() {
         {/* Going back would reopen a paid review, so leave to the wallet. */}
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Back to wallet"
+          accessibilityLabel={fromHistory ? 'Go back' : 'Back to wallet'}
           hitSlop={8}
-          onPress={() => router.replace('/home')}
+          onPress={() =>
+            fromHistory && router.canGoBack()
+              ? router.back()
+              : router.replace('/home')
+          }
           style={({ pressed }) => [
             styles.iconButton,
             pressed && styles.pressed,

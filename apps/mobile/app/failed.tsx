@@ -41,6 +41,7 @@ function formatInr(amount: string | undefined) {
 export default function Failed() {
   const params = useLocalSearchParams<{
     merchantName?: string | string[];
+    merchantVpa?: string | string[];
     location?: string | string[];
     inrAmount?: string | string[];
     token?: string | string[];
@@ -51,6 +52,7 @@ export default function Failed() {
   const sample = uiPreviewEnabled ? previewSamplePayment : undefined;
   const merchantName = firstParam(params.merchantName) ?? sample?.merchantName;
   const location = firstParam(params.location) ?? sample?.location;
+  const merchantVpa = firstParam(params.merchantVpa);
   const amount = formatInr(firstParam(params.inrAmount) ?? sample?.inrAmount);
   const token = firstParam(params.token) ?? sample?.token;
   const inrAmount = firstParam(params.inrAmount) ?? sample?.inrAmount;
@@ -68,7 +70,13 @@ export default function Failed() {
         // Run the same payment again; processing shows its result.
         router.replace({
           pathname: '/processing',
-          params: { merchantName, location, inrAmount, token },
+          params: {
+            merchantName,
+            ...(merchantVpa ? { merchantVpa } : {}),
+            location,
+            inrAmount,
+            token,
+          },
         });
       } else if (router.canGoBack()) {
         // Nothing to resend: back to the payment review.

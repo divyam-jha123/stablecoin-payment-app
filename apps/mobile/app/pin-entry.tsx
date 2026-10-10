@@ -67,6 +67,7 @@ export default function PinEntry() {
     mode?: string;
     next?: string;
     merchantName?: string;
+    merchantVpa?: string;
     location?: string;
     inrAmount?: string;
     token?: string;
@@ -80,6 +81,7 @@ export default function PinEntry() {
   const next = (first(params.next) ?? 'onboarding') as Next;
   const payment = {
     merchantName: first(params.merchantName) ?? '',
+    merchantVpa: first(params.merchantVpa) ?? '',
     location: first(params.location) ?? '',
     inrAmount: first(params.inrAmount) ?? '',
     token: first(params.token) ?? '',

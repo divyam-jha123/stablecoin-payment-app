@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Linking,
@@ -71,7 +71,24 @@ export default function Connect() {
     }
   }
 
-  if (signedIn && !busy && !googleBusy) return <Redirect href="/home" />;
+  // A signed-in wallet still sets its payment PIN before reaching Home.
+  const [hasPin, setHasPin] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (!signedIn) return;
+    let live = true;
+    void pinStore
+      .hasPin(pinOwner())
+      .catch(() => false)
+      .then((saved) => {
+        if (live) setHasPin(saved);
+      });
+    return () => {
+      live = false;
+    };
+  }, [signedIn]);
+
+  if (signedIn && !busy && !googleBusy && hasPin !== null)
+    return <Redirect href={hasPin ? '/home' : '/pin-setup'} />;
 
   return (
     <SafeAreaView style={styles.screen}>

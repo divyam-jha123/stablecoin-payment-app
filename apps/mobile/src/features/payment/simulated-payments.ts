@@ -1,3 +1,4 @@
+import { vpaSchema } from '@traveller/shared';
 import {
   formatPathUsdAtomic,
   pathUsdBalanceAtomic,
@@ -15,6 +16,8 @@ export type SimulatedPayment = {
   reference: string;
   address: string | null;
   merchantName: string;
+  /** Merchant's UPI ID, so Pay again can skip the scanner. */
+  merchantVpa?: string;
   location: string;
   inrAmount: string;
   token: string;
@@ -52,6 +55,8 @@ function isSimulatedPayment(value: unknown): value is SimulatedPayment {
     typeof record.reference === 'string' &&
     (record.address === null || typeof record.address === 'string') &&
     typeof record.merchantName === 'string' &&
+    (record.merchantVpa === undefined ||
+      vpaSchema.safeParse(record.merchantVpa).success) &&
     typeof record.location === 'string' &&
     typeof record.inrAmount === 'string' &&
     typeof record.token === 'string' &&
@@ -102,6 +107,7 @@ export function createSimulatedPaymentStore(storage?: PaymentStorage) {
     record(input: {
       address: string | null | undefined;
       merchantName: string;
+      merchantVpa?: string | undefined;
       location: string;
       inrAmount: string;
       token: string;
@@ -110,6 +116,7 @@ export function createSimulatedPaymentStore(storage?: PaymentStorage) {
       now?: number;
     }): SimulatedPayment {
       requiredPathUsdAtomic(input.inrAmount);
+      const merchantVpa = vpaSchema.safeParse(input.merchantVpa?.trim());
       const createdAt = input.now ?? Date.now();
       const digits = `${createdAt}${++sequence}`.slice(-12).padStart(12, '0');
       const payment: SimulatedPayment = {
@@ -117,6 +124,7 @@ export function createSimulatedPaymentStore(storage?: PaymentStorage) {
         reference: input.reference ?? `TRV${digits}`,
         address: input.address?.toLowerCase() ?? null,
         merchantName: input.merchantName,
+        ...(merchantVpa.success ? { merchantVpa: merchantVpa.data } : {}),
         location: input.location,
         inrAmount: input.inrAmount,
         token: input.token,
@@ -194,4 +202,47 @@ export function toTransactionItem(payment: SimulatedPayment): TransactionItem {
     time: formatPaymentTime(payment.createdAt),
     token: payment.token,
   };
+}
+
+export type Recipient = { id: string; name: string; vpa: string | null };
+
+function recipientKey(payment: SimulatedPayment) {
+  return (
+    payment.merchantVpa?.toLowerCase() ??
+    `name:${payment.merchantName.trim().toLowerCase()}`
+  );
+}
+
+/**
+ * Merchants paid before, most recent first, one entry per UPI ID. Payments
+ * saved before UPI IDs were kept group by merchant name instead.
+ */
+export function recentRecipients(
+  payments: readonly SimulatedPayment[],
+): Recipient[] {
+  const seen = new Set<string>();
+  const recipients: Recipient[] = [];
+  for (const payment of [...payments].sort(
+    (a, b) => b.createdAt - a.createdAt,
+  )) {
+    const name = payment.merchantName.trim();
+    const key = recipientKey(payment);
+    if (!name || seen.has(key)) continue;
+    seen.add(key);
+    recipients.push({ id: payment.id, name, vpa: payment.merchantVpa ?? null });
+  }
+  return recipients;
+}
+
+/** A recipient's payments, oldest first. */
+export function recipientPayments(
+  payments: readonly SimulatedPayment[],
+  recipient: { name: string; vpa: string | null },
+): SimulatedPayment[] {
+  const key = recipient.vpa
+    ? recipient.vpa.toLowerCase()
+    : `name:${recipient.name.trim().toLowerCase()}`;
+  return payments
+    .filter((payment) => recipientKey(payment) === key)
+    .sort((a, b) => a.createdAt - b.createdAt);
 }

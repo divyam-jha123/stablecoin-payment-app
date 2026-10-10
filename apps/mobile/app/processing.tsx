@@ -593,11 +593,13 @@ function ProgressRing({ symbol }: { symbol: string }) {
 export default function Processing() {
   const params = useLocalSearchParams<{
     merchantName?: string | string[];
+    merchantVpa?: string | string[];
     location?: string | string[];
     inrAmount?: string | string[];
     token?: string | string[];
   }>();
   const merchantName = firstParam(params.merchantName)?.trim() || 'Starbucks';
+  const merchantVpa = firstParam(params.merchantVpa)?.trim() || undefined;
   const location = firstParam(params.location)?.trim() || 'Pune, Maharashtra';
   const inrAmount = firstParam(params.inrAmount)?.trim() || '500';
   const symbol = firstParam(params.token)?.trim() || 'USDC';
@@ -631,6 +633,7 @@ export default function Processing() {
           pathname: '/failed',
           params: {
             merchantName,
+            ...(merchantVpa ? { merchantVpa } : {}),
             location,
             inrAmount,
             token: symbol,
@@ -646,6 +649,7 @@ export default function Processing() {
         ? null
         : walletStore.getSnapshot().account?.address,
       merchantName,
+      merchantVpa,
       location,
       inrAmount,
       token: symbol,
@@ -653,7 +657,7 @@ export default function Processing() {
       txHash,
     });
     router.replace({ pathname: '/success', params: { id: payment.id } });
-  }, [merchantName, location, inrAmount, symbol]);
+  }, [merchantName, merchantVpa, location, inrAmount, symbol]);
 
   // Each step plays its part of the coin story, then the next step starts.
   // The UI preview holds each step until it is advanced by hand; stepping
