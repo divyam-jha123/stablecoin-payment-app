@@ -15,7 +15,10 @@ const QUIET_ZONE = 4;
 
 export interface ReceiveQrCardProps {
   qrValue: string | null;
-  recipientName: string;
+  /** Omitted when the receiver has no name on file. */
+  recipientName?: string;
+  /** Shown in place of the name when there is none, e.g. a short address. */
+  fallbackLabel: string;
   recipientId: string;
   currency: TravelPeCurrency;
   requestedAmount?: string;
@@ -69,6 +72,7 @@ export const ReceiveQrCard = forwardRef<View, ReceiveQrCardProps>(
     {
       qrValue,
       recipientName,
+      fallbackLabel,
       recipientId,
       currency,
       requestedAmount,
@@ -83,12 +87,16 @@ export const ReceiveQrCard = forwardRef<View, ReceiveQrCardProps>(
         <View ref={ref} collapsable={false} style={styles.exportArea}>
           <View style={styles.profileRow}>
             <View style={styles.avatar}>
-              <Text style={styles.avatarText}>
-                {recipientName.trim().charAt(0).toUpperCase()}
-              </Text>
+              {recipientName ? (
+                <Text style={styles.avatarText}>
+                  {Array.from(recipientName.trim())[0]?.toUpperCase()}
+                </Text>
+              ) : (
+                <AppIcon name="person" color={colors.accent} size={22} />
+              )}
             </View>
             <Text numberOfLines={2} style={styles.name}>
-              {recipientName}
+              {recipientName ?? fallbackLabel}
             </Text>
           </View>
 

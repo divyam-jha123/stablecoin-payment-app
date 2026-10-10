@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useFonts } from 'expo-font';
 import Constants from 'expo-constants';
+import * as SplashScreen from 'expo-splash-screen';
 import {
   Image,
   StatusBar,
@@ -21,7 +22,9 @@ export function SplashBackdrop({ onReady }: { onReady?: () => void }) {
   const { height, width } = useWindowDimensions();
   const [fontLoaded, fontError] = useFonts({ Outfit: outfitFont });
   useEffect(() => {
-    if (fontLoaded || fontError) onReady?.();
+    if (!fontLoaded && !fontError) return;
+    SplashScreen.hide();
+    onReady?.();
   }, [fontLoaded, fontError, onReady]);
   const version = Constants.expoConfig?.version ?? '0.0.1';
 

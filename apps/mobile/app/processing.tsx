@@ -25,6 +25,7 @@ import {
   StarbucksLogo,
   TokenEmblem,
 } from '../src/components/payment-logos';
+import type { Address } from 'viem';
 import { walletStore } from '../src/features/account/metamask';
 import { simulatedPaymentStore } from '../src/features/payment/simulated-payment-store';
 import { payOnChain } from '../src/features/payment/pay-onchain';
@@ -598,6 +599,7 @@ export default function Processing() {
   const params = useLocalSearchParams<{
     merchantName?: string | string[];
     merchantVpa?: string | string[];
+    recipientAddress?: string | string[];
     location?: string | string[];
     inrAmount?: string | string[];
     token?: string | string[];
@@ -606,6 +608,7 @@ export default function Processing() {
   const [request] = useState(() => parsePaymentRequest(params));
   const merchantName = request?.merchantName ?? '';
   const merchantVpa = request?.merchantVpa;
+  const recipientAddress = request?.recipientAddress as Address | undefined;
   const location = request?.location ?? '';
   const inrAmount = request?.inrAmount ?? '';
   const symbol = request?.token ?? 'USDC';
@@ -628,7 +631,9 @@ export default function Processing() {
   }, [approved]);
   // Wallet mode pays pathUSD on Tempo for real while the steps play; it is
   // the only token with a testnet contract. Other tokens, and the UI preview,
-  // stay simulated. INR settlement is always simulated.
+  // stay simulated. INR settlement is always simulated. Paying another
+  // TravelPe user always moves pathUSD wallet to wallet, whatever token was
+  // picked, so the balance shown on both phones changes.
   const transfer = useRef<{ reference: string; hash: Promise<string> }>(
     undefined,
   );
@@ -637,16 +642,21 @@ export default function Processing() {
     if (
       !approved() ||
       uiPreviewEnabled ||
-      symbol !== 'pathUSD' ||
+      (symbol !== 'pathUSD' && !recipientAddress) ||
       !owner ||
       transfer.current
     )
       return;
     const reference = `TRV${Date.now().toString().slice(-12)}`;
-    const hash = payOnChain({ owner, inrAmount, reference });
+    const hash = payOnChain({
+      owner,
+      inrAmount,
+      reference,
+      ...(recipientAddress ? { recipient: recipientAddress } : {}),
+    });
     hash.catch(() => undefined);
     transfer.current = { reference, hash };
-  }, [approved, inrAmount, symbol]);
+  }, [approved, inrAmount, recipientAddress, symbol]);
 
   const complete = useCallback(async () => {
     if (recorded.current) return;
@@ -665,6 +675,7 @@ export default function Processing() {
           params: {
             merchantName,
             ...(merchantVpa ? { merchantVpa } : {}),
+            ...(recipientAddress ? { recipientAddress } : {}),
             location,
             inrAmount,
             token: symbol,
@@ -948,6 +959,7 @@ export default function Processing() {
                 params: {
                   merchantName,
                   ...(merchantVpa ? { merchantVpa } : {}),
+                  ...(recipientAddress ? { recipientAddress } : {}),
                   location,
                   inrAmount,
                   token: symbol,

@@ -1,9 +1,15 @@
 {
   "expo": {
-    "name": "TravelPay",
-    "slug": "tempo-traveller-payments",
+    "name": "TravelPe",
+    "slug": "travelpe",
+    "description": "Scan any UPI QR in India and pay with a USD stablecoin on the Tempo testnet. INR settlement is simulated.",
     "scheme": ["travellerpay", "com.travellerpay.hackathon"],
-    "version": "0.0.1",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icons/icon.png",
+    "userInterfaceStyle": "light",
+    "primaryColor": "#005ae1",
+    "backgroundColor": "#000000",
     "plugins": [
       "expo-router",
       [
@@ -11,13 +17,21 @@
         {
           "backgroundColor": "#000000",
           "image": "./assets/native-splash.png",
-          "imageWidth": 100
+          "imageWidth": 180
         }
       ],
       [
         "expo-camera",
         {
           "cameraPermission": "Allow TravelPe to scan payment QR codes."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow TravelPe to read a payment QR code from your photos.",
+          "cameraPermission": "Allow TravelPe to scan payment QR codes.",
+          "microphonePermission": false
         }
       ],
       [
@@ -45,10 +59,22 @@
       "./plugins/with-crop-done-label"
     ],
     "android": {
-      "package": "com.travellerpay.hackathon"
+      "package": "com.travellerpay.hackathon",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icons/adaptive-icon.png",
+        "monochromeImage": "./assets/icons/monochrome-icon.png",
+        "backgroundColor": "#000000"
+      }
     },
     "ios": {
-      "bundleIdentifier": "com.travellerpay.hackathon"
+      "bundleIdentifier": "com.travellerpay.hackathon",
+      "supportsTablet": false,
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "web": {
+      "favicon": "./assets/icons/favicon.png"
     },
     "experiments": {
       "typedRoutes": true
@@ -56,8 +82,14 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "0fe45311-1e43-46e6-b53b-be2b648f3858"
+        "projectId": "fb9e7551-7998-427e-9436-7f41dd193355"
       }
+    },
+    "runtimeVersion": {
+      "policy": "fingerprint"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/fb9e7551-7998-427e-9436-7f41dd193355"
     }
   }
 }

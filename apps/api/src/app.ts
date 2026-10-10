@@ -36,6 +36,13 @@ export async function handleApiRequest(
       });
       return;
     }
+    // Shows the app's wake-up pings in the hosting logs.
+    console.info(
+      JSON.stringify({
+        event: 'health.checked',
+        userAgent: request.headers['user-agent'] ?? null,
+      }),
+    );
     sendJson(response, 200, {
       status: 'ok',
       service: 'traveller-api',

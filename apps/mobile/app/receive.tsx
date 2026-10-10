@@ -22,12 +22,16 @@ import {
   createTravelPeQr,
   hasUnsafeQrTextCharacter,
   inrAmountSchema,
+  travelPeIdForAddress,
+  travelPePayeeName,
   type TravelPeCurrency,
 } from '@traveller/shared';
 import { AppIcon, colors } from '../src/components/payment-ui';
 import { ReceiveActionButton } from '../src/components/receive-action-button';
 import { ReceiveQrCard } from '../src/components/receive-qr-card';
 import { useAccount } from '../src/features/account/use-account';
+import { useExplorer } from '../src/features/account/use-explorer';
+import { useProfileDetails } from '../src/features/account/profile-details-store';
 import {
   formatPathUsdAtomic,
   ILLUSTRATIVE_INR_PER_PATH_USD,
@@ -49,13 +53,29 @@ function ReceivePaymentScreen() {
   const cardRef = useRef<View>(null);
   const messageTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const { profile: googleProfile } = useExplorer();
+  const details = useProfileDetails(wallet.account?.address);
   const address = uiPreviewEnabled ? null : wallet.account?.address;
-  const recipientName = address
-    ? `Traveller ${address.slice(2, 6).toUpperCase()}`
-    : 'Divyam Jha';
+  // Same name as Home and Profile: details saved on Edit Profile win, then the
+  // Google sign-in. With neither, the QR carries no name rather than a made-up
+  // one. Names the QR cannot hold are left out too.
+  const profileName = (details?.name || googleProfile?.name || '').trim();
+  const recipientName =
+    profileName &&
+    profileName.length <= 80 &&
+    !hasUnsafeQrTextCharacter(profileName)
+      ? profileName
+      : undefined;
+  // A wallet's TravelPe ID carries its address, so a TravelPe scan pays it.
+  // UI preview has no wallet, so it uses a sample ID.
   const recipientId = address
-    ? `${address.slice(2).toLowerCase()}@travelpe`
+    ? travelPeIdForAddress(address)
     : 'divyam@travelpe';
+  const fallbackLabel = travelPePayeeName({
+    version: 1,
+    recipientId,
+    currency,
+  });
   const amountResult = inrAmountSchema.safeParse(amount);
   const amountError =
     amount.length > 0 && !amountResult.success
@@ -70,7 +90,7 @@ function ReceivePaymentScreen() {
     return createTravelPeQr({
       version: 1,
       recipientId,
-      recipientName,
+      ...(recipientName ? { recipientName } : {}),
       currency,
       ...(amountResult.success ? { inrAmount: amountResult.data } : {}),
       ...(cleanNote ? { note: cleanNote } : {}),
@@ -202,7 +222,8 @@ function ReceivePaymentScreen() {
           <ReceiveQrCard
             ref={cardRef}
             qrValue={qrValue}
-            recipientName={recipientName}
+            {...(recipientName ? { recipientName } : {})}
+            fallbackLabel={fallbackLabel}
             recipientId={recipientId}
             currency={currency}
             {...(amountResult.success
@@ -217,6 +238,19 @@ function ReceivePaymentScreen() {
             <Text style={styles.demoNotice}>
               Demo profile. Connect a wallet to use your own TravelPe ID.
             </Text>
+          ) : null}
+          {!recipientName ? (
+            <Pressable
+              accessibilityRole="link"
+              onPress={() => router.push('/edit-profile')}
+              style={({ pressed }) => pressed && styles.pressed}
+            >
+              <Text style={styles.demoNotice}>
+                Your QR shows no name yet.{' '}
+                <Text style={styles.noticeLink}>Add your name</Text> so payers
+                know it is you.
+              </Text>
+            </Pressable>
           ) : null}
 
           <Pressable
@@ -381,6 +415,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 12,
   },
+  noticeLink: { color: colors.accent, fontWeight: '700' },
   amountAction: {
     minHeight: 48,
     alignSelf: 'center',
