@@ -32,7 +32,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle, Path } from 'react-native-svg';
-import { inrAmountSchema, parseTravelPeQr, vpaSchema } from '@traveller/shared';
+import {
+  inrAmountSchema,
+  parseTravelPeQr,
+  travelPeRecipientAddress,
+  vpaSchema,
+} from '@traveller/shared';
 import { walletStore } from '../src/features/account/metamask';
 import { TEMPO_CHAIN, tempoService } from '../src/features/account/tempo';
 import {
@@ -247,6 +252,11 @@ export default function Confirmation() {
       ? 'Starbucks'
       : (travelPeRequest?.recipientName ?? rawMerchantName);
   const payeeId = travelPeRequest?.recipientId ?? merchantVpa;
+  // A wallet's own receive QR carries its address; paying it moves funds
+  // straight to that TravelPe user. The demo profile has no wallet.
+  const recipientAddress = travelPeRequest
+    ? travelPeRecipientAddress(travelPeRequest.recipientId)
+    : null;
 
   const detailsAreValid =
     isFigmaPreview ||
@@ -401,6 +411,7 @@ export default function Confirmation() {
         ...(!isTravelPe && vpaSchema.safeParse(merchantVpa).success
           ? { merchantVpa }
           : {}),
+        ...(recipientAddress ? { recipientAddress } : {}),
         location: isFigmaPreview ? 'Pune, Maharashtra' : payeeId || 'India',
         inrAmount: amountResult.data,
         token: paymentSymbol,

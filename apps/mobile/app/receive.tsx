@@ -22,6 +22,7 @@ import {
   createTravelPeQr,
   hasUnsafeQrTextCharacter,
   inrAmountSchema,
+  travelPeIdForAddress,
   type TravelPeCurrency,
 } from '@traveller/shared';
 import { AppIcon, colors } from '../src/components/payment-ui';
@@ -53,8 +54,9 @@ function ReceivePaymentScreen() {
   const recipientName = address
     ? `Traveller ${address.slice(2, 6).toUpperCase()}`
     : 'Divyam Jha';
+  // A wallet's TravelPe ID carries its address, so a TravelPe scan pays it.
   const recipientId = address
-    ? `${address.slice(2).toLowerCase()}@travelpe`
+    ? travelPeIdForAddress(address)
     : 'divyam@travelpe';
   const amountResult = inrAmountSchema.safeParse(amount);
   const amountError =

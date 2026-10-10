@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { createTravelPeQr, parseTravelPeQr } from './travelpe-qr.js';
+import {
+  createTravelPeQr,
+  parseTravelPeQr,
+  travelPeIdForAddress,
+  travelPeRecipientAddress,
+} from './travelpe-qr.js';
 
 const request = {
   version: 1 as const,
@@ -35,6 +40,15 @@ describe('TravelPe demo payment QR', () => {
     expect(parseTravelPeQr(createTravelPeQr(accountRequest))).toEqual(
       accountRequest,
     );
+  });
+
+  it('maps a wallet address to its TravelPe ID and back', () => {
+    const address = '0xAbCdEf0123456789aBcDeF0123456789AbCdEf01';
+    const id = travelPeIdForAddress(address);
+    expect(id).toBe('abcdef0123456789abcdef0123456789abcdef01@travelpe');
+    expect(travelPeRecipientAddress(id)).toBe(address.toLowerCase());
+    expect(travelPeRecipientAddress('divyam@travelpe')).toBeNull();
+    expect(() => travelPeIdForAddress('0x1234')).toThrow();
   });
 
   it.each([

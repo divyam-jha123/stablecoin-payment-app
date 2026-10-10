@@ -1,3 +1,4 @@
+import type { Address } from 'viem';
 import { walletStore } from '../account/metamask';
 import {
   keyCovers,
@@ -13,19 +14,30 @@ import { requiredPathUsdAtomic } from './amount';
  * settlement account. With tap to pay on and enough of today's limit left, the
  * on-device key signs it and MetaMask stays closed; otherwise this one payment
  * is approved in MetaMask. Resolves with the Tempo transaction hash.
+ *
+ * With `recipient`, it pays another TravelPe user's wallet directly instead.
+ * The tap to pay key may only pay the settlement account, so that transfer is
+ * always approved in MetaMask.
  */
 export async function payOnChain(input: {
   owner: string;
   inrAmount: string;
   reference: string;
+  recipient?: Address;
 }) {
+  const amountAtomic = requiredPathUsdAtomic(input.inrAmount);
+  if (input.recipient) {
+    if (input.recipient.toLowerCase() === input.owner.toLowerCase()) {
+      throw new Error('This is your own TravelPe QR. Scan someone else’s.');
+    }
+    return sendWithMetaMask(input.recipient, amountAtomic, input.reference);
+  }
   const settlement = settlementAddress();
   if (!settlement) {
     throw new Error(
       'Payments are unavailable: no TravelPe settlement account is set up for this build.',
     );
   }
-  const amountAtomic = requiredPathUsdAtomic(input.inrAmount);
   const status = await paymentKeyStore.status(input.owner);
   if (keyCovers(status, amountAtomic)) {
     return paymentKeyStore.pay({
@@ -35,8 +47,16 @@ export async function payOnChain(input: {
       reference: input.reference,
     });
   }
+  return sendWithMetaMask(settlement, amountAtomic, input.reference);
+}
+
+async function sendWithMetaMask(
+  to: Address,
+  amountAtomic: bigint,
+  reference: string,
+) {
   const hash = await walletStore.sendTransaction(
-    transferCall({ settlement, amountAtomic, reference: input.reference }),
+    transferCall({ settlement: to, amountAtomic, reference }),
   );
   const receipt = await publicClient.waitForTransactionReceipt({
     hash,
