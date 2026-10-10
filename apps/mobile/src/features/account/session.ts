@@ -3,6 +3,7 @@ import Constants from 'expo-constants';
 import type { WalletAccount } from './wallet-store';
 import type { StageListener } from './wallet-store';
 import { walletFlowLog } from './wallet-flow-log';
+import { thisDevice } from './device-name';
 
 const tokenKey = 'traveller.auth.session.v1';
 const sessionFreshMs = 30_000;
@@ -176,6 +177,7 @@ export async function verifySignInChallenge(
       address: account.address,
       nonce: challenge.nonce,
       signature,
+      device: thisDevice().name,
     }),
   });
   if (result.data.address.toLowerCase() !== account.address.toLowerCase())
@@ -205,4 +207,42 @@ export async function logoutSession() {
     recentSession = null;
     await clearToken();
   }
+}
+
+/** A phone signed in to this wallet, as the backend lists it. */
+export type AuthorizedDevice = {
+  id: string;
+  device: string;
+  signedInAt: number;
+  lastSeenAt: number;
+  current: boolean;
+};
+
+/** Signed-in devices for this wallet, or null without a backend session. */
+export async function listAuthorizedDevices(): Promise<
+  AuthorizedDevice[] | null
+> {
+  const token = await readToken();
+  if (!token) return null;
+  try {
+    const result = await request<{ data: AuthorizedDevice[] }>(
+      '/v1/auth/devices',
+      { headers: { Authorization: `Bearer ${token}` } },
+    );
+    return result.data;
+  } catch (error) {
+    if (error instanceof SessionHttpError && error.status === 401) return null;
+    throw error;
+  }
+}
+
+/** Signs another device out of this wallet. */
+export async function removeAuthorizedDevice(id: string) {
+  const token = await readToken();
+  if (!token) throw new Error('Connect your wallet to manage devices.');
+  await request('/v1/auth/devices/revoke', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ id }),
+  });
 }

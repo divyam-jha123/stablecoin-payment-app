@@ -18,7 +18,22 @@ type ChallengePayload = {
 type SessionPayload = {
   address: Address;
   expiresAt: number;
+  /** Identifies this sign-in so it can be listed and removed on its own. */
+  sid?: string;
+  /** The phone's own name for itself, such as "Google Pixel 8". */
+  device?: string;
+  issuedAt?: number;
 };
+
+export type AuthorizedDevice = {
+  id: string;
+  device: string;
+  signedInAt: number;
+  lastSeenAt: number;
+  expiresAt: number;
+};
+
+const maxDeviceNameLength = 60;
 
 // Sessions and challenges are signed, not stored, so they survive restarts
 // and work across instances. Without a configured secret (development and
@@ -29,6 +44,11 @@ let secret: Buffer = randomBytes(32);
 // memory until they expire or the process restarts.
 const revokedSessions = new Map<string, number>();
 const usedChallenges = new Map<string, number>();
+// Removed devices, by session id, until their tokens would have expired.
+const revokedDevices = new Map<string, number>();
+// Signed-in devices per wallet. After a restart each device reappears the
+// next time its session is checked, since its token carries the details.
+const devices = new Map<Address, Map<string, AuthorizedDevice>>();
 
 export function configureAuth(options: { sessionSecret: string }) {
   if (options.sessionSecret.length < minimumSessionSecretLength) {
@@ -128,10 +148,38 @@ function readChallenge(token: string): ChallengePayload | null {
   };
 }
 
+/** A short, printable device label; anything else becomes "Unknown device". */
+export function cleanDeviceName(value: unknown) {
+  if (typeof value !== 'string') return 'Unknown device';
+  const name = value
+    .replace(/\p{Cc}/gu, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, maxDeviceNameLength);
+  return name || 'Unknown device';
+}
+
+function rememberDevice(session: Required<SessionPayload>, now: number) {
+  let byId = devices.get(session.address);
+  if (!byId) {
+    byId = new Map();
+    devices.set(session.address, byId);
+  }
+  const known = byId.get(session.sid);
+  byId.set(session.sid, {
+    id: session.sid,
+    device: session.device,
+    signedInAt: session.issuedAt,
+    lastSeenAt: Math.max(known?.lastSeenAt ?? 0, now),
+    expiresAt: session.expiresAt,
+  });
+}
+
 export async function verifyChallenge(
   address: string,
   nonce: string,
   signature: `0x${string}`,
+  device?: unknown,
 ) {
   prune(usedChallenges);
   const challenge = readChallenge(nonce);
@@ -154,11 +202,20 @@ export async function verifyChallenge(
   if (getAddress(recovered) !== normalizedAddress) {
     throw new Error('The wallet signature could not be verified.');
   }
-  const session: SessionPayload = {
+  const now = Date.now();
+  const session: Required<SessionPayload> = {
     address: normalizedAddress,
-    expiresAt: Date.now() + sessionLifetimeMs,
+    expiresAt: now + sessionLifetimeMs,
+    sid: randomBytes(12).toString('base64url'),
+    device: cleanDeviceName(device),
+    issuedAt: now,
   };
-  return { token: sign('session', session), ...session };
+  rememberDevice(session, now);
+  return {
+    token: sign('session', session),
+    address: session.address,
+    expiresAt: session.expiresAt,
+  };
 }
 
 function bearerToken(authorization: string | undefined) {
@@ -175,24 +232,67 @@ export function getSession(authorization: string | undefined) {
     typeof payload.address !== 'string' ||
     typeof payload.expiresAt !== 'number' ||
     payload.expiresAt <= Date.now() ||
-    revokedSessions.has(token)
+    revokedSessions.has(token) ||
+    (typeof payload.sid === 'string' && revokedDevices.has(payload.sid))
   ) {
     return null;
   }
-  return {
-    token,
-    address: payload.address as Address,
-    expiresAt: payload.expiresAt,
-  };
+  const address = payload.address as Address;
+  const sid = typeof payload.sid === 'string' ? payload.sid : null;
+  if (sid) {
+    const now = Date.now();
+    rememberDevice(
+      {
+        address,
+        expiresAt: payload.expiresAt,
+        sid,
+        device: cleanDeviceName(payload.device),
+        issuedAt:
+          typeof payload.issuedAt === 'number'
+            ? payload.issuedAt
+            : payload.expiresAt - sessionLifetimeMs,
+      },
+      now,
+    );
+  }
+  return { token, address, expiresAt: payload.expiresAt, sid };
+}
+
+/** The wallet's signed-in devices, most recently used first. */
+export function listDevices(address: Address) {
+  const byId = devices.get(address);
+  if (!byId) return [];
+  const now = Date.now();
+  for (const [id, entry] of byId) {
+    if (entry.expiresAt <= now || revokedDevices.has(id)) byId.delete(id);
+  }
+  return [...byId.values()].sort((a, b) => b.lastSeenAt - a.lastSeenAt);
+}
+
+/**
+ * Signs one of the wallet's devices out. Returns false for an id that isn't
+ * one of this wallet's signed-in devices.
+ */
+export function revokeDevice(address: Address, id: string) {
+  prune(revokedDevices);
+  const entry = devices.get(address)?.get(id);
+  if (!entry || entry.expiresAt <= Date.now()) return false;
+  revokedDevices.set(id, entry.expiresAt);
+  devices.get(address)?.delete(id);
+  return true;
 }
 
 export function revokeSession(authorization: string | undefined) {
   prune(revokedSessions);
   const session = getSession(authorization);
-  if (session) revokedSessions.set(session.token, session.expiresAt);
+  if (!session) return;
+  revokedSessions.set(session.token, session.expiresAt);
+  if (session.sid) devices.get(session.address)?.delete(session.sid);
 }
 
 export function clearAuthState() {
   revokedSessions.clear();
   usedChallenges.clear();
+  revokedDevices.clear();
+  devices.clear();
 }
