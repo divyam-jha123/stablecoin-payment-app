@@ -90,10 +90,31 @@ export const ISSUE_TYPES = [
   'Wallet & Sign-in',
   'Security',
   'Fees & Charges',
+  'Privacy & Data',
   'Other',
 ] as const;
 
 export type IssueType = (typeof ISSUE_TYPES)[number];
+
+/** Data requests started from Terms & Privacy, prefilled as a ticket. */
+export const DATA_REQUESTS = {
+  export: {
+    title: 'Request My Data',
+    description:
+      'Please send me a copy of the personal data TravelPe holds about me.',
+  },
+  delete: {
+    title: 'Request Data Deletion',
+    description:
+      'Please delete my TravelPe account data. I understand that payments recorded on the blockchain cannot be deleted.',
+  },
+} as const;
+
+export type DataRequest = keyof typeof DATA_REQUESTS;
+
+export function parseDataRequest(value: unknown): DataRequest | null {
+  return value === 'export' || value === 'delete' ? value : null;
+}
 
 export const DESCRIPTION_MIN = 10;
 export const DESCRIPTION_MAX = 1000;

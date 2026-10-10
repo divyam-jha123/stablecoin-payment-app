@@ -28,6 +28,7 @@ import {
 } from '../src/features/account/google-sign-in';
 import { pinStore } from '../src/features/account/payment-pin';
 import { pinOwner } from '../src/features/account/pin-owner';
+import { NON_CUSTODIAL_NOTICE } from '../src/features/legal/legal-documents';
 import { uiPreviewEnabled } from '../src/ui-preview';
 
 // Sample Google identity for the UI preview only; wallet mode uses the real one.
@@ -309,8 +310,8 @@ export default function Connect() {
             </Pressable>
           )}
           <Text style={styles.legal}>
-            Your keys stay in MetaMask. Tempo testnet funds have no monetary
-            value; INR settlement is simulated.
+            {NON_CUSTODIAL_NOTICE} Tempo testnet funds have no monetary value;
+            INR settlement is simulated.
           </Text>
         </View>
       </SafeAreaView>
