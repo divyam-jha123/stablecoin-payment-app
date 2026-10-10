@@ -44,11 +44,12 @@ import { DashboardNav } from '../src/components/dashboard-nav';
 import { openPinSettings } from '../src/features/account/open-pin-settings';
 import { walletFlowLog } from '../src/features/account/wallet-flow-log';
 import { useSimulatedPayments } from '../src/features/payment/simulated-payment-store';
+import { activityItems } from '../src/features/payment/received-transfers';
+import { useReceivedTransfers } from '../src/features/payment/received-transfers-store';
 import { useNotifications } from '../src/features/notifications/notification-store';
 import {
   recentRecipients,
   simulatedBalance,
-  toTransactionItem,
 } from '../src/features/payment/simulated-payments';
 import { RecentRecipients } from '../src/components/recent-recipients';
 
@@ -77,6 +78,9 @@ export default function Home() {
   });
   const connectWallet = connecting.signIn;
   const payments = useSimulatedPayments(uiPreviewEnabled ? null : address);
+  // Wallet mode lists real testnet pathUSD received next to sent payments.
+  const received = useReceivedTransfers(uiPreviewEnabled ? null : address);
+  const recentActivity = activityItems(payments, received);
   const { unreadCount: unreadNotifications } = useNotifications(address);
   const previewDashboard = previewDashboardWith(payments);
   // Hidden until the traveller's first payment; the preview shows samples.
@@ -435,16 +439,14 @@ export default function Home() {
             <PreviewTransactions
               transactions={previewDashboard.transactions.slice(0, 3)}
             />
-          ) : payments.length > 0 ? (
-            <PreviewTransactions
-              transactions={payments.slice(0, 3).map(toTransactionItem)}
-            />
+          ) : recentActivity.length > 0 ? (
+            <PreviewTransactions transactions={recentActivity.slice(0, 3)} />
           ) : (
             <View style={styles.emptyActivity}>
               <AppIcon name="activity" color={colors.accent} size={30} />
               <Text style={styles.emptyTitle}>No payments yet</Text>
               <Text style={styles.emptyCopy}>
-                Your transactions will appear here after you pay a merchant.
+                Your transactions will appear here after you pay or get paid.
               </Text>
             </View>
           )}
