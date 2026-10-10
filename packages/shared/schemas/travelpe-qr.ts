@@ -35,7 +35,8 @@ export const travelPePaymentRequestSchema = z
   .object({
     version: z.literal(1),
     recipientId: recipientIdSchema,
-    recipientName: recipientNameSchema,
+    // Left out when the receiver has no name on file; the ID still pays them.
+    recipientName: recipientNameSchema.optional(),
     currency: travelPeCurrencySchema,
     inrAmount: inrAmountSchema.optional(),
     note: noteSchema.optional(),
@@ -75,6 +76,18 @@ export function travelPeRecipientAddress(
   return match ? `0x${match[1]}` : null;
 }
 
+/**
+ * Who the payer sees: the receiver's name, or a shortened TravelPe ID when the
+ * QR carries no name.
+ */
+export function travelPePayeeName(request: TravelPePaymentRequest): string {
+  if (request.recipientName) return request.recipientName;
+  const address = travelPeRecipientAddress(request.recipientId);
+  return address
+    ? `${address.slice(0, 6)}…${address.slice(-4)}`
+    : request.recipientId;
+}
+
 export function isTravelPeQr(input: string): boolean {
   return /^travelpe:/i.test(input);
 }
@@ -85,7 +98,7 @@ export function createTravelPeQr(input: TravelPePaymentRequest): string {
     v: String(request.version),
     demo: '1',
     to: request.recipientId,
-    name: request.recipientName,
+    ...(request.recipientName ? { name: request.recipientName } : {}),
     currency: request.currency,
     ...(request.inrAmount ? { am: request.inrAmount } : {}),
     ...(request.note ? { note: request.note } : {}),
@@ -142,7 +155,9 @@ export function parseTravelPeQr(input: string): TravelPePaymentRequest {
   const result = travelPePaymentRequestSchema.safeParse({
     version: Number(uri.searchParams.get('v')),
     recipientId: uri.searchParams.get('to'),
-    recipientName: uri.searchParams.get('name'),
+    ...(uri.searchParams.has('name')
+      ? { recipientName: uri.searchParams.get('name') }
+      : {}),
     currency: uri.searchParams.get('currency'),
     ...(uri.searchParams.has('am')
       ? { inrAmount: uri.searchParams.get('am') }

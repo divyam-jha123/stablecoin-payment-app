@@ -38,6 +38,7 @@ import {
   isTravelPeQr,
   parsedQrResponseSchema,
   parseTravelPeQr,
+  travelPePayeeName,
   parseUpiPaymentDraft,
 } from '@traveller/shared';
 import { uiPreviewEnabled } from '../src/ui-preview';
@@ -233,7 +234,7 @@ function ScannerScreen() {
         try {
           const request = parseTravelPeQr(qrData);
           setPayment({ travelPeQr: qrData });
-          setMessage(`Pay ${request.recipientName}`);
+          setMessage(`Pay ${travelPePayeeName(request)}`);
           setReading(false);
         } catch {
           resumeScanning(INVALID_QR_MESSAGE);
