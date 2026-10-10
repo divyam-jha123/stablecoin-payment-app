@@ -66,3 +66,16 @@ Relevant status codes:
 The merchant name and VPA come from the scanned QR and are returned with `verificationStatus: "unverified"`. Successful parsing confirms only that the data has an accepted UPI URI format; it does not prove that the VPA exists, that the merchant name is authentic, or that a merchant can receive a payout.
 
 The endpoint only interprets the QR payload. It does not independently verify the merchant or claim that the displayed merchant has received a payment.
+
+## Running with Docker
+
+Build from the repository root, since the image needs the workspace lockfile and `@traveller/shared`:
+
+```sh
+docker build -f apps/api/Dockerfile -t traveller-api .
+docker run --rm -p 3000:3000 traveller-api
+```
+
+The container listens on `PORT` (default `3000`) and runs with `APP_ENV=hackathon-demo`. Hosts such as Render, Railway and Fly.io set `PORT` themselves; point them at `apps/api/Dockerfile` with the repository root as the build context. Sign-in sessions are kept in memory, so run a single instance and expect users to sign in again after a restart.
+
+Point the mobile app at the deployed API with `EXPO_PUBLIC_API_URL=https://<your-api-host>`.
