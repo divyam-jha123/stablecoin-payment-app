@@ -5,6 +5,8 @@ import { sendError, sendJson } from '../http/responses.js';
 import {
   createChallenge,
   getSession,
+  listDevices,
+  revokeDevice,
   revokeSession,
   verifyChallenge,
 } from '../auth.js';
@@ -106,6 +108,7 @@ export async function handleAuthVerify(
         raw.address,
         raw.nonce,
         raw.signature as `0x${string}`,
+        'device' in raw ? raw.device : undefined,
       ),
     });
   } catch (error) {
@@ -144,5 +147,69 @@ export function handleAuthLogout(
   response: ServerResponse,
 ) {
   revokeSession(request.headers.authorization);
+  sendJson(response, 204, undefined);
+}
+
+function requireSession(request: IncomingMessage, response: ServerResponse) {
+  const session = getSession(request.headers.authorization);
+  if (!session)
+    sendError(
+      response,
+      401,
+      'UNAUTHORIZED',
+      'Sign in with your wallet to continue',
+    );
+  return session;
+}
+
+export function handleAuthDevices(
+  request: IncomingMessage,
+  response: ServerResponse,
+) {
+  const session = requireSession(request, response);
+  if (!session) return;
+  sendJson(response, 200, {
+    data: listDevices(session.address).map((device) => ({
+      ...device,
+      current: device.id === session.sid,
+    })),
+  });
+}
+
+export async function handleAuthDeviceRevoke(
+  request: IncomingMessage,
+  response: ServerResponse,
+) {
+  const session = requireSession(request, response);
+  if (!session) return;
+  const raw = await body(request, response);
+  if (!raw) return;
+  if (
+    typeof raw !== 'object' ||
+    !('id' in raw) ||
+    typeof raw.id !== 'string' ||
+    !/^[\w-]{1,64}$/.test(raw.id)
+  ) {
+    sendError(
+      response,
+      400,
+      'INVALID_REQUEST',
+      'Body must contain a device id',
+    );
+    return;
+  }
+  if (raw.id === session.sid) {
+    sendError(
+      response,
+      400,
+      'INVALID_REQUEST',
+      'Sign out from Profile to remove this device',
+    );
+    return;
+  }
+  if (!revokeDevice(session.address, raw.id)) {
+    sendError(response, 404, 'NOT_FOUND', 'This device is not signed in');
+    return;
+  }
   sendJson(response, 204, undefined);
 }

@@ -22,11 +22,17 @@ import Svg, {
 } from 'react-native-svg';
 import { colors } from '../src/components/payment-ui';
 import {
+  authenticate,
   phoneHasBiometrics,
   phoneHasLock,
 } from '../src/features/account/device-lock';
 import { pinStore } from '../src/features/account/payment-pin';
 import { pinOwner } from '../src/features/account/pin-owner';
+import {
+  DEFAULT_SECURITY_PREFERENCES,
+  securityPreferences,
+  type SecurityPreferences,
+} from '../src/features/account/security-preferences';
 import { securitySummary } from '../src/features/account/security-status';
 import { previewSecurity } from '../src/preview-data';
 import { uiPreviewEnabled } from '../src/ui-preview';
@@ -288,14 +294,14 @@ function SecurityRow({
   );
 }
 
-function notAvailable(title: string) {
-  Alert.alert(title, `${title} is not available yet.`);
-}
-
 export default function Security() {
   const [hasPin, setHasPin] = useState<boolean | null>(null);
   const [phoneLock, setPhoneLock] = useState<boolean | null>(null);
   const [liveBiometrics, setLiveBiometrics] = useState<boolean | null>(null);
+  const [preferences, setPreferences] = useState<SecurityPreferences | null>(
+    null,
+  );
+  const [saving, setSaving] = useState(false);
 
   // Read again on focus: the PIN or phone lock may change while away.
   useFocusEffect(
@@ -311,16 +317,26 @@ export default function Security() {
       void phoneHasBiometrics()
         .catch(() => false)
         .then((value) => active && setLiveBiometrics(value));
+      // Unreadable settings show the lock as on, matching App Lock itself.
+      void securityPreferences
+        .load()
+        .catch(() => DEFAULT_SECURITY_PREFERENCES)
+        .then((value) => active && setPreferences(value));
       return () => {
         active = false;
       };
     }, []),
   );
 
-  const biometrics = uiPreviewEnabled
+  const biometricsAvailable = uiPreviewEnabled
     ? previewSecurity.biometrics
     : liveBiometrics;
-  const summary = securitySummary({ hasPin, phoneLock });
+  const biometrics =
+    preferences === null || biometricsAvailable === null
+      ? null
+      : preferences.biometrics && biometricsAvailable;
+  const appLock = preferences?.appLock ?? null;
+  const summary = securitySummary({ hasPin, phoneLock, appLock });
 
   function changePin() {
     const owner = pinOwner();
@@ -341,26 +357,93 @@ export default function Security() {
     );
   }
 
-  function explainBiometrics() {
+  /** Confirms it's the owner, then saves a security change. */
+  async function save(change: Partial<SecurityPreferences>, prompt: string) {
+    if (saving) return;
+    setSaving(true);
+    try {
+      if (!(await authenticate(prompt))) return;
+      setPreferences(await securityPreferences.update(change));
+    } catch {
+      Alert.alert('Security', 'Could not save this setting. Please try again.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function toggleBiometrics() {
+    if (biometrics === null) return;
+    if (!biometrics) {
+      if (!biometricsAvailable) {
+        Alert.alert(
+          'Face ID / Touch ID',
+          'Add a fingerprint or face in your phone settings to unlock TravelPe with it.',
+        );
+        return;
+      }
+      void save({ biometrics: true }, 'Turn on Face ID / Touch ID');
+      return;
+    }
+    if (!hasPin) {
+      Alert.alert(
+        'Face ID / Touch ID',
+        'Set a transaction PIN first. With biometrics off, TravelPe unlocks with your PIN.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Set up PIN', onPress: changePin },
+        ],
+      );
+      return;
+    }
     Alert.alert(
-      'Face ID / Touch ID',
-      biometrics
-        ? 'TravelPe unlocks with the fingerprint or face set up on this phone. Manage them in your phone settings.'
-        : 'Add a fingerprint or face in your phone settings to unlock TravelPe with it.',
+      'Turn off Face ID / Touch ID?',
+      'TravelPe will ask for your transaction PIN to unlock instead.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Turn off',
+          onPress: () =>
+            void save({ biometrics: false }, 'Turn off Face ID / Touch ID'),
+        },
+      ],
     );
   }
 
-  function explainAppLock() {
+  function explainPhoneLock() {
     Alert.alert(
       'App Lock',
-      phoneLock === false
-        ? 'Set a screen lock in your phone settings. TravelPe needs it to protect your wallet.'
-        : 'App Lock is always on. TravelPe asks for your fingerprint, face or phone passcode when you open it.',
+      'Set a screen lock in your phone settings. TravelPe needs it to protect your wallet.',
+    );
+  }
+
+  function toggleAppLock() {
+    if (appLock === null) return;
+    if (!appLock) {
+      if (phoneLock === false && !hasPin) {
+        explainPhoneLock();
+        return;
+      }
+      void save({ appLock: true }, 'Turn on App Lock');
+      return;
+    }
+    Alert.alert(
+      'Turn off App Lock?',
+      'Anyone holding your unlocked phone could open TravelPe and see your wallet.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Turn off',
+          style: 'destructive',
+          onPress: () => void save({ appLock: false }, 'Turn off App Lock'),
+        },
+      ],
     );
   }
 
   const warning =
-    summary.state === 'missing-pin' || summary.state === 'missing-lock';
+    summary.state === 'missing-pin' ||
+    summary.state === 'missing-lock' ||
+    summary.state === 'app-lock-off';
 
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'bottom']}>
@@ -398,7 +481,7 @@ export default function Security() {
               subtitle="Quick and secure login"
               icon={ICONS.faceId}
               value={biometrics}
-              onPress={explainBiometrics}
+              onPress={toggleBiometrics}
             />
 
             <GroupTitle>Two-Factor Authentication (2FA)</GroupTitle>
@@ -424,10 +507,10 @@ export default function Security() {
             />
             <SecurityRow
               title="App Lock"
-              subtitle="Fingerprint, face or passcode to open"
+              subtitle="Ask to unlock when you open TravelPe"
               icon={ICONS.lock}
-              value={phoneLock}
-              onPress={explainAppLock}
+              value={appLock}
+              onPress={toggleAppLock}
             />
           </Panel>
         </Reveal>
@@ -446,7 +529,7 @@ export default function Security() {
               title="Manage Authorized Devices"
               subtitle="View and remove trusted devices"
               icon={ICONS.devices}
-              onPress={() => notAvailable('Manage Authorized Devices')}
+              onPress={() => router.push('/authorized-devices')}
             />
           </Panel>
         </Reveal>
@@ -460,8 +543,10 @@ export default function Security() {
               summary.state === 'missing-pin'
                 ? changePin
                 : summary.state === 'missing-lock'
-                  ? explainAppLock
-                  : () => Alert.alert(summary.title, summary.subtitle)
+                  ? explainPhoneLock
+                  : summary.state === 'app-lock-off'
+                    ? toggleAppLock
+                    : () => Alert.alert(summary.title, summary.subtitle)
             }
             style={({ pressed }) => [
               styles.summary,

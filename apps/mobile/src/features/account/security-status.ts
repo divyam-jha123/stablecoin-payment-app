@@ -5,16 +5,25 @@
 export type SecurityChecks = {
   hasPin: boolean | null;
   phoneLock: boolean | null;
+  appLock: boolean | null;
 };
 
 export type SecuritySummary =
   | { state: 'loading'; title: string; subtitle: string }
   | { state: 'secure'; title: string; subtitle: string }
-  | { state: 'missing-pin' | 'missing-lock'; title: string; subtitle: string };
+  | {
+      state: 'missing-pin' | 'missing-lock' | 'app-lock-off';
+      title: string;
+      subtitle: string;
+    };
 
 /** The banner at the foot of the Security screen. */
 export function securitySummary(checks: SecurityChecks): SecuritySummary {
-  if (checks.hasPin === null || checks.phoneLock === null)
+  if (
+    checks.hasPin === null ||
+    checks.phoneLock === null ||
+    checks.appLock === null
+  )
     return {
       state: 'loading',
       title: 'Checking your security',
@@ -31,6 +40,12 @@ export function securitySummary(checks: SecurityChecks): SecuritySummary {
       state: 'missing-lock',
       title: 'Finish securing your account',
       subtitle: 'Set a screen lock in your phone settings',
+    };
+  if (!checks.appLock)
+    return {
+      state: 'app-lock-off',
+      title: 'Finish securing your account',
+      subtitle: 'Turn on App Lock to protect TravelPe',
     };
   return {
     state: 'secure',
