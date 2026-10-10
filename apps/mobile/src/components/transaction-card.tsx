@@ -101,7 +101,7 @@ export function TransactionCard({
   onPress,
 }: {
   transaction: TransactionItem;
-  onPress?: () => void;
+  onPress?: (() => void) | undefined;
 }) {
   const received = transaction.direction === 'Received';
   const [, time = transaction.time] = transaction.time.split(' · ');
@@ -115,8 +115,9 @@ export function TransactionCard({
 
   return (
     <Pressable
-      accessibilityRole="button"
+      accessibilityRole={onPress ? 'button' : undefined}
       accessibilityLabel={`${transaction.name}, ${transaction.category}, ${received ? 'received' : 'paid'} ${inr} rupees, ${time}`}
+      disabled={!onPress}
       onPress={onPress}
       style={({ pressed }) => [styles.card, pressed && styles.pressed]}
     >

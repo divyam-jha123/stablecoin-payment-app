@@ -26,7 +26,7 @@ import { useAccount } from '../src/features/account/use-account';
 import { walletStore } from '../src/features/account/metamask';
 import { TEMPO_CHAIN, tempoService } from '../src/features/account/tempo';
 import { walletError } from '../src/features/account/wallet-store';
-import { previewDashboardWith } from '../src/preview-data';
+import { previewDashboardWith, previewRecipients } from '../src/preview-data';
 import { PreviewTransactions } from '../src/components/preview-transactions';
 import { uiPreviewEnabled } from '../src/ui-preview';
 import { HomeBalanceCard } from '../src/components/home-balance-card';
@@ -46,17 +46,19 @@ import { openPinSettings } from '../src/features/account/open-pin-settings';
 import { walletFlowLog } from '../src/features/account/wallet-flow-log';
 import { useSimulatedPayments } from '../src/features/payment/simulated-payment-store';
 import {
+  recentRecipients,
   simulatedBalance,
   toTransactionItem,
 } from '../src/features/payment/simulated-payments';
+import { RecentRecipients } from '../src/components/recent-recipients';
 
 // Metro bundles this static Figma asset at build time.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const merchantBanner = require('../assets/figma/home-merchant-banner.png');
+const merchantBanner = require('../assets/figma/home-merchant-banner.webp');
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const pinAd = require('../assets/ads/pin-ad.png');
+const pinAd = require('../assets/ads/pin-ad.webp');
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const historyAd = require('../assets/ads/history-ad.png');
+const historyAd = require('../assets/ads/history-ad.webp');
 
 export default function Home() {
   const { wallet, onTempo, session, foreground } = useAccount();
@@ -76,6 +78,10 @@ export default function Home() {
   const connectWallet = connecting.signIn;
   const payments = useSimulatedPayments(uiPreviewEnabled ? null : address);
   const previewDashboard = previewDashboardWith(payments);
+  // Hidden until the traveller's first payment; the preview shows samples.
+  const recipients = uiPreviewEnabled
+    ? previewRecipients
+    : recentRecipients(payments);
   const monthStart = new Date();
   monthStart.setDate(1);
   monthStart.setHours(0, 0, 0, 0);
@@ -404,6 +410,23 @@ export default function Home() {
           </View>
           <AppIcon name="arrow" size={14} color={colors.muted} />
         </Pressable>
+        {recipients.length > 0 && (
+          <RecentRecipients
+            recipients={recipients}
+            disabled={navigatingDisabled}
+            onRecipient={(recipient) =>
+              router.push({
+                pathname: '/recipient',
+                params: {
+                  name: recipient.name,
+                  ...(recipient.vpa ? { vpa: recipient.vpa } : {}),
+                },
+              })
+            }
+            onViewAll={() => router.push('/activity')}
+            onPayNew={() => router.push('/scanner')}
+          />
+        )}
         <View style={styles.activitySection}>
           <View style={styles.sectionRow}>
             <Text style={styles.sectionTitle}>Recent Activity</Text>

@@ -73,9 +73,11 @@ Build from the repository root, since the image needs the workspace lockfile and
 
 ```sh
 docker build -f apps/api/Dockerfile -t traveller-api .
-docker run --rm -p 3000:3000 traveller-api
+docker run --rm -p 3000:3000 -e SESSION_SECRET="$(openssl rand -hex 32)" traveller-api
 ```
 
-The container listens on `PORT` (default `3000`) and runs with `APP_ENV=hackathon-demo`. Hosts such as Render, Railway and Fly.io set `PORT` themselves; point them at `apps/api/Dockerfile` with the repository root as the build context. Sign-in sessions are kept in memory, so run a single instance and expect users to sign in again after a restart.
+The container listens on `PORT` (default `3000`) and runs with `APP_ENV=hackathon-demo`. Hosts such as Render, Railway and Fly.io set `PORT` themselves; point them at `apps/api/Dockerfile` with the repository root as the build context.
+
+The container requires `SESSION_SECRET`, at least 32 characters, and exits at startup without it. Sign-in sessions are signed tokens rather than stored records, so they stay valid across restarts and across instances that share the same secret. Generate it once (for example `openssl rand -hex 32`), store it in the host's secret settings, and keep it unchanged: changing it signs everyone out. Logging out is enforced in memory on the instance that handled it, and the app also deletes its token.
 
 Point the mobile app at the deployed API with `EXPO_PUBLIC_API_URL=https://<your-api-host>`.

@@ -1,15 +1,19 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Linking,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { Redirect, router, Stack } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from 'react-native-safe-area-context';
+import Svg, { Defs, Line, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { ui } from '../src/components/payment-ui';
 import {
   connectStatusText,
@@ -32,7 +36,89 @@ const PREVIEW_GOOGLE_PROFILE = {
   email: 'rupesh@gmail.com',
 };
 
+// Background grid from the reference design: square cells about a sixth of
+// the screen wide, offset so no line sits on the screen edge.
+const GRID_CELL = 1 / 6.4;
+const GRID_OFFSET = 0.55;
+// The hero lines are 1.13x their font size; three lines share the hero area.
+const HERO_MAX_FONT = 78;
+const HERO_LINE_RATIO = 1.13;
+const HERO_PADDING = 12;
+
+function GridBackdrop() {
+  const { width, height } = useWindowDimensions();
+  const cell = width * GRID_CELL;
+  const offset = cell * GRID_OFFSET;
+  const columns = Array.from(
+    { length: Math.ceil((width - offset) / cell) },
+    (_, index) => offset + index * cell,
+  );
+  const rows = Array.from(
+    { length: Math.ceil((height - offset) / cell) },
+    (_, index) => offset + index * cell,
+  );
+
+  return (
+    <Svg
+      pointerEvents="none"
+      width={width}
+      height={height}
+      style={StyleSheet.absoluteFill}
+    >
+      <Defs>
+        <RadialGradient
+          id="connect-glow"
+          cx={width * 0.82}
+          cy={height * 0.08}
+          r={width * 0.9}
+          gradientUnits="userSpaceOnUse"
+        >
+          <Stop offset="0" stopColor="#0d2f8a" stopOpacity={0.95} />
+          <Stop offset="0.45" stopColor="#0a2266" stopOpacity={0.5} />
+          <Stop offset="1" stopColor="#000000" stopOpacity={0} />
+        </RadialGradient>
+      </Defs>
+      <Rect width={width} height={height} fill="url(#connect-glow)" />
+      {columns.map((x) => (
+        <Line
+          key={`c${x}`}
+          x1={x}
+          y1={0}
+          x2={x}
+          y2={height}
+          stroke="#ffffff"
+          strokeOpacity={0.1}
+          strokeWidth={1}
+        />
+      ))}
+      {rows.map((y) => (
+        <Line
+          key={`r${y}`}
+          x1={0}
+          y1={y}
+          x2={width}
+          y2={y}
+          stroke="#ffffff"
+          strokeOpacity={0.1}
+          strokeWidth={1}
+        />
+      ))}
+    </Svg>
+  );
+}
+
 export default function Connect() {
+  const insets = useSafeAreaInsets();
+  // The hero fills whatever the sheet leaves, so the screen never scrolls;
+  // its text shrinks to fit shorter screens.
+  const [heroHeight, setHeroHeight] = useState<number | null>(null);
+  const heroFont =
+    heroHeight === null
+      ? null
+      : Math.min(
+          HERO_MAX_FONT,
+          (heroHeight - 2 * HERO_PADDING) / (3 * HERO_LINE_RATIO),
+        );
   const { wallet, onTempo, session } = useAccount();
   const [localError, setError] = useState<string | null>(null);
   const lock = useRef(false);
@@ -71,23 +157,60 @@ export default function Connect() {
     }
   }
 
-  if (signedIn && !busy && !googleBusy) return <Redirect href="/home" />;
+  // A signed-in wallet still sets its payment PIN before reaching Home.
+  const [hasPin, setHasPin] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (!signedIn) return;
+    let live = true;
+    void pinStore
+      .hasPin(pinOwner())
+      .catch(() => false)
+      .then((saved) => {
+        if (live) setHasPin(saved);
+      });
+    return () => {
+      live = false;
+    };
+  }, [signedIn]);
+
+  if (signedIn && !busy && !googleBusy && hasPin !== null)
+    return <Redirect href={hasPin ? '/home' : '/pin-setup'} />;
 
   return (
-    <SafeAreaView style={styles.screen}>
+    <View style={styles.screen}>
       <Stack.Screen options={{ headerShown: false }} />
-      <ScrollView contentContainerStyle={styles.content}>
+      <GridBackdrop />
+      <SafeAreaView edges={['top']} style={styles.content}>
         <Text style={styles.wordmark}>
           Travel<Text style={styles.blue}>Pe</Text>
         </Text>
-        <View style={styles.hero}>
-          <Text accessibilityRole="header" style={styles.heroText}>
-            One{'\n'}
-            <Text style={styles.blue}>Last</Text>
-            {'\n'}Step.
-          </Text>
+        <View
+          style={styles.hero}
+          onLayout={(event) => setHeroHeight(event.nativeEvent.layout.height)}
+        >
+          {heroFont !== null ? (
+            <Text
+              accessibilityRole="header"
+              style={[
+                styles.heroText,
+                {
+                  fontSize: heroFont,
+                  lineHeight: heroFont * HERO_LINE_RATIO,
+                },
+              ]}
+            >
+              One{'\n'}
+              <Text style={styles.blue}>Last</Text>
+              {'\n'}Step.
+            </Text>
+          ) : null}
         </View>
-        <View style={styles.sheet}>
+        <View
+          style={[
+            styles.sheet,
+            { paddingBottom: Math.max(insets.bottom, 16) + 12 },
+          ]}
+        >
           <View style={styles.handle} />
           <Text style={styles.title}>Login App</Text>
           <Text style={styles.subtitle}>
@@ -186,18 +309,14 @@ export default function Connect() {
             value; INR settlement is simulated.
           </Text>
         </View>
-      </ScrollView>
-    </SafeAreaView>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { backgroundColor: '#000', flex: 1 },
-  content: {
-    flexGrow: 1,
-    justifyContent: 'space-between',
-    backgroundColor: '#000',
-  },
+  content: { flex: 1 },
   wordmark: {
     color: '#fff',
     fontSize: 17,
@@ -205,17 +324,22 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   blue: { color: '#0088ff' },
-  hero: { minHeight: 340, justifyContent: 'center', paddingHorizontal: 24 },
-  heroText: { color: '#fff', fontSize: 78, fontWeight: '700', lineHeight: 88 },
+  hero: {
+    flex: 1,
+    minHeight: 0,
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: HERO_PADDING,
+    overflow: 'hidden',
+  },
+  heroText: { color: '#fff', fontWeight: '700', includeFontPadding: false },
   sheet: {
     backgroundColor: '#00317b',
     borderTopLeftRadius: 38,
     borderTopRightRadius: 38,
     paddingHorizontal: 32,
     paddingTop: 14,
-    paddingBottom: 34,
-    gap: 16,
-    minHeight: 365,
+    gap: 14,
   },
   handle: {
     width: 60,
@@ -230,7 +354,7 @@ const styles = StyleSheet.create({
     color: '#c1d7f5',
     fontSize: 15,
     lineHeight: 21,
-    marginBottom: 14,
+    marginBottom: 8,
   },
   connected: { color: '#d4e6ff', fontSize: 12 },
   status: { flexDirection: 'row', gap: 10, alignItems: 'center' },
@@ -271,7 +395,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 18,
     textAlign: 'center',
-    marginTop: 12,
+    marginTop: 4,
   },
   disabled: { opacity: 0.6 },
 });

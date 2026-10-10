@@ -3,6 +3,8 @@ import {
   formatPaymentTime,
   createSimulatedPaymentStore,
   paymentsForAddress,
+  recentRecipients,
+  recipientPayments,
   SIMULATED_PAYMENTS_KEY,
   simulatedBalance,
   toTransactionItem,
@@ -135,5 +137,45 @@ describe('formatPaymentTime', () => {
     expect(
       formatPaymentTime(new Date(2026, 9, 6, 8, 0).getTime(), now),
     ).not.toMatch(/^(Today|Yesterday)/);
+  });
+
+  it('lists recent recipients newest first without repeats', () => {
+    const store = createSimulatedPaymentStore();
+    expect(recentRecipients(store.getSnapshot())).toEqual([]);
+    store.record({ ...payment, now: 1 });
+    store.record({ ...payment, merchantName: 'Cafe Lotus', now: 2 });
+    store.record({ ...payment, merchantName: ' starbucks ', now: 3 });
+    expect(
+      recentRecipients(store.getSnapshot()).map((recipient) => recipient.name),
+    ).toEqual(['starbucks', 'Cafe Lotus']);
+  });
+
+  it('keeps a valid merchant UPI ID and groups history by it', () => {
+    const store = createSimulatedPaymentStore();
+    const first = store.record({
+      ...payment,
+      merchantVpa: 'cafelotus@upi',
+      merchantName: 'Cafe Lotus',
+      now: 1,
+    });
+    store.record({
+      ...payment,
+      merchantVpa: 'cafelotus@upi',
+      merchantName: 'Café Lotus',
+      now: 2,
+    });
+    const invalid = store.record({ ...payment, merchantVpa: 'not a vpa' });
+    expect(first.merchantVpa).toBe('cafelotus@upi');
+    expect(invalid.merchantVpa).toBeUndefined();
+    const recipients = recentRecipients(store.getSnapshot());
+    expect(recipients[1]).toMatchObject({
+      name: 'Café Lotus',
+      vpa: 'cafelotus@upi',
+    });
+    expect(
+      recipientPayments(store.getSnapshot(), recipients[1]!).map(
+        (item) => item.createdAt,
+      ),
+    ).toEqual([1, 2]);
   });
 });
