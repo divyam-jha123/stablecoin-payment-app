@@ -17,7 +17,7 @@
         {
           "backgroundColor": "#000000",
           "image": "./assets/native-splash.png",
-          "imageWidth": 100
+          "imageWidth": 180
         }
       ],
       [
@@ -84,6 +84,12 @@
       "eas": {
         "projectId": "fb9e7551-7998-427e-9436-7f41dd193355"
       }
+    },
+    "runtimeVersion": {
+      "policy": "fingerprint"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/fb9e7551-7998-427e-9436-7f41dd193355"
     }
   }
 }

@@ -12,7 +12,9 @@
       "pnpm": "12.3.4",
       "android": {
         "buildType": "apk"
-      }
+      },
+      "channel": "production",
+      "autoIncrement": true
     }
   },
   "submit": {
