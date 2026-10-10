@@ -19,11 +19,15 @@ const tabs = [
 export function DashboardNav({
   disabled = false,
   floating = false,
+  current,
 }: {
   disabled?: boolean;
   floating?: boolean;
+  /** Tab to highlight on screens nested under it, such as Help under Profile. */
+  current?: (typeof tabs)[number]['href'];
 }) {
-  const pathname = usePathname();
+  const routePath = usePathname();
+  const pathname = current ?? routePath;
   const { width } = useWindowDimensions();
   const scanSize = Math.min(72, (Math.min(width, 600) - 24) / 5);
   return (

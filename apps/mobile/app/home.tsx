@@ -3,7 +3,6 @@ import {
   ActivityIndicator,
   Alert,
   Image,
-  Modal,
   AppState,
   Pressable,
   ScrollView,
@@ -45,6 +44,7 @@ import { DashboardNav } from '../src/components/dashboard-nav';
 import { openPinSettings } from '../src/features/account/open-pin-settings';
 import { walletFlowLog } from '../src/features/account/wallet-flow-log';
 import { useSimulatedPayments } from '../src/features/payment/simulated-payment-store';
+import { useNotifications } from '../src/features/notifications/notification-store';
 import {
   recentRecipients,
   simulatedBalance,
@@ -77,6 +77,7 @@ export default function Home() {
   });
   const connectWallet = connecting.signIn;
   const payments = useSimulatedPayments(uiPreviewEnabled ? null : address);
+  const { unreadCount: unreadNotifications } = useNotifications(address);
   const previewDashboard = previewDashboardWith(payments);
   // Hidden until the traveller's first payment; the preview shows samples.
   const recipients = uiPreviewEnabled
@@ -92,7 +93,6 @@ export default function Home() {
     .reduce((total, payment) => total + Number(payment.inrAmount), 0)
     .toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
   const [balanceVisible, setBalanceVisible] = useState(false);
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
   useFocusEffect(
     useCallback(() => {
       setBalanceVisible(false);
@@ -243,9 +243,9 @@ export default function Home() {
         <HomeGreeting
           name={displayName}
           photoUri={profileDetails?.photoUri ?? null}
-          unread={uiPreviewEnabled}
+          unread={unreadNotifications > 0}
           onProfile={() => router.push('/profile')}
-          onNotifications={() => setNotificationsOpen(true)}
+          onNotifications={() => router.push('/notifications')}
         />
         {explorer || connectingWallet ? (
           <HomeConnectWalletCard
@@ -470,27 +470,6 @@ export default function Home() {
             : 'Tempo testnet · pathUSD has no monetary value. INR settlement is simulated.'}
         </Text>
       </ScrollView>
-      <Modal
-        visible={notificationsOpen}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setNotificationsOpen(false)}
-      >
-        <View style={styles.modalBackdrop}>
-          <View style={styles.notificationPanel} accessibilityViewIsModal>
-            <AppIcon name="bell" size={32} color={colors.accent} />
-            <Text accessibilityRole="header" style={styles.sectionTitle}>
-              Notifications
-            </Text>
-            <Text style={styles.emptyCopy}>
-              {uiPreviewEnabled
-                ? 'No sample notifications yet.'
-                : 'Notifications are not available yet.'}
-            </Text>
-            <Action title="Close" onPress={() => setNotificationsOpen(false)} />
-          </View>
-        </View>
-      </Modal>
       <View style={styles.navArea}>
         <DashboardNav disabled={navigatingDisabled} floating />
       </View>
@@ -515,21 +494,6 @@ const styles = StyleSheet.create({
     backgroundColor: homeTheme.colors.background,
     paddingHorizontal: homeTheme.layout.pageGutter,
     paddingBottom: homeTheme.spacing.sm,
-  },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(8,19,50,0.45)',
-    justifyContent: 'center',
-    padding: 24,
-  },
-  notificationPanel: {
-    width: '100%',
-    maxWidth: 440,
-    alignSelf: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 24,
-    gap: 20,
   },
   bannerImage: { width: '100%', height: '100%', position: 'absolute' },
   bannerCopy: {

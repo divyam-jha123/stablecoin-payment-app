@@ -1,4 +1,4 @@
-import { router, Stack } from 'expo-router';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
 import {
   Pressable,
   ScrollView,
@@ -38,7 +38,14 @@ function groupByDay(transactions: readonly TransactionItem[]) {
 }
 
 export default function Activity() {
-  const [filter, setFilter] = useState('All');
+  // Opened from a notification, it can start on a filter such as Received.
+  const params = useLocalSearchParams<{ filter?: string | string[] }>();
+  const initialFilter = Array.isArray(params.filter)
+    ? params.filter[0]
+    : params.filter;
+  const [filter, setFilter] = useState(
+    initialFilter && filters.includes(initialFilter) ? initialFilter : 'All',
+  );
   const [search, setSearch] = useState('');
   const [filtersOpen, setFiltersOpen] = useState(true);
   const query = search.trim().toLowerCase();

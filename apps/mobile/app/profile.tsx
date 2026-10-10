@@ -300,7 +300,11 @@ export default function Profile() {
                       ? router.push('/setup-payments')
                       : item.title === 'Security'
                         ? router.push('/security')
-                        : notAvailable(item.title)
+                        : item.title === 'Notifications'
+                          ? router.push('/notifications')
+                          : item.title === 'Help & Support'
+                            ? router.push('/help')
+                            : notAvailable(item.title)
               }
               style={({ pressed }) => [styles.row, pressed && styles.pressed]}
             >
