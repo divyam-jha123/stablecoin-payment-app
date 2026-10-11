@@ -181,14 +181,31 @@ const previewInrBalance = 12450.75;
 
 export const previewDashboard = {
   balance: '148.32',
+  /** USDC held, to two places, after simulated payments. */
+  tokenAmount: '148.32',
   displayBalance: previewInr(previewInrBalance),
-  displayEquivalent: '≈ 148.32 USDC',
+  displayEquivalent: '≈ 148.32 USDC (MetaMask)',
   spent: previewInr(
     sent.reduce((total, transaction) => total + transaction.amount, 0),
   ),
   payments: sent.length,
   networkFees: '0.004',
+  /** Gas the traveller would have paid without gasless payments. */
+  feesSaved: previewInr(120),
 };
+
+/**
+ * Sample USDT holding for the Home currency switcher; it matches the USDT
+ * demo account on the payment token sheet.
+ */
+export const previewUsdt = {
+  tokenAmount: '100.00',
+  displayBalance: previewInr(8300),
+  displayEquivalent: '≈ 100.00 USDT (MetaMask)',
+};
+
+/** Sample INR held in the app for the Payments currency tiles. */
+export const previewInrHolding = '1,000.00';
 
 /** Sample tap-to-pay state for the Profile card in the UI preview. */
 export const previewTapToPay = {
@@ -288,12 +305,14 @@ export function previewDashboardWith(payments: readonly SimulatedPayment[]) {
     ...payments.map(toTransactionItem),
     ...previewTransactions,
   ];
+  const tokenAmount = Number(
+    simulatedBalance(previewDashboard.balance, payments),
+  ).toFixed(2);
   return {
     ...previewDashboard,
+    tokenAmount,
     displayBalance: previewInr(Math.max(0, previewInrBalance - simulatedSpent)),
-    displayEquivalent: `≈ ${Number(
-      simulatedBalance(previewDashboard.balance, payments),
-    ).toFixed(2)} USDC`,
+    displayEquivalent: `≈ ${tokenAmount} USDC (MetaMask)`,
     spent: previewInr(sentTotal + simulatedSpent),
     payments: sent.length + payments.length,
     transactions,

@@ -6,7 +6,6 @@ import {
   Easing,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   View,
 } from 'react-native';
@@ -21,6 +20,7 @@ import Svg, {
   Stop,
 } from 'react-native-svg';
 import { colors } from '../src/components/payment-ui';
+import { Toggle } from '../src/components/toggle';
 import {
   phoneHasBiometrics,
   phoneHasLock,
@@ -30,14 +30,11 @@ import { pinOwner } from '../src/features/account/pin-owner';
 import { securitySummary } from '../src/features/account/security-status';
 import { previewSecurity } from '../src/preview-data';
 import { uiPreviewEnabled } from '../src/ui-preview';
+import { tc, themedStyleSheet } from '../src/theme/themed';
+import { useScheme } from '../src/theme/color-scheme-store';
 
 const BLUE = '#2f6bff';
 const INK = '#081332';
-
-// Switch: a thin track under a larger knob that overhangs it.
-const TOGGLE_WIDTH = 50;
-const TRACK = 18;
-const KNOB = 28;
 
 // Outline icons on a 24px grid.
 const ICONS = {
@@ -67,7 +64,7 @@ function Glyph({
     <Svg width={size} height={size} viewBox="0 0 24 24">
       <Path
         d={d}
-        stroke={color}
+        stroke={tc(color)}
         strokeWidth={strokeWidth}
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -83,13 +80,13 @@ function ShieldHero() {
     <Svg width={190} height={170} viewBox="0 0 190 170">
       <Defs>
         <LinearGradient id="shield" x1="0" y1="0" x2="1" y2="1">
-          <Stop offset="0" stopColor="#5b92ff" />
-          <Stop offset="0.55" stopColor={BLUE} />
-          <Stop offset="1" stopColor="#1748c9" />
+          <Stop offset="0" stopColor={tc('#5b92ff', 'bg')} />
+          <Stop offset="0.55" stopColor={tc(BLUE, 'bg')} />
+          <Stop offset="1" stopColor={tc('#1748c9', 'bg')} />
         </LinearGradient>
         <LinearGradient id="ring" x1="0" y1="0" x2="1" y2="0">
-          <Stop offset="0" stopColor="#c5d7fb" stopOpacity={0.4} />
-          <Stop offset="1" stopColor="#9fbcf6" />
+          <Stop offset="0" stopColor={tc('#c5d7fb', 'bg')} stopOpacity={0.4} />
+          <Stop offset="1" stopColor={tc('#9fbcf6', 'bg')} />
         </LinearGradient>
       </Defs>
       <Ellipse
@@ -109,19 +106,33 @@ function ShieldHero() {
       {/* A lighter rim along the shield's left edge. */}
       <Path
         d="M120 14 84 28v32c0 28 15 47 36 56-16-11-27-30-27-56V33z"
-        fill="#ffffff"
+        fill={tc('#ffffff', 'auto')}
         opacity={0.22}
       />
       <Path
         d="M110 60v-8a10 10 0 0 1 20 0v8"
         fill="none"
-        stroke="#ffffff"
+        stroke={tc('#ffffff')}
         strokeWidth={6}
         strokeLinecap="round"
       />
-      <Rect x={103} y={59} width={34} height={29} rx={7} fill="#ffffff" />
-      <Circle cx={120} cy={71} r={3.8} fill={BLUE} />
-      <Rect x={118.3} y={72} width={3.4} height={8.5} rx={1.7} fill={BLUE} />
+      <Rect
+        x={103}
+        y={59}
+        width={34}
+        height={29}
+        rx={7}
+        fill={tc('#ffffff', 'auto')}
+      />
+      <Circle cx={120} cy={71} r={3.8} fill={tc(BLUE, 'auto')} />
+      <Rect
+        x={118.3}
+        y={72}
+        width={3.4}
+        height={8.5}
+        rx={1.7}
+        fill={tc(BLUE, 'auto')}
+      />
       {/* The ring's front half passes over the shield. */}
       <Ellipse
         cx={112}
@@ -134,8 +145,8 @@ function ShieldHero() {
         strokeWidth={3}
         strokeDasharray="166 220"
       />
-      <Circle cx={58} cy={38} r={6.5} fill={BLUE} />
-      <Circle cx={44} cy={70} r={4} fill="#b9cdf5" />
+      <Circle cx={58} cy={38} r={6.5} fill={tc(BLUE, 'auto')} />
+      <Circle cx={44} cy={70} r={4} fill={tc('#b9cdf5', 'auto')} />
     </Svg>
   );
 }
@@ -174,47 +185,6 @@ function Reveal({
     >
       {children}
     </Animated.View>
-  );
-}
-
-/**
- * A thin track with a larger round knob that overhangs it: pale blue track and
- * blue knob when on, grey track and white knob when off.
- */
-function Toggle({ value }: { value: boolean | null }) {
-  const progress = useRef(new Animated.Value(value ? 1 : 0)).current;
-  useEffect(() => {
-    Animated.timing(progress, {
-      toValue: value ? 1 : 0,
-      duration: 220,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
-    }).start();
-  }, [progress, value]);
-  const on = { opacity: progress };
-  return (
-    <View style={[styles.toggle, value === null && styles.toggleLoading]}>
-      <View style={styles.track}>
-        <Animated.View style={[styles.trackOn, on]} />
-      </View>
-      <Animated.View
-        style={[
-          styles.knob,
-          {
-            transform: [
-              {
-                translateX: progress.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [0, TOGGLE_WIDTH - KNOB],
-                }),
-              },
-            ],
-          },
-        ]}
-      >
-        <Animated.View style={[styles.knobOn, on]} />
-      </Animated.View>
-    </View>
   );
 }
 
@@ -266,7 +236,7 @@ function SecurityRow({
       style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
     >
       <View style={styles.rowIcon}>
-        <Glyph d={icon} color={INK} size={22} strokeWidth={1.8} />
+        <Glyph d={icon} color={tc(INK)} size={22} strokeWidth={1.8} />
       </View>
       <View style={styles.rowCopy}>
         <Text style={styles.rowTitle}>{title}</Text>
@@ -281,7 +251,7 @@ function SecurityRow({
       ) : (
         <View style={styles.trailing}>
           {action ? <Text style={styles.action}>{action}</Text> : null}
-          <Glyph d={ICONS.chevron} color={INK} size={20} />
+          <Glyph d={ICONS.chevron} color={tc(INK)} size={20} />
         </View>
       )}
     </Pressable>
@@ -293,6 +263,8 @@ function notAvailable(title: string) {
 }
 
 export default function Security() {
+  // Redraw in the new colours when the theme switches.
+  useScheme();
   const [hasPin, setHasPin] = useState<boolean | null>(null);
   const [phoneLock, setPhoneLock] = useState<boolean | null>(null);
   const [liveBiometrics, setLiveBiometrics] = useState<boolean | null>(null);
@@ -382,7 +354,7 @@ export default function Security() {
             }
             style={({ pressed }) => [styles.back, pressed && styles.pressed]}
           >
-            <Glyph d={ICONS.back} color={INK} size={22} />
+            <Glyph d={ICONS.back} color={tc(INK)} size={22} />
           </Pressable>
           <Text accessibilityRole="header" style={styles.title}>
             Security
@@ -475,11 +447,11 @@ export default function Security() {
               <Svg width={24} height={24} viewBox="0 0 24 24">
                 <Path
                   d="M12 2.5 4.5 5.5v6c0 4.7 3.2 8.6 7.5 10 4.3-1.4 7.5-5.3 7.5-10v-6z"
-                  fill={warning ? '#f0a020' : BLUE}
+                  fill={tc(warning ? '#f0a020' : BLUE, 'auto')}
                 />
                 <Path
                   d={warning ? 'M12 8v4.5 M12 16h.01' : 'M8.5 12l2.5 2.5 4.5-5'}
-                  stroke="#ffffff"
+                  stroke={tc('#ffffff')}
                   strokeWidth={2.2}
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -494,7 +466,7 @@ export default function Security() {
             {summary.state === 'loading' ? null : (
               <Glyph
                 d={ICONS.chevron}
-                color={warning ? '#b45309' : BLUE}
+                color={tc(warning ? '#b45309' : BLUE)}
                 size={20}
                 strokeWidth={2.4}
               />
@@ -506,7 +478,7 @@ export default function Security() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyleSheet({
   screen: { flex: 1, backgroundColor: '#f2f5fb' },
   content: {
     paddingHorizontal: 16,
@@ -589,34 +561,6 @@ const styles = StyleSheet.create({
     borderColor: '#cddcfb',
   },
   soonText: { color: BLUE, fontSize: 12, fontWeight: '700' },
-  toggle: { width: TOGGLE_WIDTH, height: KNOB, justifyContent: 'center' },
-  toggleLoading: { opacity: 0.5 },
-  track: {
-    position: 'absolute',
-    left: 4,
-    right: 4,
-    height: TRACK,
-    borderRadius: TRACK / 2,
-    backgroundColor: '#d5dbe6',
-    overflow: 'hidden',
-  },
-  trackOn: { ...StyleSheet.absoluteFill, backgroundColor: '#a9c4fb' },
-  knob: {
-    width: KNOB,
-    height: KNOB,
-    borderRadius: KNOB / 2,
-    backgroundColor: '#ffffff',
-    shadowColor: INK,
-    shadowOpacity: 0.22,
-    shadowRadius: 3,
-    shadowOffset: { width: 0, height: 1 },
-    elevation: 3,
-  },
-  knobOn: {
-    ...StyleSheet.absoluteFill,
-    borderRadius: KNOB / 2,
-    backgroundColor: BLUE,
-  },
   summary: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -7,7 +7,6 @@ import {
   Alert,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   View,
 } from 'react-native';
@@ -27,6 +26,8 @@ import {
   legalDocumentPdf,
   legalPdfFileName,
 } from '../src/features/legal/legal-pdf';
+import { tc, themedStyleSheet } from '../src/theme/themed';
+import { useScheme } from '../src/theme/color-scheme-store';
 
 const BLUE = '#2f6bff';
 const INK = '#0b0f1f';
@@ -44,7 +45,7 @@ function Glyph({
     <Svg width={size} height={size} viewBox="0 0 24 24">
       <Path
         d={d}
-        stroke={color}
+        stroke={tc(color)}
         strokeWidth={2}
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -96,6 +97,8 @@ async function sharePdf(document: LegalDocument) {
 }
 
 export default function LegalDocumentScreen() {
+  // Redraw in the new colours when the theme switches.
+  useScheme();
   const document = findLegalDocument(useLocalSearchParams().doc);
   const [busy, setBusy] = useState(false);
 
@@ -122,7 +125,7 @@ export default function LegalDocumentScreen() {
           onPress={goBack}
           style={({ pressed }) => [styles.back, pressed && styles.pressed]}
         >
-          <Glyph d="M15 18l-6-6 6-6" color={BLUE} size={26} />
+          <Glyph d="M15 18l-6-6 6-6" color={tc(BLUE)} size={26} />
           <Text style={styles.backText}>Back</Text>
         </Pressable>
         <Text accessibilityRole="header" style={styles.title}>
@@ -169,11 +172,11 @@ export default function LegalDocumentScreen() {
             ]}
           >
             {busy ? (
-              <ActivityIndicator color={BLUE} />
+              <ActivityIndicator color={tc(BLUE)} />
             ) : (
               <Glyph
                 d="M6 3h9l4 4v14H6z M14 3v5h5 M12 11v6 M9.5 14.5 12 17l2.5-2.5"
-                color={BLUE}
+                color={tc(BLUE)}
                 size={20}
               />
             )}
@@ -186,7 +189,7 @@ export default function LegalDocumentScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyleSheet({
   screen: { flex: 1, backgroundColor: '#f2f6fc' },
   content: {
     paddingHorizontal: 20,

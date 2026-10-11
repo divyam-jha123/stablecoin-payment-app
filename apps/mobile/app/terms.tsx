@@ -1,5 +1,5 @@
 import { router, Stack } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import { DashboardNav } from '../src/components/dashboard-nav';
@@ -14,6 +14,8 @@ import {
   DATA_REQUESTS,
   type DataRequest,
 } from '../src/features/support/support';
+import { tc, themedStyleSheet } from '../src/theme/themed';
+import { useScheme } from '../src/theme/color-scheme-store';
 
 const BLUE = '#2f6bff';
 const INK = '#0b0f1f';
@@ -76,7 +78,7 @@ function Glyph({
     <Svg width={size} height={size} viewBox="0 0 24 24">
       <Path
         d={d}
-        stroke={color}
+        stroke={tc(color)}
         strokeWidth={2}
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -87,6 +89,8 @@ function Glyph({
 }
 
 export default function TermsAndPrivacy() {
+  // Redraw in the new colours when the theme switches.
+  useScheme();
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
       <Stack.Screen options={{ headerShown: false }} />
@@ -100,7 +104,7 @@ export default function TermsAndPrivacy() {
           }
           style={({ pressed }) => [styles.back, pressed && styles.pressed]}
         >
-          <Glyph d="M15 18l-6-6 6-6" color={BLUE} size={28} />
+          <Glyph d="M15 18l-6-6 6-6" color={tc(BLUE)} size={28} />
         </Pressable>
         <Text accessibilityRole="header" style={styles.title}>
           Terms & Privacy
@@ -128,15 +132,18 @@ export default function TermsAndPrivacy() {
                 style={({ pressed }) => [styles.row, pressed && styles.pressed]}
               >
                 <View
-                  style={[styles.icon, { backgroundColor: look.background }]}
+                  style={[
+                    styles.icon,
+                    { backgroundColor: tc(look.background, 'bg') },
+                  ]}
                 >
-                  <Glyph d={look.icon} color={look.tint} size={20} />
+                  <Glyph d={look.icon} color={tc(look.tint)} size={20} />
                 </View>
                 <View style={styles.rowText}>
                   <Text style={styles.rowTitle}>{document.title}</Text>
                   <Text style={styles.rowSubtitle}>{document.summary}</Text>
                 </View>
-                <Glyph d={CHEVRON} color={INK} size={20} />
+                <Glyph d={CHEVRON} color={tc(INK)} size={20} />
               </Pressable>
             );
           })}
@@ -161,7 +168,7 @@ export default function TermsAndPrivacy() {
                 <Text style={styles.rowTitle}>{row.title}</Text>
                 <Text style={styles.rowSubtitle}>{row.subtitle}</Text>
               </View>
-              <Glyph d={CHEVRON} color={INK} size={20} />
+              <Glyph d={CHEVRON} color={tc(INK)} size={20} />
             </Pressable>
           ))}
         </View>
@@ -175,7 +182,7 @@ export default function TermsAndPrivacy() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyleSheet({
   screen: { flex: 1, backgroundColor: '#f2f6fc' },
   content: {
     paddingHorizontal: 20,

@@ -1,18 +1,12 @@
 import { Fragment, useRef, useSyncExternalStore } from 'react';
-import {
-  Alert,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
 import * as Clipboard from 'expo-clipboard';
 import { vpaSchema } from '@traveller/shared';
 import { AppIcon, colors } from '../src/components/payment-ui';
+import { DashboardNav } from '../src/components/dashboard-nav';
 import { homeTheme } from '../src/theme/home';
 import { walletStore } from '../src/features/account/metamask';
 import {
@@ -20,34 +14,51 @@ import {
   profileInitial,
 } from '../src/features/account/profile-details';
 import { useSimulatedPayments } from '../src/features/payment/simulated-payment-store';
-import {
-  recipientPayments,
-  type SimulatedPayment,
-} from '../src/features/payment/simulated-payments';
-import { previewInr, previewRecipientPayments } from '../src/preview-data';
+import { recipientPayments } from '../src/features/payment/simulated-payments';
+import { previewInr, previewReceiptPayments } from '../src/preview-data';
 import { uiPreviewEnabled } from '../src/ui-preview';
+import { tc, themedStyleSheet } from '../src/theme/themed';
+import { useScheme } from '../src/theme/color-scheme-store';
+
+const MINUTE = 60_000;
+const HOUR = 60 * MINUTE;
+const DAY = 24 * HOUR;
+const WEEK = 7 * DAY;
 
 function firstParam(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
 }
 
-function dayLabel(createdAt: number) {
+/** "17 Sept" */
+function dateLabel(createdAt: number) {
   return new Date(createdAt).toLocaleDateString('en-IN', {
-    weekday: 'long',
     day: 'numeric',
     month: 'short',
   });
 }
 
-function timeLabel(createdAt: number) {
-  return new Date(createdAt).toLocaleTimeString('en-IN', {
+/** "17 Sept, 12:54 pm" */
+function stampLabel(createdAt: number) {
+  const time = new Date(createdAt).toLocaleTimeString('en-IN', {
     hour: 'numeric',
     minute: '2-digit',
   });
+  return `${dateLabel(createdAt)}, ${time}`;
 }
 
-/** Everything paid to one recipient, oldest first, with Pay. */
+/** Compact age such as "5m", "3h", "2d" or "154w". */
+function ageLabel(createdAt: number, now: number) {
+  const elapsed = Math.max(0, now - createdAt);
+  if (elapsed < HOUR) return `${Math.max(1, Math.floor(elapsed / MINUTE))}m`;
+  if (elapsed < DAY) return `${Math.floor(elapsed / HOUR)}h`;
+  if (elapsed < WEEK) return `${Math.floor(elapsed / DAY)}d`;
+  return `${Math.floor(elapsed / WEEK)}w`;
+}
+
+/** Everything paid to one recipient, oldest first, like a chat thread. */
 export default function Recipient() {
+  // Redraw in the new colours when the theme switches.
+  useScheme();
   const params = useLocalSearchParams<{
     name?: string | string[];
     vpa?: string | string[];
@@ -67,28 +78,17 @@ export default function Recipient() {
   );
   const history = name
     ? recipientPayments(
-        uiPreviewEnabled ? [...previewRecipientPayments, ...stored] : stored,
+        uiPreviewEnabled ? [...previewReceiptPayments, ...stored] : stored,
         { name, vpa },
       )
     : [];
-  const total = history.reduce(
-    (sum, payment) => sum + Number(payment.inrAmount),
-    0,
-  );
+  const now = Date.now();
 
   // Like a chat, open on the newest payment at the bottom.
   const scroll = useRef<ScrollView>(null);
   const scrolled = useRef(false);
 
-  const days: { label: string; payments: SimulatedPayment[] }[] = [];
-  for (const payment of history) {
-    const label = dayLabel(payment.createdAt);
-    const last = days[days.length - 1];
-    if (last?.label === label) last.payments.push(payment);
-    else days.push({ label, payments: [payment] });
-  }
-
-  function payAgain() {
+  function pay() {
     if (vpa)
       router.push({
         pathname: '/confirmation',
@@ -98,7 +98,8 @@ export default function Recipient() {
   }
 
   function openMenu() {
-    Alert.alert(name || 'Recipient', undefined, [
+    Alert.alert(name || 'Recipient', vpa ?? undefined, [
+      ...(name ? [{ text: `Pay ${name}`, onPress: pay }] : []),
       ...(vpa
         ? [
             {
@@ -121,37 +122,31 @@ export default function Recipient() {
           accessibilityLabel="Go back"
           hitSlop={8}
           onPress={() =>
-            router.canGoBack() ? router.back() : router.replace('/home')
+            router.canGoBack() ? router.back() : router.replace('/payments')
           }
           style={({ pressed }) => [
             styles.iconButton,
             pressed && styles.pressed,
           ]}
         >
-          <AppIcon name="back" size={24} />
+          <AppIcon name="chevron-left" size={28} />
         </Pressable>
         <View
           style={[
             styles.avatar,
-            { backgroundColor: profileAvatarColor(name || '?') },
+            { backgroundColor: tc(profileAvatarColor(name || '?'), 'bg') },
           ]}
         >
           <Text style={styles.initial}>{profileInitial(name)}</Text>
         </View>
-        <View style={styles.headerCopy}>
-          <Text
-            accessibilityRole="header"
-            numberOfLines={1}
-            style={styles.name}
-          >
-            {name || 'Unknown recipient'}
-          </Text>
-          {vpa ? (
-            <Text numberOfLines={1} style={styles.vpa}>
-              {vpa}
-            </Text>
-          ) : null}
-        </View>
+        <Text
+          accessibilityRole="header"
+          accessibilityHint={vpa ? `UPI ID ${vpa}` : undefined}
+          numberOfLines={2}
+          style={styles.name}
+        >
+          {name || 'Unknown recipient'}
+        </Text>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="More options"
@@ -163,15 +158,16 @@ export default function Recipient() {
           ]}
         >
           <Svg width={24} height={24} viewBox="0 0 24 24">
-            <Circle cx={12} cy={5} r={2} fill={colors.ink} />
-            <Circle cx={12} cy={12} r={2} fill={colors.ink} />
-            <Circle cx={12} cy={19} r={2} fill={colors.ink} />
+            <Circle cx={5} cy={12} r={2} fill={tc(colors.ink, 'auto')} />
+            <Circle cx={12} cy={12} r={2} fill={tc(colors.ink, 'auto')} />
+            <Circle cx={19} cy={12} r={2} fill={tc(colors.ink, 'auto')} />
           </Svg>
         </Pressable>
       </View>
 
       <ScrollView
         ref={scroll}
+        style={styles.scroll}
         contentContainerStyle={styles.content}
         onContentSizeChange={() => {
           if (scrolled.current || !history.length) return;
@@ -179,30 +175,21 @@ export default function Recipient() {
           scroll.current?.scrollToEnd({ animated: false });
         }}
       >
-        <View style={styles.totalCard}>
-          <Text style={styles.totalLabel}>Total paid</Text>
-          <Text style={styles.totalValue}>{previewInr(total)}</Text>
-          <Text style={styles.totalCount}>
-            {history.length === 1
-              ? '1 successful payment'
-              : `${history.length} successful payments`}
-          </Text>
-        </View>
-
-        <Text style={styles.sectionTitle}>Payment history</Text>
-        {days.length ? (
-          days.map((day) => (
-            <Fragment key={day.label}>
-              <View style={styles.dayRow}>
-                <View style={styles.dayLine} />
-                <Text style={styles.dayLabel}>{day.label}</Text>
-                <View style={styles.dayLine} />
-              </View>
-              {day.payments.map((payment) => (
+        {history.length ? (
+          history.map((payment) => {
+            const amount = previewInr(Number(payment.inrAmount));
+            return (
+              <Fragment key={payment.id}>
+                <View style={styles.stampRow}>
+                  <View style={styles.stampLine} />
+                  <Text style={styles.stamp}>
+                    {stampLabel(payment.createdAt)}
+                  </Text>
+                  <View style={styles.stampLine} />
+                </View>
                 <Pressable
-                  key={payment.id}
                   accessibilityRole="button"
-                  accessibilityLabel={`Paid ${previewInr(Number(payment.inrAmount))} to ${payment.merchantName}, completed at ${timeLabel(payment.createdAt)}. View receipt.`}
+                  accessibilityLabel={`Paid ${amount} to ${payment.merchantName} on ${stampLabel(payment.createdAt)}. View receipt.`}
                   onPress={() =>
                     router.push({
                       pathname: '/receipt',
@@ -214,77 +201,67 @@ export default function Recipient() {
                     pressed && styles.pressed,
                   ]}
                 >
-                  <Text numberOfLines={1} style={styles.paidTo}>
-                    Paid to {payment.merchantName}
+                  <Text numberOfLines={2} style={styles.paidTo}>
+                    Payment to {payment.merchantName}
                   </Text>
-                  <Text style={styles.amount}>
-                    {previewInr(Number(payment.inrAmount))}
+                  <Text style={styles.age}>
+                    {ageLabel(payment.createdAt, now)}
+                  </Text>
+                  <Text
+                    style={styles.amount}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                  >
+                    {amount}
                   </Text>
                   <View style={styles.statusRow}>
                     <View style={styles.checkBadge}>
-                      <AppIcon name="check" size={13} color="#ffffff" />
+                      <AppIcon name="check" size={12} color={tc('#ffffff')} />
                     </View>
-                    <Text style={styles.status}>Completed</Text>
-                    <Text style={styles.time}>
-                      {timeLabel(payment.createdAt)}
+                    <Text style={styles.status} numberOfLines={1}>
+                      Paid • {dateLabel(payment.createdAt)}
                     </Text>
                     <View style={styles.chevron}>
                       <AppIcon
                         name="chevron-left"
                         size={16}
-                        color={colors.ink}
+                        color={tc(homeTheme.colors.muted)}
                       />
                     </View>
                   </View>
                 </Pressable>
-              ))}
-            </Fragment>
-          ))
+              </Fragment>
+            );
+          })
         ) : (
           <View style={styles.empty}>
-            <AppIcon name="activity" color={colors.accent} size={30} />
+            <AppIcon name="activity" color={tc(colors.accent)} size={30} />
             <Text style={styles.emptyCopy}>
               No payments to this recipient on this device yet.
             </Text>
           </View>
         )}
-      </ScrollView>
-
-      <View style={styles.footer}>
         <Text style={styles.disclosure}>
           {uiPreviewEnabled
             ? 'Sample data for design preview only. No funds moved.'
             : 'INR settlement is simulated. Receipts show the Tempo testnet debit.'}
         </Text>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityHint={
-            vpa
-              ? `Enter an amount to pay ${vpa}`
-              : 'Opens the scanner to scan their QR'
-          }
-          disabled={!name}
-          onPress={payAgain}
-          style={({ pressed }) => [
-            styles.payAgain,
-            !name && styles.disabled,
-            pressed && styles.pressed,
-          ]}
-        >
-          <Text style={styles.payAgainLabel}>Pay</Text>
-        </Pressable>
+      </ScrollView>
+
+      <View style={styles.navArea}>
+        <DashboardNav current="/payments" floating />
       </View>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyleSheet({
   screen: { flex: 1, backgroundColor: homeTheme.colors.background },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: homeTheme.layout.pageGutter,
+    gap: 10,
+    paddingHorizontal: homeTheme.spacing.sm,
     paddingVertical: 8,
   },
   iconButton: {
@@ -294,63 +271,63 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   pressed: { opacity: 0.7 },
-  disabled: { opacity: 0.45 },
   avatar: {
     width: 52,
     height: 52,
     borderRadius: 26,
-    borderWidth: 2,
-    borderColor: homeTheme.colors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  initial: { color: '#ffffff', fontSize: 22, fontWeight: '600' },
-  headerCopy: { flex: 1, minWidth: 0 },
-  name: { color: colors.ink, fontSize: 19, fontWeight: '700' },
-  vpa: { color: homeTheme.colors.muted, fontSize: 14, marginTop: 1 },
+  initial: { color: '#ffffff', fontSize: 24, fontWeight: '500' },
+  name: {
+    flex: 1,
+    minWidth: 0,
+    color: colors.ink,
+    fontSize: 20,
+    lineHeight: 25,
+    fontWeight: '700',
+  },
+  scroll: { flex: 1 },
   content: {
     width: '100%',
     maxWidth: homeTheme.layout.maxWidth,
     alignSelf: 'center',
     paddingHorizontal: homeTheme.layout.pageGutter,
+    paddingTop: homeTheme.spacing.sm,
     paddingBottom: homeTheme.spacing.xl,
-    gap: homeTheme.spacing.lg,
+    gap: homeTheme.spacing.xl,
   },
-  totalCard: {
-    borderRadius: homeTheme.radius.surface,
-    backgroundColor: '#eaf3ff',
-    padding: 20,
-    gap: 4,
-  },
-  totalLabel: { color: homeTheme.colors.muted, fontSize: 15 },
-  totalValue: { color: colors.ink, fontSize: 34, fontWeight: '700' },
-  totalCount: { color: homeTheme.colors.muted, fontSize: 13 },
-  sectionTitle: {
-    color: colors.ink,
-    fontSize: 18,
-    fontWeight: '700',
-    marginTop: 8,
-  },
-  dayRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  dayLine: { flex: 1, height: 1, backgroundColor: homeTheme.colors.border },
-  dayLabel: { color: homeTheme.colors.muted, fontSize: 13 },
+  stampRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  stampLine: { flex: 1, height: 1, backgroundColor: homeTheme.colors.border },
+  stamp: { color: colors.ink, fontSize: 14 },
   paymentCard: {
     alignSelf: 'flex-end',
-    width: '58%',
-    minWidth: 220,
+    width: '60%',
+    minWidth: 240,
     borderRadius: homeTheme.radius.surface,
-    backgroundColor: '#eef5ff',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    gap: 4,
-    shadowColor: '#081332',
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 2,
+    borderWidth: 1,
+    borderColor: homeTheme.colors.border,
+    backgroundColor: homeTheme.colors.surface,
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+    gap: 2,
+    shadowColor: colors.ink,
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 3,
   },
-  paidTo: { color: colors.ink, fontSize: 14, fontWeight: '500' },
-  amount: { color: colors.ink, fontSize: 28, fontWeight: '700' },
+  paidTo: { color: colors.ink, fontSize: 17, lineHeight: 23 },
+  age: { color: homeTheme.colors.muted, fontSize: 13 },
+  amount: {
+    color: colors.ink,
+    fontSize: 34,
+    lineHeight: 42,
+    fontWeight: '700',
+    fontVariant: ['tabular-nums'],
+    marginTop: 8,
+    marginBottom: 6,
+  },
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   checkBadge: {
     width: 18,
@@ -360,8 +337,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  status: { flex: 1, color: homeTheme.colors.muted, fontSize: 13 },
-  time: { color: homeTheme.colors.muted, fontSize: 12 },
+  status: { flex: 1, color: colors.ink, fontSize: 14 },
   chevron: { transform: [{ rotate: '180deg' }] },
   empty: {
     borderRadius: homeTheme.radius.surface,
@@ -381,20 +357,9 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     textAlign: 'center',
   },
-  footer: {
-    borderTopWidth: 1,
-    borderTopColor: homeTheme.colors.border,
+  navArea: {
+    backgroundColor: homeTheme.colors.background,
     paddingHorizontal: homeTheme.layout.pageGutter,
-    paddingTop: 10,
-    paddingBottom: 8,
-    gap: 8,
+    paddingBottom: homeTheme.spacing.sm,
   },
-  payAgain: {
-    minHeight: 54,
-    borderRadius: homeTheme.radius.pill,
-    backgroundColor: homeTheme.colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  payAgainLabel: { color: '#ffffff', fontSize: 17, fontWeight: '700' },
 });

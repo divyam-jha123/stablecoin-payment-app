@@ -8,7 +8,6 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   View,
@@ -38,6 +37,8 @@ import {
 } from '../src/features/support/support-bot';
 import { previewDashboardWith } from '../src/preview-data';
 import { uiPreviewEnabled } from '../src/ui-preview';
+import { tc, themedStyleSheet } from '../src/theme/themed';
+import { useScheme } from '../src/theme/color-scheme-store';
 
 const BLUE = '#2f6bff';
 const INK = '#0b0f1f';
@@ -63,7 +64,7 @@ function Glyph({
     <Svg width={size} height={size} viewBox="0 0 24 24">
       <Path
         d={d}
-        stroke={color}
+        stroke={tc(color)}
         strokeWidth={strokeWidth}
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -82,17 +83,17 @@ function BotFace({ size }: { size: number }) {
       ]}
     >
       <Svg width={size * 0.62} height={size * 0.62} viewBox="0 0 24 24">
-        <Path d="M12 2.5v2.5" stroke={NAVY} strokeWidth={2} />
-        <Circle cx={12} cy={2.5} r={1.4} fill={NAVY} />
+        <Path d="M12 2.5v2.5" stroke={tc(NAVY)} strokeWidth={2} />
+        <Circle cx={12} cy={2.5} r={1.4} fill={tc(NAVY, 'auto')} />
         <Path
           d="M6.5 6h11a3 3 0 0 1 3 3v5a3 3 0 0 1-3 3h-11a3 3 0 0 1-3-3V9a3 3 0 0 1 3-3z"
-          fill={NAVY}
+          fill={tc(NAVY, 'auto')}
         />
-        <Circle cx={9} cy={11.3} r={1.6} fill="#ffffff" />
-        <Circle cx={15} cy={11.3} r={1.6} fill="#ffffff" />
+        <Circle cx={9} cy={11.3} r={1.6} fill={tc('#ffffff', 'auto')} />
+        <Circle cx={15} cy={11.3} r={1.6} fill={tc('#ffffff', 'auto')} />
         <Path
           d="M7 20.5c1.4-1.6 3.1-2.3 5-2.3s3.6.7 5 2.3"
-          stroke={BLUE}
+          stroke={tc(BLUE)}
           strokeWidth={2}
           strokeLinecap="round"
           fill="none"
@@ -120,6 +121,8 @@ function toBotPayment(payment: SimulatedPayment): BotPayment {
 }
 
 export default function SupportChat() {
+  // Redraw in the new colours when the theme switches.
+  useScheme();
   const { profile: googleProfile } = useExplorer();
   const address = useSyncExternalStore(
     walletStore.subscribe,
@@ -239,7 +242,7 @@ export default function SupportChat() {
           }
           style={({ pressed }) => [styles.back, pressed && styles.pressed]}
         >
-          <Glyph d="M15 18l-6-6 6-6" color={BLUE} size={26} />
+          <Glyph d="M15 18l-6-6 6-6" color={tc(BLUE)} size={26} />
           <Text style={styles.backText}>Back</Text>
         </Pressable>
         <View style={styles.identity}>
@@ -321,7 +324,7 @@ export default function SupportChat() {
             >
               <Glyph
                 d="M20 11.5l-8.2 8.2a5 5 0 0 1-7.1-7.1l8.5-8.5a3.3 3.3 0 0 1 4.7 4.7l-8.5 8.5a1.7 1.7 0 0 1-2.4-2.4l7.8-7.8"
-                color="#37445c"
+                color={tc('#37445c')}
                 size={22}
               />
             </Pressable>
@@ -339,7 +342,7 @@ export default function SupportChat() {
             >
               <Glyph
                 d="M12 3a3 3 0 0 0-3 3v5a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3z M5.5 11a6.5 6.5 0 0 0 13 0 M12 17.5V21"
-                color="#37445c"
+                color={tc('#37445c')}
                 size={22}
               />
             </Pressable>
@@ -349,7 +352,7 @@ export default function SupportChat() {
                 value={draft}
                 onChangeText={setDraft}
                 placeholder="Message..."
-                placeholderTextColor="#7d8aa3"
+                placeholderTextColor={tc('#7d8aa3')}
                 maxLength={500}
                 returnKeyType="send"
                 onSubmitEditing={send}
@@ -368,7 +371,7 @@ export default function SupportChat() {
                 ]}
               >
                 <Svg width={20} height={20} viewBox="0 0 24 24">
-                  <Path d="M4 4l17 8-17 8 3-8z" fill="#ffffff" />
+                  <Path d="M4 4l17 8-17 8 3-8z" fill={tc('#ffffff', 'auto')} />
                 </Svg>
               </Pressable>
             </View>
@@ -471,7 +474,7 @@ const shadow = {
   elevation: 1,
 } as const;
 
-const styles = StyleSheet.create({
+const styles = themedStyleSheet({
   screen: { flex: 1, backgroundColor: '#f2f6fc' },
   flex: { flex: 1 },
   pressed: { opacity: 0.7 },

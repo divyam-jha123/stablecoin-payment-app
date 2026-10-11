@@ -36,6 +36,8 @@ import {
   parsePaymentRequest,
   paymentApprovals,
 } from '../src/features/payment/payment-authorization';
+import { tc, themedStyleSheet } from '../src/theme/themed';
+import { useScheme } from '../src/theme/color-scheme-store';
 
 // Metro bundles these static Figma illustrations at build time.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -490,20 +492,28 @@ function CoinScene({
                       x2="0"
                       y2="1"
                     >
-                      <Stop offset="0" stopColor="#ffffff" stopOpacity="1" />
                       <Stop
-                        offset="0.25"
-                        stopColor={ray.color}
+                        offset="0"
+                        stopColor={tc('#ffffff', 'bg')}
                         stopOpacity="1"
                       />
-                      <Stop offset="1" stopColor={ray.color} stopOpacity="0" />
+                      <Stop
+                        offset="0.25"
+                        stopColor={tc(ray.color, 'bg')}
+                        stopOpacity="1"
+                      />
+                      <Stop
+                        offset="1"
+                        stopColor={tc(ray.color, 'bg')}
+                        stopOpacity="0"
+                      />
                     </LinearGradient>
                   </Defs>
                   <Rect
                     width={rayWidth}
                     height={rayLength}
                     rx={rayWidth / 2}
-                    fill={`url(#ray-${index})`}
+                    fill={tc(`url(#ray-${index})`, 'auto')}
                   />
                 </Svg>
               </Animated.View>
@@ -569,9 +579,9 @@ function ProgressRing({ symbol }: { symbol: string }) {
           cx={RING_SIZE / 2}
           cy={RING_SIZE / 2}
           r={RING_RADIUS}
-          stroke="#e4ecf8"
+          stroke={tc('#e4ecf8')}
           strokeWidth={RING_STROKE}
-          fill="#ffffff"
+          fill={tc('#ffffff', 'auto')}
         />
       </Svg>
       <Animated.View
@@ -582,7 +592,7 @@ function ProgressRing({ symbol }: { symbol: string }) {
             cx={RING_SIZE / 2}
             cy={RING_SIZE / 2}
             r={RING_RADIUS}
-            stroke={BLUE}
+            stroke={tc(BLUE)}
             strokeWidth={RING_STROKE}
             strokeLinecap="round"
             strokeDasharray={`${RING_LENGTH * 0.28} ${RING_LENGTH}`}
@@ -596,6 +606,8 @@ function ProgressRing({ symbol }: { symbol: string }) {
 }
 
 export default function Processing() {
+  // Redraw in the new colours when the theme switches.
+  useScheme();
   const params = useLocalSearchParams<{
     merchantName?: string | string[];
     merchantVpa?: string | string[];
@@ -757,7 +769,7 @@ export default function Processing() {
     return (
       <SafeAreaView style={styles.deniedScreen}>
         <Stack.Screen options={{ headerShown: false }} />
-        <AppIcon name="lock" size={48} color={colors.accent} />
+        <AppIcon name="lock" size={48} color={tc(colors.accent)} />
         <Text accessibilityRole="header" style={styles.deniedTitle}>
           Payment not approved
         </Text>
@@ -829,7 +841,7 @@ export default function Processing() {
               <View style={styles.pair}>
                 <TokenEmblem symbol={symbol} size={30} />
                 <Text style={styles.pairText}>{symbol}</Text>
-                <AppIcon name="arrow" size={20} color="#7d8aa3" />
+                <AppIcon name="arrow" size={20} color={tc('#7d8aa3')} />
                 <IndiaFlagEmblem size={30} />
                 <Text style={styles.pairText}>INR</Text>
               </View>
@@ -901,7 +913,7 @@ export default function Processing() {
                           <AppIcon
                             name={done ? 'check' : step.icon}
                             size={18}
-                            color={active || done ? '#ffffff' : '#3d4a63'}
+                            color={tc(active || done ? '#ffffff' : '#3d4a63')}
                           />
                         </View>
                         <Text style={styles.stepLabel}>{step.label}</Text>
@@ -972,7 +984,7 @@ export default function Processing() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyleSheet({
   deniedScreen: {
     flex: 1,
     backgroundColor: '#ffffff',
