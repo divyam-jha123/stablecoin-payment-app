@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Image,
   AppState,
   Pressable,
@@ -71,8 +70,6 @@ const merchantBanner = require('../assets/figma/home-merchant-banner.webp');
 const pinAd = require('../assets/ads/pin-ad.webp');
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const historyAd = require('../assets/ads/history-ad.webp');
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const rewardsAd = require('../assets/ads/rewards-ad.webp');
 
 export default function Home() {
   // Redraw in the new colours when the theme switches.
@@ -425,24 +422,6 @@ export default function Home() {
               content: (
                 <Image
                   source={historyAd}
-                  resizeMode="cover"
-                  style={styles.bannerImage}
-                />
-              ),
-            },
-            {
-              key: 'rewards',
-              accessibilityLabel:
-                'TravelPe Rewards. Earn on every payment: cashback, exclusive offers and travel benefits.',
-              // There is no rewards programme yet, so the banner says so.
-              onPress: () =>
-                Alert.alert(
-                  'TravelPe Rewards',
-                  'Rewards are coming soon. No cashback is earned yet.',
-                ),
-              content: (
-                <Image
-                  source={rewardsAd}
                   resizeMode="cover"
                   style={styles.bannerImage}
                 />
