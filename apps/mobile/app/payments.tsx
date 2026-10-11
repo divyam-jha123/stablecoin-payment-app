@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { DashboardNav } from '../src/components/dashboard-nav';
-import { AppIcon, colors, ScanIcon, ui } from '../src/components/payment-ui';
+import { AppIcon, colors, ui } from '../src/components/payment-ui';
 import { PaymentsWalletCard } from '../src/components/payments-wallet-card';
 import { PaymentRow } from '../src/components/payment-row';
 import {
@@ -169,12 +169,6 @@ export default function Payments() {
 
   const quickActions = [
     {
-      key: 'scan',
-      title: 'Scan QR',
-      icon: null,
-      onPress: () => router.push('/scanner'),
-    },
-    {
       key: 'add-money',
       title: testFunding.label ?? 'Add Money',
       icon: 'card-plus',
@@ -266,15 +260,11 @@ export default function Payments() {
                     pressed && ui.pressed,
                   ]}
                 >
-                  {action.icon ? (
-                    <AppIcon
-                      name={action.icon}
-                      color={tc(theme.colors.primary)}
-                      size={24}
-                    />
-                  ) : (
-                    <ScanIcon color={tc(theme.colors.primary)} size={24} />
-                  )}
+                  <AppIcon
+                    name={action.icon}
+                    color={tc(theme.colors.primary)}
+                    size={24}
+                  />
                   <Text style={styles.actionTitle} numberOfLines={2}>
                     {action.title}
                   </Text>
