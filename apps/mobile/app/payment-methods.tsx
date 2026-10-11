@@ -6,7 +6,6 @@ import {
   Easing,
   Pressable,
   ScrollView,
-  StyleSheet,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -15,6 +14,8 @@ import { DashboardNav } from '../src/components/dashboard-nav';
 import { colors, TestNotice } from '../src/components/payment-ui';
 import { ProfileBackdrop } from '../src/components/profile-backdrop';
 import { uiPreviewEnabled } from '../src/ui-preview';
+import { tc, themedStyleSheet } from '../src/theme/themed';
+import { useScheme } from '../src/theme/color-scheme-store';
 
 // Metro bundles this static illustration at build time.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -38,7 +39,7 @@ function BackGlyph() {
     <Svg width={28} height={28} viewBox="0 0 24 24">
       <Path
         d="M15 18l-6-6 6-6"
-        stroke={colors.ink}
+        stroke={tc(colors.ink)}
         strokeWidth={2}
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -49,6 +50,8 @@ function BackGlyph() {
 }
 
 export default function PaymentMethods() {
+  // Redraw in the new colours when the theme switches.
+  useScheme();
   const [area, setArea] = useState({ width: 0, height: 0 });
   const drop = useRef(new Animated.Value(0)).current;
   const angle = useRef(new Animated.Value(0)).current;
@@ -181,7 +184,7 @@ export default function PaymentMethods() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyleSheet({
   screen: { flex: 1, backgroundColor: '#eef4fe' },
   content: {
     flexGrow: 1,

@@ -23,6 +23,7 @@ import {
   connectStatusText,
   useWalletSignIn,
 } from '../features/account/use-wallet-sign-in';
+import { tc, themedStyleSheet } from '../theme/themed';
 
 // Blue wallet holding a card, with a MetaMask badge and a UPI QR tile. Its
 // edges fade out so it sits on the page background.
@@ -69,7 +70,7 @@ export function ConnectWalletGate({ message }: { message: string }) {
               onPress={goBack}
               style={({ pressed }) => [styles.round, pressed && ui.pressed]}
             >
-              <AppIcon name="chevron-left" size={22} color={colors.ink} />
+              <AppIcon name="chevron-left" size={22} color={tc(colors.ink)} />
             </Pressable>
             <Text style={styles.wordmark}>
               Travel<Text style={styles.wordmarkAccent}>Pe</Text>
@@ -79,7 +80,7 @@ export function ConnectWalletGate({ message }: { message: string }) {
 
           <View style={styles.signedIn}>
             <View style={styles.signedInCheck}>
-              <AppIcon name="check" size={13} color="#fff" />
+              <AppIcon name="check" size={13} color={tc('#fff')} />
             </View>
             <Text style={styles.signedInText}>Signed in with Google</Text>
           </View>
@@ -101,9 +102,14 @@ export function ConnectWalletGate({ message }: { message: string }) {
 
           <View style={styles.card}>
             <View style={styles.row}>
-              <View style={[styles.rowIcon, { backgroundColor: SUCCESS_TINT }]}>
+              <View
+                style={[
+                  styles.rowIcon,
+                  { backgroundColor: tc(SUCCESS_TINT, 'bg') },
+                ]}
+              >
                 <View style={styles.rowCheck}>
-                  <AppIcon name="check" size={16} color="#fff" />
+                  <AppIcon name="check" size={16} color={tc('#fff')} />
                 </View>
               </View>
               <View style={styles.rowText}>
@@ -113,8 +119,13 @@ export function ConnectWalletGate({ message }: { message: string }) {
             </View>
             <View style={styles.divider} />
             <View style={styles.row}>
-              <View style={[styles.rowIcon, { backgroundColor: ACCENT_TINT }]}>
-                <AppIcon name="wallet" size={24} color={colors.accent} />
+              <View
+                style={[
+                  styles.rowIcon,
+                  { backgroundColor: tc(ACCENT_TINT, 'bg') },
+                ]}
+              >
+                <AppIcon name="wallet" size={24} color={tc(colors.accent)} />
               </View>
               <View style={styles.rowText}>
                 <Text style={styles.rowTitle}>Wallet connection needed</Text>
@@ -154,7 +165,7 @@ export function ConnectWalletGate({ message }: { message: string }) {
           </Pressable>
 
           <View style={styles.note}>
-            <AppIcon name="lock" size={16} color={colors.muted} />
+            <AppIcon name="lock" size={16} color={tc(colors.muted)} />
             <Text style={styles.noteText}>
               Connecting won’t make a payment.
             </Text>
@@ -186,9 +197,9 @@ function SoftBackdrop({ width, height }: { width: number; height: number }) {
     >
       <Defs>
         <LinearGradient id="gate-sky" x1="0" y1="0" x2="0" y2="1">
-          <Stop offset="0" stopColor="#f4f8fe" />
-          <Stop offset="0.5" stopColor="#ffffff" />
-          <Stop offset="1" stopColor="#f6f9fe" />
+          <Stop offset="0" stopColor={tc('#f4f8fe', 'bg')} />
+          <Stop offset="0.5" stopColor={tc('#ffffff', 'bg')} />
+          <Stop offset="1" stopColor={tc('#f6f9fe', 'bg')} />
         </LinearGradient>
       </Defs>
       <Rect width={width} height={height} fill="url(#gate-sky)" />
@@ -197,7 +208,7 @@ function SoftBackdrop({ width, height }: { width: number; height: number }) {
         cy={height * 0.3}
         rx={width * 0.45}
         ry={height * 0.16}
-        fill="#e9f1fc"
+        fill={tc('#e9f1fc', 'auto')}
         opacity={0.7}
       />
       <Ellipse
@@ -205,7 +216,7 @@ function SoftBackdrop({ width, height }: { width: number; height: number }) {
         cy={height * 0.32}
         rx={width * 0.4}
         ry={height * 0.14}
-        fill="#e9f1fc"
+        fill={tc('#e9f1fc', 'auto')}
         opacity={0.7}
       />
       <Ellipse
@@ -213,13 +224,13 @@ function SoftBackdrop({ width, height }: { width: number; height: number }) {
         cy={height * 1.02}
         rx={width * 0.35}
         ry={height * 0.12}
-        fill="#e9f1fc"
+        fill={tc('#e9f1fc', 'auto')}
         opacity={0.8}
       />
     </Svg>
   );
 }
-const styles = StyleSheet.create({
+const styles = themedStyleSheet({
   screen: { flex: 1, backgroundColor: '#ffffff' },
   safe: { flex: 1 },
   content: {

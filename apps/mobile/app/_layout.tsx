@@ -5,6 +5,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AppLock } from '../src/components/app-lock';
 import { startBackendWake } from '../src/features/backend-wake';
+import { useScheme } from '../src/theme/color-scheme-store';
+import { tc } from '../src/theme/themed';
 
 // Keep the native launch screen up until SplashBackdrop can draw its wordmark,
 // so launch never shows an empty black frame in between.
@@ -18,6 +20,8 @@ export default function RootLayout() {
       }),
   );
   useEffect(() => startBackendWake(), []);
+  // Re-renders the app shell when the theme switches between light and dark.
+  useScheme();
   return (
     <SafeAreaProvider>
       <QueryClientProvider client={queryClient}>
@@ -27,7 +31,7 @@ export default function RootLayout() {
         <Stack
           screenOptions={{
             animation: 'slide_from_right',
-            contentStyle: { backgroundColor: '#ffffff' },
+            contentStyle: { backgroundColor: tc('#ffffff', 'bg') },
           }}
         />
         <AppLock />

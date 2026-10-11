@@ -1,8 +1,9 @@
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { Image, Text, View } from 'react-native';
 import {
   profileAvatarColor,
   profileInitial,
 } from '../features/account/profile-details';
+import { tc, themedStyleSheet } from '../theme/themed';
 
 /** Shared profile picture: saved photo, or the first initial on its name color. */
 export function ProfileAvatar({
@@ -31,7 +32,7 @@ export function ProfileAvatar({
             width: avatarSize,
             height: avatarSize,
             borderRadius: avatarSize / 2,
-            backgroundColor: profileAvatarColor(name),
+            backgroundColor: tc(profileAvatarColor(name), 'bg'),
           },
         ]}
       >
@@ -51,7 +52,7 @@ export function ProfileAvatar({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyleSheet({
   ring: {
     borderColor: '#000000',
     alignItems: 'center',

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { AppIcon } from './payment-ui';
 import { homeTheme } from '../theme/home';
 import {
@@ -7,6 +7,7 @@ import {
   profileInitial,
 } from '../features/account/profile-details';
 import type { Recipient } from '../features/payment/simulated-payments';
+import { tc, themedStyleSheet } from '../theme/themed';
 
 const COLUMNS = 4;
 const COLLAPSED = COLUMNS * 2;
@@ -59,7 +60,9 @@ export function RecentRecipients({
             <View
               style={[
                 styles.avatar,
-                { backgroundColor: profileAvatarColor(recipient.name) },
+                {
+                  backgroundColor: tc(profileAvatarColor(recipient.name), 'bg'),
+                },
               ]}
             >
               <Text style={styles.initial}>
@@ -86,7 +89,7 @@ export function RecentRecipients({
                 <AppIcon
                   name="chevron-down"
                   size={26}
-                  color={homeTheme.colors.primary}
+                  color={tc(homeTheme.colors.primary)}
                 />
               </View>
             </View>
@@ -102,7 +105,7 @@ export function RecentRecipients({
         style={({ pressed }) => [styles.payNew, pressed && styles.pressed]}
       >
         <View style={styles.plus}>
-          <AppIcon name="plus" size={18} color="#ffffff" />
+          <AppIcon name="plus" size={18} color={tc('#ffffff')} />
         </View>
         <Text style={styles.payNewLabel}>Pay someone new</Text>
       </Pressable>
@@ -112,7 +115,7 @@ export function RecentRecipients({
 
 const AVATAR = 60;
 
-const styles = StyleSheet.create({
+const styles = themedStyleSheet({
   section: { gap: homeTheme.spacing.md },
   headingRow: {
     flexDirection: 'row',

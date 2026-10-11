@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { router, Stack } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import { DashboardNav } from '../src/components/dashboard-nav';
@@ -13,6 +13,8 @@ import {
   type AppNotification,
   type NotificationKind,
 } from '../src/features/notifications/notifications';
+import { tc, themedStyleSheet } from '../src/theme/themed';
+import { useScheme } from '../src/theme/color-scheme-store';
 
 const BLUE = '#2f6bff';
 
@@ -56,7 +58,7 @@ function Glyph({
     <Svg width={size} height={size} viewBox="0 0 24 24">
       <Path
         d={d}
-        stroke={color}
+        stroke={tc(color)}
         strokeWidth={2}
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -84,8 +86,10 @@ function NotificationCard({
       onPress={onPress}
       style={({ pressed }) => [styles.card, pressed && styles.pressed]}
     >
-      <View style={[styles.icon, { backgroundColor: kind.background }]}>
-        <Glyph d={kind.icon} color={kind.tint} size={24} />
+      <View
+        style={[styles.icon, { backgroundColor: tc(kind.background, 'bg') }]}
+      >
+        <Glyph d={kind.icon} color={tc(kind.tint)} size={24} />
       </View>
       <View style={styles.copy}>
         <Text style={styles.cardTitle}>{item.title}</Text>
@@ -100,6 +104,8 @@ function NotificationCard({
 }
 
 export default function Notifications() {
+  // Redraw in the new colours when the theme switches.
+  useScheme();
   const { wallet } = useAccount();
   const { items, unreadCount, markRead } = useNotifications(
     wallet.account?.address,
@@ -135,7 +141,7 @@ export default function Notifications() {
             }
             style={({ pressed }) => [styles.back, pressed && styles.pressed]}
           >
-            <Glyph d="M15 18l-6-6 6-6" color={BLUE} size={28} />
+            <Glyph d="M15 18l-6-6 6-6" color={tc(BLUE)} size={28} />
           </Pressable>
           {unreadCount > 0 ? (
             <Pressable
@@ -196,7 +202,7 @@ export default function Notifications() {
             <View style={styles.emptyIcon}>
               <Glyph
                 d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9 M10 21h4"
-                color={BLUE}
+                color={tc(BLUE)}
                 size={30}
               />
             </View>
@@ -218,7 +224,7 @@ export default function Notifications() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyleSheet({
   screen: { flex: 1, backgroundColor: '#f2f6fc' },
   content: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 24 },
   pressed: { opacity: 0.7 },

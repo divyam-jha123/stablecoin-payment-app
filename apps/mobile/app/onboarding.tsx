@@ -11,6 +11,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { AppIcon } from '../src/components/payment-ui';
 import { iosDashboardPreview } from '../src/ui-preview';
+import { tc, themedStyleSheet } from '../src/theme/themed';
+import { useScheme } from '../src/theme/color-scheme-store';
 
 // Metro bundles this static Figma asset at build time.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -72,6 +74,8 @@ function start() {
 }
 
 export default function Onboarding() {
+  // Redraw in the new colours when the theme switches.
+  useScheme();
   const { width, height } = useWindowDimensions();
   const artWidth = width;
   const artHeight = (ART_HEIGHT * width) / ART_WIDTH;
@@ -116,7 +120,7 @@ export default function Onboarding() {
                 <Stop
                   key={offset}
                   offset={offset}
-                  stopColor={tint.color}
+                  stopColor={tc(tint.color, 'bg')}
                   stopOpacity={opacity}
                 />
               ))}
@@ -128,7 +132,7 @@ export default function Onboarding() {
             key={tint.color}
             width={width}
             height={height}
-            fill={`url(#onboarding-tint-${index})`}
+            fill={tc(`url(#onboarding-tint-${index})`, 'auto')}
           />
         ))}
       </Svg>
@@ -144,7 +148,7 @@ export default function Onboarding() {
           <Text style={styles.buttonText}>
             {iosDashboardPreview ? 'Continue to Dashboard' : 'Get Started'}
           </Text>
-          <AppIcon name="arrow" size={24} color="#ffffff" />
+          <AppIcon name="arrow" size={24} color={tc('#ffffff')} />
         </Pressable>
         {!iosDashboardPreview ? (
           <Pressable
@@ -163,7 +167,7 @@ export default function Onboarding() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyleSheet({
   screen: { flex: 1, backgroundColor: GLOBE_NIGHT, overflow: 'hidden' },
   art: { position: 'absolute', left: 0, overflow: 'hidden' },
   content: { flex: 1, paddingHorizontal: 32, paddingBottom: 4 },

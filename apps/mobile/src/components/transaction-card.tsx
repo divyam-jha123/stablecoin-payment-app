@@ -3,6 +3,7 @@ import Svg, { Defs, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
 import { ILLUSTRATIVE_INR_PER_PATH_USD } from '../features/payment/amount';
 import type { TransactionItem } from '../features/payment/simulated-payments';
 import { colors } from './payment-ui';
+import { tc, themedStyleSheet } from '../theme/themed';
 
 const GREEN = '#2e9a4f';
 
@@ -38,7 +39,7 @@ function Icon({
     <Svg width={size} height={size} viewBox="0 0 24 24">
       <Path
         d={d}
-        stroke={color}
+        stroke={tc(color)}
         strokeWidth={strokeWidth}
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -55,8 +56,8 @@ function TransactionAvatar({ transaction }: { transaction: TransactionItem }) {
         <Svg width={56} height={56} style={StyleSheet.absoluteFill}>
           <Defs>
             <LinearGradient id="received" x1="0" y1="0" x2="1" y2="1">
-              <Stop offset="0" stopColor="#6fdc7f" />
-              <Stop offset="1" stopColor="#1f8a4a" />
+              <Stop offset="0" stopColor={tc('#6fdc7f', 'bg')} />
+              <Stop offset="1" stopColor={tc('#1f8a4a', 'bg')} />
             </LinearGradient>
           </Defs>
           <Rect width={56} height={56} rx={28} fill="url(#received)" />
@@ -64,7 +65,7 @@ function TransactionAvatar({ transaction }: { transaction: TransactionItem }) {
         <Icon
           d="M7 17 17 7 M9 7h8v8"
           size={30}
-          color="#ffffff"
+          color={tc('#ffffff')}
           strokeWidth={2.8}
         />
       </View>
@@ -73,12 +74,12 @@ function TransactionAvatar({ transaction }: { transaction: TransactionItem }) {
   if (transaction.brand) {
     const { mark, background, color } = transaction.brand;
     return (
-      <View style={[styles.avatar, { backgroundColor: background }]}>
+      <View style={[styles.avatar, { backgroundColor: tc(background, 'bg') }]}>
         <Text
           numberOfLines={1}
           style={[
             styles.brandMark,
-            { color, fontSize: mark.length <= 2 ? 24 : 14 },
+            { color: tc(color), fontSize: mark.length <= 2 ? 24 : 14 },
           ]}
         >
           {mark}
@@ -137,7 +138,7 @@ export function TransactionCard({
             <Icon
               d={CATEGORY_ICONS[transaction.category] ?? STORE_ICON}
               size={14}
-              color={colors.ink}
+              color={tc(colors.ink)}
               strokeWidth={1.8}
             />
           </View>
@@ -155,12 +156,12 @@ export function TransactionCard({
           {tokenAmount} {token}
         </Text>
       </View>
-      <Icon d="M9 6l6 6-6 6" size={18} color={colors.muted} />
+      <Icon d="M9 6l6 6-6 6" size={18} color={tc(colors.muted)} />
     </Pressable>
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyleSheet({
   card: {
     flexDirection: 'row',
     alignItems: 'center',

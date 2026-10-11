@@ -4,7 +4,6 @@ import {
   ActivityIndicator,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   View,
 } from 'react-native';
@@ -23,6 +22,8 @@ import {
 import { publicClient } from '../src/features/account/tempo';
 import { walletError } from '../src/features/account/wallet-store';
 import { uiPreviewEnabled } from '../src/ui-preview';
+import { tc, themedStyleSheet } from '../src/theme/themed';
+import { useScheme } from '../src/theme/color-scheme-store';
 
 type Stage = 'choose' | 'metamask' | 'confirming' | 'done';
 
@@ -88,6 +89,8 @@ function Choice({
 }
 
 export default function SetupPayments() {
+  // Redraw in the new colours when the theme switches.
+  useScheme();
   const wallet = useSyncExternalStore(
     walletStore.subscribe,
     walletStore.getSnapshot,
@@ -167,9 +170,28 @@ export default function SetupPayments() {
   return (
     <SafeAreaView style={styles.screen}>
       <Stack.Screen options={{ headerShown: false }} />
+      <View style={styles.header}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Back"
+          accessibilityState={{ disabled: busy }}
+          disabled={busy}
+          hitSlop={8}
+          onPress={() =>
+            router.canGoBack() ? router.back() : router.replace('/home')
+          }
+          style={({ pressed }) => [
+            styles.back,
+            busy && styles.backDisabled,
+            pressed && styles.backPressed,
+          ]}
+        >
+          <AppIcon name="chevron-left" size={22} color={tc(colors.ink)} />
+        </Pressable>
+      </View>
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.badge}>
-          <AppIcon name="send" size={34} color={colors.accent} />
+          <AppIcon name="send" size={34} color={tc(colors.accent)} />
         </View>
         <Text accessibilityRole="header" style={styles.title}>
           Turn on tap to pay
@@ -183,7 +205,11 @@ export default function SetupPayments() {
           {POINTS.map((point) => (
             <View key={point.title} style={styles.point}>
               <View style={styles.pointIcon}>
-                <AppIcon name={point.icon} size={20} color={colors.accent} />
+                <AppIcon
+                  name={point.icon}
+                  size={20}
+                  color={tc(colors.accent)}
+                />
               </View>
               <View style={styles.pointCopy}>
                 <Text style={styles.pointTitle}>{point.title}</Text>
@@ -255,9 +281,9 @@ export default function SetupPayments() {
           ]}
         >
           {stage === 'metamask' || stage === 'confirming' ? (
-            <ActivityIndicator size="small" color="#ffffff" />
+            <ActivityIndicator size="small" color={tc('#ffffff')} />
           ) : stage === 'done' ? (
-            <AppIcon name="check" size={20} color="#ffffff" />
+            <AppIcon name="check" size={20} color={tc('#ffffff')} />
           ) : null}
           <Text style={styles.buttonText}>{buttonLabel}</Text>
         </Pressable>
@@ -277,11 +303,27 @@ export default function SetupPayments() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyleSheet({
   screen: { flex: 1, backgroundColor: '#ffffff' },
+  header: {
+    paddingHorizontal: 12,
+    paddingTop: 4,
+    width: '100%',
+    maxWidth: 600,
+    alignSelf: 'center',
+  },
+  back: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  backDisabled: { opacity: 0.4 },
+  backPressed: { opacity: 0.7 },
   content: {
     paddingHorizontal: 24,
-    paddingTop: 24,
+    paddingTop: 8,
     paddingBottom: 16,
     width: '100%',
     maxWidth: 600,

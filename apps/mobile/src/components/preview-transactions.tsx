@@ -1,8 +1,9 @@
 import { ILLUSTRATIVE_INR_PER_PATH_USD } from '../features/payment/amount';
-import { StyleSheet, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import { AppIcon, colors } from './payment-ui';
 import { previewInr } from '../preview-data';
 import type { TransactionItem } from '../features/payment/simulated-payments';
+import { tc, themedStyleSheet } from '../theme/themed';
 
 export function PreviewTransactions({
   transactions,
@@ -21,9 +22,9 @@ export function PreviewTransactions({
           >
             <AppIcon
               name={transaction.direction === 'Received' ? 'receive' : 'send'}
-              color={
-                transaction.direction === 'Received' ? '#fff' : colors.accent
-              }
+              color={tc(
+                transaction.direction === 'Received' ? '#fff' : colors.accent,
+              )}
               size={20}
             />
           </View>
@@ -57,7 +58,7 @@ export function PreviewTransactions({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyleSheet({
   list: { backgroundColor: '#fff', borderRadius: 16, paddingHorizontal: 12 },
   row: {
     flexDirection: 'row',

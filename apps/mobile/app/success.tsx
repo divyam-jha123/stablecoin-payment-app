@@ -6,7 +6,6 @@ import {
   Animated,
   Easing,
   Pressable,
-  StyleSheet,
   Text,
   View,
 } from 'react-native';
@@ -25,6 +24,8 @@ import {
   formatPaymentTime,
   paymentPathUsdAtomic,
 } from '../src/features/payment/simulated-payments';
+import { tc, themedStyleSheet } from '../src/theme/themed';
+import { useScheme } from '../src/theme/color-scheme-store';
 
 const GREEN = '#00974f';
 const HALO = 196;
@@ -273,7 +274,7 @@ function SuccessBadge({
         <Svg width={72} height={72} viewBox="0 0 24 24">
           <AnimatedPath
             d={CHECK_PATH}
-            stroke="#ffffff"
+            stroke={tc('#ffffff')}
             strokeWidth={2}
             fill="none"
             strokeLinecap="round"
@@ -299,6 +300,8 @@ function shortHash(hash: string) {
 }
 
 export default function Success() {
+  // Redraw in the new colours when the theme switches.
+  useScheme();
   const params = useLocalSearchParams<{ id?: string | string[] }>();
   const id = firstParam(params.id);
   const payments = useSyncExternalStore(
@@ -341,7 +344,7 @@ export default function Success() {
             pressed && styles.pressed,
           ]}
         >
-          <AppIcon name="help" size={22} color={colors.ink} />
+          <AppIcon name="help" size={22} color={tc(colors.ink)} />
         </Pressable>
       </View>
 
@@ -366,7 +369,7 @@ export default function Success() {
               style={[styles.merchantCard, fadeUp(progress, CARD_IN)]}
             >
               <View style={styles.merchantIcon}>
-                <AppIcon name="store" size={26} color={colors.accent} />
+                <AppIcon name="store" size={26} color={tc(colors.accent)} />
               </View>
               <View style={styles.merchantCopy}>
                 <Text style={styles.merchantName} numberOfLines={1}>
@@ -391,7 +394,7 @@ export default function Success() {
                 <AppIcon
                   name={detailsOpen ? 'chevron-down' : 'arrow'}
                   size={16}
-                  color={colors.accent}
+                  color={tc(colors.accent)}
                 />
               </Pressable>
             </Animated.View>
@@ -420,7 +423,7 @@ export default function Success() {
         ) : (
           <>
             <View style={styles.emptyIcon}>
-              <AppIcon name="wallet" color={colors.accent} size={48} />
+              <AppIcon name="wallet" color={tc(colors.accent)} size={48} />
             </View>
             <Text accessibilityRole="header" style={styles.title}>
               No payment completed
@@ -441,7 +444,7 @@ export default function Success() {
         >
           <Text style={styles.buttonText}>Done</Text>
           <View style={styles.buttonArrow}>
-            <AppIcon name="arrow" size={24} color="#ffffff" />
+            <AppIcon name="arrow" size={24} color={tc('#ffffff')} />
           </View>
         </Pressable>
         {payment ? (
@@ -455,7 +458,7 @@ export default function Success() {
               pressed && styles.pressed,
             ]}
           >
-            <AppIcon name="share" size={20} color={colors.accent} />
+            <AppIcon name="share" size={20} color={tc(colors.accent)} />
             <Text style={styles.secondaryText}>
               {receiptShare.busy ? 'Preparing…' : 'Share receipt'}
             </Text>
@@ -476,7 +479,7 @@ export default function Success() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyleSheet({
   screen: { flex: 1, backgroundColor: '#ffffff' },
   topBar: {
     flexDirection: 'row',

@@ -23,7 +23,6 @@ import {
   Button,
   Easing,
   Pressable,
-  StyleSheet,
   Text,
   View,
   type LayoutChangeEvent,
@@ -47,6 +46,8 @@ import {
   UsdcTokenEmblem,
   UsdtTokenEmblem,
 } from '../src/components/payment-logos';
+import { tc, themedStyleSheet } from '../src/theme/themed';
+import { useScheme } from '../src/theme/color-scheme-store';
 
 const REQUEST_TIMEOUT_MS = 10_000;
 const RETRY_DELAY_MS = 1_500;
@@ -560,11 +561,14 @@ function ScannerScreen() {
                     width={17}
                     height={17}
                     rx={2}
-                    stroke="#202124"
+                    stroke={tc('#202124')}
                     strokeWidth={1.8}
                     fill="none"
                   />
-                  <Path d="M6.5 17l3.5-4.5 2.5 3 2-2.5 3 4z" fill="#202124" />
+                  <Path
+                    d="M6.5 17l3.5-4.5 2.5 3 2-2.5 3 4z"
+                    fill={tc('#202124', 'auto')}
+                  />
                 </Svg>
                 <Text style={styles.galleryText}>Upload from gallery</Text>
               </Pressable>
@@ -587,7 +591,7 @@ function ScannerScreen() {
             <Text style={styles.permissionText}>Camera preview</Text>
             <Button
               title="Use sample merchant QR"
-              color="#ffffff"
+              color={tc('#ffffff')}
               onPress={() => {
                 const sample = parseUpiPaymentDraft(SAMPLE_MERCHANT_QR);
                 setPayment({
@@ -600,7 +604,7 @@ function ScannerScreen() {
             />
             <Button
               title="Use sample TravelPe QR"
-              color="#ffffff"
+              color={tc('#ffffff')}
               onPress={() => {
                 const travelPeQr = createTravelPeQr({
                   version: 1,
@@ -692,7 +696,7 @@ function ScannerScreen() {
                 <Svg width={26} height={26} viewBox="0 0 24 24">
                   <Path
                     d="M7 3h10v3.5l-2.5 3.5V21h-5V10L7 6.5z M7 6.5h10 M12 13.5v2.5"
-                    stroke={torchOn ? '#202124' : '#ffffff'}
+                    stroke={tc(torchOn ? '#202124' : '#ffffff')}
                     strokeWidth={1.9}
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -714,13 +718,13 @@ function ScannerScreen() {
               <Svg width={30} height={30} viewBox="0 0 24 24">
                 <Path
                   d="M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z"
-                  stroke="#ffffff"
+                  stroke={tc('#ffffff')}
                   strokeWidth={1.8}
                   fill="none"
                 />
                 <Path
                   d="M5.5 5.5h2v2h-2z M16.5 5.5h2v2h-2z M5.5 16.5h2v2h-2z M14 14h3v3h-3z M18 18h3v3h-3z M18 14h3v2h-3z M14 18h2v3h-2z"
-                  fill="#ffffff"
+                  fill={tc('#ffffff', 'auto')}
                 />
               </Svg>
             </Pressable>
@@ -731,7 +735,7 @@ function ScannerScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyleSheet({
   cameraViewport: { flex: 1, overflow: 'hidden' },
   previewActions: {
     position: 'absolute',
@@ -975,6 +979,8 @@ const styles = StyleSheet.create({
 
 // Paying and receiving need a wallet: Google-only visitors connect one first.
 export default function Scanner() {
+  // Redraw in the new colours when the theme switches.
+  useScheme();
   const needsWallet = useNeedsWallet(useAccount());
   return needsWallet ? (
     <ConnectWalletGate message="Link MetaMask to scan UPI QR codes and pay with your stablecoins." />

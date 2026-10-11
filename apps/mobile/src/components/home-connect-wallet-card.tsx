@@ -1,6 +1,7 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { AppIcon } from './payment-ui';
 import { homeTheme as theme } from '../theme/home';
+import { tc, themedStyleSheet } from '../theme/themed';
 
 /**
  * Stands in for the balance and quick actions on Home when the traveller
@@ -20,7 +21,7 @@ export function HomeConnectWalletCard({
   return (
     <View style={styles.card}>
       <View style={styles.icon}>
-        <AppIcon name="wallet" size={26} color={theme.colors.onBalance} />
+        <AppIcon name="wallet" size={26} color={tc(theme.colors.onBalance)} />
       </View>
       <View style={styles.copy}>
         <Text accessibilityRole="header" style={styles.title}>
@@ -55,13 +56,17 @@ export function HomeConnectWalletCard({
         <Text style={styles.buttonText}>
           {busy ? 'Waiting for MetaMask…' : 'Connect to Wallet'}
         </Text>
-        <AppIcon name="arrow" size={18} color={theme.colors.balanceBottom} />
+        <AppIcon
+          name="arrow"
+          size={18}
+          color={tc(theme.colors.balanceBottom)}
+        />
       </Pressable>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyleSheet({
   card: {
     borderRadius: theme.radius.surface,
     backgroundColor: theme.colors.balanceBottom,

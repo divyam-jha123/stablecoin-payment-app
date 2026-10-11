@@ -1,8 +1,9 @@
 import type { PropsWithChildren } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack } from 'expo-router';
 import Svg, { Path, Rect } from 'react-native-svg';
+import { tc, themedStyleSheet } from '../theme/themed';
 
 export const colors = {
   surface: '#ffffff',
@@ -75,7 +76,7 @@ export function ScanIcon({
     >
       <Path
         d="M3 11V3h8M21 3h8v8M29 21v8h-8M11 29H3v-8"
-        stroke={color}
+        stroke={tc(color)}
         strokeWidth={2}
         fill="none"
         strokeLinecap="round"
@@ -85,14 +86,14 @@ export function ScanIcon({
         y={9}
         width={5}
         height={5}
-        stroke={color}
+        stroke={tc(color)}
         strokeWidth={2}
         fill="none"
       />
-      <Rect x={19} y={9} width={4} height={5} fill={color} />
+      <Rect x={19} y={9} width={4} height={5} fill={tc(color, 'auto')} />
       <Path
         d="M9 19h5v4H9zM19 18v5h5v-3"
-        stroke={color}
+        stroke={tc(color)}
         strokeWidth={2}
         fill="none"
       />
@@ -126,13 +127,20 @@ export function AppIcon({
     | 'share'
     | 'receive'
     | 'chevron-left'
+    | 'chevron-right'
     | 'swap'
     | 'bank'
     | 'check'
     | 'store'
     | 'help'
     | 'retry'
-    | 'lock';
+    | 'lock'
+    | 'card-plus'
+    | 'settings'
+    | 'globe'
+    | 'qr'
+    | 'search'
+    | 'mic';
   color?: string;
   size?: number;
 }) {
@@ -159,6 +167,7 @@ export function AppIcon({
     download: 'M12 3v12 M7 10l5 5 5-5 M4 20h16',
     share: 'M12 16V3 M7 8l5-5 5 5 M4 14v7h16v-7',
     'chevron-left': 'M15 18l-6-6 6-6',
+    'chevron-right': 'M9 6l6 6-6 6',
     swap: 'M4 8h15 M15 4l4 4-4 4 M20 16H5 M9 12l-4 4 4 4',
     bank: 'M3 9l9-5 9 5z M5 10v8 M10 10v8 M14 10v8 M19 10v8 M3 21h18',
     check: 'M5 12.5l4.5 4.5L19 7.5',
@@ -167,6 +176,14 @@ export function AppIcon({
     help: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .8-1 1.5v.4 M12 16.8h.01',
     retry: 'M20 12a8 8 0 1 1-2.34-5.66 M20 4v5h-5',
     lock: 'M6 11h12v10H6z M8.5 11V7.5a3.5 3.5 0 0 1 7 0V11 M12 15v2',
+    'card-plus': 'M14 6H3v13h18v-9 M3 10h18 M6 15h5 M19 2v6 M16 5h6',
+    search: 'M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14z M20 20l-4-4',
+    mic: 'M12 3a3 3 0 0 0-3 3v5a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3z M6 11a6 6 0 0 0 12 0 M12 17v4',
+    settings:
+      'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z',
+    qr: 'M4 4h6v6H4z M14 4h6v6h-6z M4 14h6v6H4z M7 7h.01 M17 7h.01 M7 17h.01 M14 14h2v2h-2z M18 14h2 M14 19v1h2 M18 18h2v2h-2z',
+    globe:
+      'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z M3 12h18 M12 3a14 14 0 0 1 0 18 M12 3a14 14 0 0 0 0 18',
   };
   return (
     <Svg
@@ -178,7 +195,7 @@ export function AppIcon({
     >
       <Path
         d={paths[name]}
-        stroke={color}
+        stroke={tc(color)}
         strokeWidth={2}
         fill="none"
         strokeLinecap="round"
@@ -200,7 +217,7 @@ export function TestNotice() {
   );
 }
 
-export const ui = StyleSheet.create({
+export const ui = themedStyleSheet({
   screen: { flex: 1, backgroundColor: colors.surface },
   content: {
     flexGrow: 1,

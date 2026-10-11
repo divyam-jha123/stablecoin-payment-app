@@ -9,7 +9,6 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   View,
@@ -36,6 +35,8 @@ import {
 import { supportTicketStore } from '../src/features/support/support-ticket-store';
 import { previewDashboardWith } from '../src/preview-data';
 import { uiPreviewEnabled } from '../src/ui-preview';
+import { tc, themedStyleSheet } from '../src/theme/themed';
+import { useScheme } from '../src/theme/color-scheme-store';
 
 const BLUE = '#2f6bff';
 const INK = '#0b0f1f';
@@ -56,7 +57,7 @@ function Glyph({
     <Svg width={size} height={size} viewBox="0 0 24 24">
       <Path
         d={d}
-        stroke={color}
+        stroke={tc(color)}
         strokeWidth={2}
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -75,6 +76,8 @@ function transactionLabel(transaction: TransactionItem) {
 }
 
 export default function SupportTicketScreen() {
+  // Redraw in the new colours when the theme switches.
+  useScheme();
   // Data requests from Terms & Privacy arrive as ?request=export|delete.
   const dataRequest = parseDataRequest(useLocalSearchParams().request);
   const request = dataRequest ? DATA_REQUESTS[dataRequest] : null;
@@ -165,7 +168,7 @@ export default function SupportTicketScreen() {
             onPress={goBack}
             style={({ pressed }) => [styles.back, pressed && styles.pressed]}
           >
-            <Glyph d="M15 18l-6-6 6-6" color={BLUE} size={26} />
+            <Glyph d="M15 18l-6-6 6-6" color={tc(BLUE)} size={26} />
             <Text style={styles.backText}>Back</Text>
           </Pressable>
           <Text accessibilityRole="header" style={styles.title}>
@@ -175,7 +178,7 @@ export default function SupportTicketScreen() {
           {saved ? (
             <View style={styles.done}>
               <View style={styles.doneIcon}>
-                <Glyph d={CHECK} color={GREEN} size={36} />
+                <Glyph d={CHECK} color={tc(GREEN)} size={36} />
               </View>
               <Text style={styles.doneTitle}>Ticket saved</Text>
               <Text selectable style={styles.reference}>
@@ -216,7 +219,7 @@ export default function SupportTicketScreen() {
                 >
                   <Text style={styles.value}>{issueType}</Text>
                   <View style={typesOpen && styles.flip}>
-                    <Glyph d="M6 9l6 6 6-6" color={INK} size={20} />
+                    <Glyph d="M6 9l6 6 6-6" color={tc(INK)} size={20} />
                   </View>
                 </Pressable>
                 {typesOpen
@@ -262,7 +265,7 @@ export default function SupportTicketScreen() {
               >
                 {transaction ? (
                   <View style={styles.checkCircle}>
-                    <Glyph d={CHECK} color={GREEN} size={22} />
+                    <Glyph d={CHECK} color={tc(GREEN)} size={22} />
                   </View>
                 ) : null}
                 <Text
@@ -276,7 +279,7 @@ export default function SupportTicketScreen() {
                       : 'No payments yet'}
                 </Text>
                 {transactions.length ? (
-                  <Glyph d="M9 6l6 6-6 6" color={INK} size={20} />
+                  <Glyph d="M9 6l6 6-6 6" color={tc(INK)} size={20} />
                 ) : null}
               </Pressable>
 
@@ -289,7 +292,7 @@ export default function SupportTicketScreen() {
                   setError(null);
                 }}
                 placeholder="Tell us more about the issue..."
-                placeholderTextColor="#7d8aa3"
+                placeholderTextColor={tc('#7d8aa3')}
                 multiline
                 maxLength={DESCRIPTION_MAX}
                 textAlignVertical="top"
@@ -318,7 +321,11 @@ export default function SupportTicketScreen() {
                       hitSlop={10}
                       onPress={() => setAttachmentUri(null)}
                     >
-                      <Glyph d="M6 6l12 12 M18 6L6 18" color={INK} size={20} />
+                      <Glyph
+                        d="M6 6l12 12 M18 6L6 18"
+                        color={tc(INK)}
+                        size={20}
+                      />
                     </Pressable>
                   </>
                 ) : (
@@ -331,7 +338,11 @@ export default function SupportTicketScreen() {
                     ]}
                   >
                     <View style={styles.plus}>
-                      <Glyph d="M12 5v14 M5 12h14" color="#5b6b85" size={22} />
+                      <Glyph
+                        d="M12 5v14 M5 12h14"
+                        color={tc('#5b6b85')}
+                        size={22}
+                      />
                     </View>
                     <Text style={styles.value}>Add a screenshot</Text>
                   </Pressable>
@@ -350,7 +361,7 @@ export default function SupportTicketScreen() {
                 ]}
               >
                 <Text style={styles.submitText}>Submit Ticket</Text>
-                <Glyph d="M9 6l6 6-6 6" color="#ffffff" size={20} />
+                <Glyph d="M9 6l6 6-6 6" color={tc('#ffffff')} size={20} />
               </Pressable>
             </>
           )}
@@ -397,7 +408,7 @@ export default function SupportTicketScreen() {
                     ) : null}
                   </View>
                   {selected ? (
-                    <Glyph d={CHECK} color={GREEN} size={22} />
+                    <Glyph d={CHECK} color={tc(GREEN)} size={22} />
                   ) : null}
                 </Pressable>
               );
@@ -417,7 +428,7 @@ const shadow = {
   elevation: 1,
 } as const;
 
-const styles = StyleSheet.create({
+const styles = themedStyleSheet({
   screen: { flex: 1, backgroundColor: '#f2f6fc' },
   flex: { flex: 1 },
   content: {

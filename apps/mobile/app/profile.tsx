@@ -1,14 +1,7 @@
 import { useRef, useState } from 'react';
 import { router, Stack } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
-import {
-  Alert,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import { DashboardNav } from '../src/components/dashboard-nav';
@@ -16,6 +9,9 @@ import { AppIcon, colors, TestNotice } from '../src/components/payment-ui';
 import { MetaMaskLogo } from '../src/components/payment-logos';
 import { ProfileAvatar } from '../src/components/profile-avatar';
 import { ProfileBackdrop } from '../src/components/profile-backdrop';
+import { ThemeEmblem } from '../src/components/theme-emblem';
+import { useThemePreferences } from '../src/features/appearance/theme-preferences-store';
+import { THEME_MODE_LABELS } from '../src/features/appearance/theme-preferences';
 import { useAccount } from '../src/features/account/use-account';
 import { walletStore } from '../src/features/account/metamask';
 import { googleAccount } from '../src/features/account/google-account';
@@ -28,6 +24,8 @@ import { logoutSession } from '../src/features/account/session';
 import { useProfileDetails } from '../src/features/account/profile-details-store';
 import { previewWalletAddress } from '../src/preview-data';
 import { uiPreviewEnabled } from '../src/ui-preview';
+import { tc, themedStyleSheet } from '../src/theme/themed';
+import { useScheme } from '../src/theme/color-scheme-store';
 
 type MenuId =
   | 'personal'
@@ -35,6 +33,7 @@ type MenuId =
   | 'tap-to-pay'
   | 'security'
   | 'notifications'
+  | 'theme'
   | 'help'
   | 'terms';
 
@@ -101,6 +100,19 @@ const SECTIONS: readonly {
     ],
   },
   {
+    label: 'Theme & appearance',
+    items: [
+      {
+        id: 'theme',
+        title: 'App Theme',
+        subtitle: 'Light, Dark, and System modes',
+        tint: '#7a4be0',
+        background: '#efe9ff',
+        icon: '',
+      },
+    ],
+  },
+  {
     label: 'Support & legal',
     items: [
       {
@@ -136,7 +148,7 @@ function Glyph({
     <Svg width={size} height={size} viewBox="0 0 24 24">
       <Path
         d={d}
-        stroke={color}
+        stroke={tc(color)}
         strokeWidth={2}
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -149,7 +161,7 @@ function Glyph({
 function Bolt({ color }: { color: string }) {
   return (
     <Svg width={12} height={12} viewBox="0 0 24 24">
-      <Path d="M13 2 3 14h9l-1 8 10-12h-9z" fill={color} />
+      <Path d="M13 2 3 14h9l-1 8 10-12h-9z" fill={tc(color, 'auto')} />
     </Svg>
   );
 }
@@ -163,6 +175,8 @@ function notAvailable(title: string) {
 }
 
 export default function Profile() {
+  // Redraw in the new colours when the theme switches.
+  useScheme();
   const { wallet, onTempo } = useAccount();
   const queryClient = useQueryClient();
   const [leaving, setLeaving] = useState(false);
@@ -249,6 +263,8 @@ export default function Profile() {
         return router.push('/security');
       case 'notifications':
         return router.push('/notifications');
+      case 'theme':
+        return router.push('/theme');
       case 'help':
         return router.push('/help');
       case 'terms':
@@ -257,6 +273,9 @@ export default function Profile() {
         return notAvailable(title);
     }
   }
+
+  const themeMode = THEME_MODE_LABELS[useThemePreferences().mode];
+  const valueFor = (id: MenuId) => (id === 'theme' ? themeMode : null);
 
   const walletLine = walletAddress
     ? `Connected: ${shortAddress(walletAddress)}`
@@ -304,7 +323,7 @@ export default function Profile() {
               >
                 <Glyph
                   d="M4 20h4L19 9l-4-4L4 16z M13.5 6.5l4 4"
-                  color="#ffffff"
+                  color={tc('#ffffff')}
                   size={12}
                 />
               </Pressable>
@@ -321,7 +340,7 @@ export default function Profile() {
                 </Text>
                 {uiPreviewEnabled ? (
                   <View accessibilityLabel="Verified" style={styles.nameBadge}>
-                    <AppIcon name="check" size={12} color="#ffffff" />
+                    <AppIcon name="check" size={12} color={tc('#ffffff')} />
                   </View>
                 ) : null}
               </View>
@@ -331,7 +350,7 @@ export default function Profile() {
               {status ? (
                 <View style={styles.verifiedTag}>
                   <View style={styles.verifiedDot}>
-                    <AppIcon name="check" size={9} color="#ffffff" />
+                    <AppIcon name="check" size={9} color={tc('#ffffff')} />
                   </View>
                   <Text
                     numberOfLines={1}
@@ -344,7 +363,7 @@ export default function Profile() {
                 </View>
               ) : null}
             </View>
-            <Glyph d="M9 6l6 6-6 6" color="#3d4c66" size={22} />
+            <Glyph d="M9 6l6 6-6 6" color={tc('#3d4c66')} size={22} />
           </Pressable>
 
           <Pressable
@@ -368,7 +387,7 @@ export default function Profile() {
             {walletAddress ? (
               walletReady ? (
                 <View style={[styles.pill, styles.gaslessPill]}>
-                  <Bolt color="#178a45" />
+                  <Bolt color={tc('#178a45')} />
                   <Text style={[styles.pillText, styles.gaslessText]}>
                     Gasless Active
                   </Text>
@@ -392,31 +411,49 @@ export default function Profile() {
 
         {SECTIONS.map((section) => (
           <View key={section.label} style={styles.group}>
-            {section.items.map((item, index) => (
-              <Pressable
-                key={item.id}
-                accessibilityRole="button"
-                accessibilityLabel={`${item.title}, ${item.subtitle}`}
-                onPress={() => openItem(item.id, item.title)}
-                style={({ pressed }) => [styles.row, pressed && styles.pressed]}
-              >
-                <View
-                  style={[styles.rowIcon, { backgroundColor: item.background }]}
+            {section.items.map((item, index) => {
+              const value = valueFor(item.id);
+              return (
+                <Pressable
+                  key={item.id}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${item.title}, ${value ? `${value}, ` : ''}${item.subtitle}`}
+                  onPress={() => openItem(item.id, item.title)}
+                  style={({ pressed }) => [
+                    styles.row,
+                    pressed && styles.pressed,
+                  ]}
                 >
-                  <Glyph d={item.icon} color={item.tint} size={24} />
-                </View>
-                <View style={styles.rowCopy}>
-                  {index === 0 ? (
-                    <Text style={styles.groupLabel}>{section.label}</Text>
+                  {item.id === 'theme' ? (
+                    <ThemeEmblem size={48} />
+                  ) : (
+                    <View
+                      style={[
+                        styles.rowIcon,
+                        { backgroundColor: tc(item.background, 'bg') },
+                      ]}
+                    >
+                      <Glyph d={item.icon} color={tc(item.tint)} size={24} />
+                    </View>
+                  )}
+                  <View style={styles.rowCopy}>
+                    {index === 0 ? (
+                      <Text style={styles.groupLabel}>{section.label}</Text>
+                    ) : null}
+                    <Text style={styles.rowTitle}>{item.title}</Text>
+                    <Text numberOfLines={1} style={styles.rowSubtitle}>
+                      {item.subtitle}
+                    </Text>
+                  </View>
+                  {value ? (
+                    <Text numberOfLines={1} style={styles.rowValue}>
+                      {value}
+                    </Text>
                   ) : null}
-                  <Text style={styles.rowTitle}>{item.title}</Text>
-                  <Text numberOfLines={1} style={styles.rowSubtitle}>
-                    {item.subtitle}
-                  </Text>
-                </View>
-                <Glyph d="M9 6l6 6-6 6" color="#3d4c66" size={20} />
-              </Pressable>
-            ))}
+                  <Glyph d="M9 6l6 6-6 6" color={tc('#3d4c66')} size={20} />
+                </Pressable>
+              );
+            })}
           </View>
         ))}
 
@@ -430,7 +467,7 @@ export default function Profile() {
                 style={({ pressed }) => [styles.row, pressed && styles.pressed]}
               >
                 <View style={[styles.rowIcon, styles.dangerIcon]}>
-                  <AppIcon name="person" color={colors.error} size={22} />
+                  <AppIcon name="person" color={tc(colors.error)} size={22} />
                 </View>
                 <View style={styles.rowCopy}>
                   <Text style={[styles.rowTitle, styles.dangerTitle]}>
@@ -454,7 +491,7 @@ export default function Profile() {
                 style={({ pressed }) => [styles.row, pressed && styles.pressed]}
               >
                 <View style={[styles.rowIcon, styles.dangerIcon]}>
-                  <AppIcon name="wallet" color={colors.error} size={22} />
+                  <AppIcon name="wallet" color={tc(colors.error)} size={22} />
                 </View>
                 <View style={styles.rowCopy}>
                   <Text style={[styles.rowTitle, styles.dangerTitle]}>
@@ -484,7 +521,7 @@ export default function Profile() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyleSheet({
   screen: { flex: 1, backgroundColor: '#eef4fe' },
   content: {
     paddingHorizontal: 18,
@@ -647,6 +684,7 @@ const styles = StyleSheet.create({
   rowCopy: { flex: 1, gap: 1 },
   rowTitle: { color: '#000000', fontSize: 17, fontWeight: '700' },
   rowSubtitle: { color: '#3d4c66', fontSize: 14 },
+  rowValue: { color: '#3d4c66', fontSize: 15, marginRight: -8 },
   dangerIcon: { backgroundColor: '#fde8e6' },
   dangerTitle: { color: colors.error },
 });

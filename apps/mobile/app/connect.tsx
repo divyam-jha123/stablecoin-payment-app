@@ -30,6 +30,8 @@ import { pinStore } from '../src/features/account/payment-pin';
 import { pinOwner } from '../src/features/account/pin-owner';
 import { NON_CUSTODIAL_NOTICE } from '../src/features/legal/legal-documents';
 import { uiPreviewEnabled } from '../src/ui-preview';
+import { tc, themedStyleSheet } from '../src/theme/themed';
+import { useScheme } from '../src/theme/color-scheme-store';
 
 // Sample Google identity for the UI preview only; wallet mode uses the real one.
 const PREVIEW_GOOGLE_PROFILE = {
@@ -75,9 +77,13 @@ function GridBackdrop() {
           r={width * 0.9}
           gradientUnits="userSpaceOnUse"
         >
-          <Stop offset="0" stopColor="#0d2f8a" stopOpacity={0.95} />
-          <Stop offset="0.45" stopColor="#0a2266" stopOpacity={0.5} />
-          <Stop offset="1" stopColor="#000000" stopOpacity={0} />
+          <Stop offset="0" stopColor={tc('#0d2f8a', 'bg')} stopOpacity={0.95} />
+          <Stop
+            offset="0.45"
+            stopColor={tc('#0a2266', 'bg')}
+            stopOpacity={0.5}
+          />
+          <Stop offset="1" stopColor={tc('#000000', 'bg')} stopOpacity={0} />
         </RadialGradient>
       </Defs>
       <Rect width={width} height={height} fill="url(#connect-glow)" />
@@ -88,7 +94,7 @@ function GridBackdrop() {
           y1={0}
           x2={x}
           y2={height}
-          stroke="#ffffff"
+          stroke={tc('#ffffff')}
           strokeOpacity={0.1}
           strokeWidth={1}
         />
@@ -100,7 +106,7 @@ function GridBackdrop() {
           y1={y}
           x2={width}
           y2={y}
-          stroke="#ffffff"
+          stroke={tc('#ffffff')}
           strokeOpacity={0.1}
           strokeWidth={1}
         />
@@ -110,6 +116,8 @@ function GridBackdrop() {
 }
 
 export default function Connect() {
+  // Redraw in the new colours when the theme switches.
+  useScheme();
   const insets = useSafeAreaInsets();
   // The hero fills whatever the sheet leaves, so the screen never scrolls;
   // its text shrinks to fit shorter screens.
@@ -227,7 +235,7 @@ export default function Connect() {
           )}
           {busy || checking ? (
             <View style={styles.status}>
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color={tc('#fff')} />
               <Text accessibilityLiveRegion="polite" style={styles.statusText}>
                 {busy ? connectStatusText(stage) : 'Checking your sign-in…'}
               </Text>
@@ -284,7 +292,7 @@ export default function Connect() {
             ]}
           >
             {googleBusy ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color={tc('#fff')} />
             ) : (
               <View style={styles.googleMark}>
                 <GoogleLogo size={18} />
@@ -319,7 +327,7 @@ export default function Connect() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyleSheet({
   screen: { backgroundColor: '#000', flex: 1 },
   content: { flex: 1 },
   wordmark: {

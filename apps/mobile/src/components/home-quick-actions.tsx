@@ -1,7 +1,8 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { AppIcon, ScanIcon } from './payment-ui';
 import type { HomePaymentActions } from './home-balance-card';
 import { homeTheme as theme } from '../theme/home';
+import { tc, themedStyleSheet } from '../theme/themed';
 
 export function HomeQuickActions({
   onScan,
@@ -10,46 +11,45 @@ export function HomeQuickActions({
   onReceive,
   disabled = false,
   fundingDisabled = false,
-  fundingLabel = 'Add Money',
-  fundingHint = 'From bank',
-}: HomePaymentActions & { onScan: () => void; fundingHint?: string }) {
+  fundingLabel = 'Top Up',
+}: HomePaymentActions & { onScan: () => void }) {
   const actions = [
     {
-      title: 'Scan & Pay',
-      hint: 'Pay anywhere',
+      key: 'scan',
+      title: 'Scan\nUPI QR',
       icon: null,
       onPress: onScan,
       disabled,
     },
     {
-      title: 'Send',
-      hint: 'To contacts',
+      key: 'send',
+      title: 'Pay\nUPI ID',
       icon: 'send',
       onPress: onSend,
       disabled,
     },
     {
-      title: 'Receive',
-      hint: 'Get paid',
-      icon: 'person',
+      key: 'receive',
+      title: 'Receive\nPayout',
+      icon: 'download',
       onPress: onReceive,
       disabled,
     },
     {
+      key: 'fund',
       title: fundingLabel,
-      hint: fundingHint,
-      icon: 'wallet',
+      icon: 'card-plus',
       onPress: onAddMoney,
       disabled: disabled || fundingDisabled,
     },
   ] as const;
   return (
     <View style={styles.container}>
-      {actions.map((action, index) => (
+      {actions.map((action) => (
         <Pressable
-          key={action.hint}
+          key={action.key}
           accessibilityRole="button"
-          accessibilityLabel={`${action.title}, ${action.hint}`}
+          accessibilityLabel={action.title.replace('\n', ' ')}
           accessibilityState={{ disabled: action.disabled }}
           disabled={action.disabled}
           onPress={action.onPress}
@@ -59,69 +59,77 @@ export function HomeQuickActions({
             pressed && styles.pressed,
           ]}
         >
-          {index > 0 && <View style={styles.separator} />}
           <View style={[styles.circle, !action.icon && styles.primaryCircle]}>
             {action.icon ? (
               <AppIcon
                 name={action.icon}
-                color={theme.colors.primary}
-                size={25}
+                color={tc(theme.colors.primary)}
+                size={24}
               />
             ) : (
-              <ScanIcon color={theme.colors.onBalance} size={25} />
+              <ScanIcon color={tc(theme.colors.onBalance)} size={24} />
             )}
           </View>
-          <Text style={styles.title}>{action.title}</Text>
-          <Text style={styles.hint}>{action.hint}</Text>
+          <View style={styles.label}>
+            <Text style={styles.title} numberOfLines={2}>
+              {action.title}
+            </Text>
+          </View>
         </Pressable>
       ))}
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyleSheet({
   container: {
     flexDirection: 'row',
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.radius.surface,
-    paddingVertical: theme.spacing.md,
+    gap: theme.spacing.sm,
   },
   action: {
     flex: 1,
     minWidth: 0,
     minHeight: theme.layout.touchTarget,
     alignItems: 'center',
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.radius.surface,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    paddingTop: theme.spacing.md,
+    paddingBottom: theme.spacing.sm,
     paddingHorizontal: theme.spacing.xs,
-  },
-  separator: {
-    position: 'absolute',
-    left: 0,
-    top: theme.spacing.xs,
-    bottom: theme.spacing.lg,
-    width: 1,
-    backgroundColor: theme.colors.border,
+    shadowColor: theme.colors.balanceBottom,
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
   },
   circle: {
-    width: 44,
-    height: 44,
+    width: 48,
+    height: 48,
     borderRadius: theme.radius.pill,
     backgroundColor: theme.colors.actionSurface,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: theme.spacing.xs,
+    marginBottom: theme.spacing.sm,
   },
-  primaryCircle: { backgroundColor: theme.colors.primary },
+  primaryCircle: {
+    backgroundColor: theme.colors.primary,
+    shadowColor: theme.colors.primary,
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
+  },
+  label: {
+    minHeight: 34,
+    justifyContent: 'center',
+  },
   title: {
-    fontSize: 11,
-    lineHeight: 15,
-    fontWeight: '700',
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: '600',
     color: theme.colors.text,
-    textAlign: 'center',
-  },
-  hint: {
-    fontSize: 9,
-    lineHeight: 13,
-    color: theme.colors.muted,
     textAlign: 'center',
   },
   disabled: { opacity: 0.5 },

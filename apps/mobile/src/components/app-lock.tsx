@@ -30,6 +30,7 @@ import {
   hasReturningUser,
 } from '../features/account/returning-user';
 import { SplashBackdrop, SPLASH_DURATION_MS } from './splash-backdrop';
+import { themedStyleSheet } from '../theme/themed';
 
 function pinFailure(check: Exclude<PinCheck, { ok: true }>) {
   if ('lockedUntil' in check) {
@@ -320,7 +321,7 @@ export function AppLock() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyleSheet({
   overlay: {
     ...StyleSheet.absoluteFill,
     zIndex: 1000,

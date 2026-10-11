@@ -6,7 +6,6 @@ import {
   Easing,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   View,
 } from 'react-native';
@@ -25,6 +24,8 @@ import { useLoginActivity } from '../src/features/account/login-activity-store';
 import { pinStore } from '../src/features/account/payment-pin';
 import { pinOwner } from '../src/features/account/pin-owner';
 import { useAccount } from '../src/features/account/use-account';
+import { tc, themedStyleSheet } from '../src/theme/themed';
+import { useScheme } from '../src/theme/color-scheme-store';
 
 const BLUE = '#2f6bff';
 const INK = '#081332';
@@ -78,7 +79,7 @@ function Glyph({
     <Svg width={size} height={size} viewBox="0 0 24 24">
       <Path
         d={d}
-        stroke={color}
+        stroke={tc(color)}
         strokeWidth={strokeWidth}
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -140,7 +141,7 @@ function Stat({
         numberOfLines={1}
         adjustsFontSizeToFit
         minimumFontScale={0.7}
-        style={[styles.statValue, { color: tint }]}
+        style={[styles.statValue, { color: tc(tint) }]}
       >
         {value}
       </Text>
@@ -150,6 +151,8 @@ function Stat({
 }
 
 export default function LoginActivity() {
+  // Redraw in the new colours when the theme switches.
+  useScheme();
   const { wallet } = useAccount();
   const { device, entries } = useLoginActivity(wallet.account?.address);
   const [filter, setFilter] = useState(0);
@@ -202,7 +205,7 @@ export default function LoginActivity() {
           }
           style={({ pressed }) => [styles.back, pressed && styles.pressed]}
         >
-          <Glyph d={ICONS.back} color={INK} size={22} />
+          <Glyph d={ICONS.back} color={tc(INK)} size={22} />
         </Pressable>
         <Text accessibilityRole="header" style={styles.title}>
           Login Activity
@@ -222,7 +225,12 @@ export default function LoginActivity() {
             style={styles.deviceCard}
           >
             <View style={styles.deviceIcon}>
-              <Glyph d={ICONS.phone} color={INK} size={40} strokeWidth={1.8} />
+              <Glyph
+                d={ICONS.phone}
+                color={tc(INK)}
+                size={40}
+                strokeWidth={1.8}
+              />
             </View>
             <View style={styles.deviceCopy}>
               <Text numberOfLines={1} style={styles.deviceName}>
@@ -313,10 +321,14 @@ export default function LoginActivity() {
                           <View
                             style={[
                               styles.entryIcon,
-                              { backgroundColor: look.background },
+                              { backgroundColor: tc(look.background, 'bg') },
                             ]}
                           >
-                            <Glyph d={look.icon} color={look.tint} size={20} />
+                            <Glyph
+                              d={look.icon}
+                              color={tc(look.tint)}
+                              size={20}
+                            />
                           </View>
                           <View style={styles.entryCopy}>
                             <Text style={styles.entryTitle}>
@@ -339,7 +351,7 @@ export default function LoginActivity() {
           ) : (
             <View style={styles.empty}>
               <View style={styles.emptyIcon}>
-                <Glyph d={ICONS.empty} color={BLUE} size={28} />
+                <Glyph d={ICONS.empty} color={tc(BLUE)} size={28} />
               </View>
               <Text style={styles.emptyTitle}>No activity yet</Text>
               <Text style={styles.emptyText}>
@@ -353,7 +365,7 @@ export default function LoginActivity() {
           <View style={styles.alertCard}>
             <View style={styles.alertHead}>
               <View style={styles.alertIcon}>
-                <Glyph d={ICONS.alert} color="#b45309" size={20} />
+                <Glyph d={ICONS.alert} color={tc('#b45309')} size={20} />
               </View>
               <View style={styles.entryCopy}>
                 <Text style={styles.alertTitle}>
@@ -379,7 +391,7 @@ export default function LoginActivity() {
         </Reveal>
 
         <View style={styles.footer}>
-          <Glyph d={ICONS.lock} color={colors.muted} size={14} />
+          <Glyph d={ICONS.lock} color={tc(colors.muted)} size={14} />
           <Text style={styles.footerText}>
             Activity is kept on this phone only and never shared.
           </Text>
@@ -389,7 +401,7 @@ export default function LoginActivity() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyleSheet({
   screen: { flex: 1, backgroundColor: '#ffffff' },
   pressed: { opacity: 0.7 },
   header: {

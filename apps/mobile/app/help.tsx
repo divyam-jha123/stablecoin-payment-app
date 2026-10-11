@@ -1,18 +1,13 @@
 import { useState } from 'react';
 import { router, Stack } from 'expo-router';
-import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import { DashboardNav } from '../src/components/dashboard-nav';
 import { colors } from '../src/components/payment-ui';
 import { findFaqs, type HelpTopic } from '../src/features/support/support';
+import { tc, themedStyleSheet } from '../src/theme/themed';
+import { useScheme } from '../src/theme/color-scheme-store';
 
 const BLUE = '#2f6bff';
 const INK = '#0b0f1f';
@@ -69,7 +64,7 @@ function Glyph({
     <Svg width={size} height={size} viewBox="0 0 24 24">
       <Path
         d={d}
-        stroke={color}
+        stroke={tc(color)}
         strokeWidth={2}
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -80,6 +75,8 @@ function Glyph({
 }
 
 export default function Help() {
+  // Redraw in the new colours when the theme switches.
+  useScheme();
   const [search, setSearch] = useState('');
   const [topic, setTopic] = useState<HelpTopic | null>(null);
   const [openFaq, setOpenFaq] = useState<string | null>(null);
@@ -101,7 +98,7 @@ export default function Help() {
           }
           style={({ pressed }) => [styles.back, pressed && styles.pressed]}
         >
-          <Glyph d="M15 18l-6-6 6-6" color={BLUE} size={28} />
+          <Glyph d="M15 18l-6-6 6-6" color={tc(BLUE)} size={28} />
         </Pressable>
         <Text accessibilityRole="header" style={styles.title}>
           Help & Support
@@ -110,7 +107,7 @@ export default function Help() {
         <View style={styles.search}>
           <Glyph
             d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14z M20 20l-4-4"
-            color="#6b778c"
+            color={tc('#6b778c')}
             size={20}
           />
           <TextInput
@@ -118,7 +115,7 @@ export default function Help() {
             value={search}
             onChangeText={setSearch}
             placeholder="Search for help, FAQs..."
-            placeholderTextColor="#7d8aa3"
+            placeholderTextColor={tc('#7d8aa3')}
             returnKeyType="search"
             maxLength={80}
             style={styles.searchInput}
@@ -130,7 +127,11 @@ export default function Help() {
               hitSlop={10}
               onPress={() => setSearch('')}
             >
-              <Glyph d="M6 6l12 12 M18 6L6 18" color="#6b778c" size={18} />
+              <Glyph
+                d="M6 6l12 12 M18 6L6 18"
+                color={tc('#6b778c')}
+                size={18}
+              />
             </Pressable>
           ) : null}
         </View>
@@ -158,10 +159,10 @@ export default function Help() {
                 <View
                   style={[
                     styles.tileIcon,
-                    { backgroundColor: item.background },
+                    { backgroundColor: tc(item.background, 'bg') },
                   ]}
                 >
-                  <Glyph d={item.icon} color={item.tint} size={24} />
+                  <Glyph d={item.icon} color={tc(item.tint)} size={24} />
                 </View>
                 <Text style={styles.tileText}>{item.title}</Text>
               </Pressable>
@@ -188,7 +189,7 @@ export default function Help() {
                   <View style={styles.faqRow}>
                     <Text style={styles.question}>{faq.question}</Text>
                     <View style={open && styles.chevronOpen}>
-                      <Glyph d={CHEVRON} color={INK} size={20} />
+                      <Glyph d={CHEVRON} color={tc(INK)} size={20} />
                     </View>
                   </View>
                   {open ? (
@@ -223,11 +224,14 @@ export default function Help() {
               ]}
             >
               <View
-                style={[styles.contactIcon, { backgroundColor: '#e3edff' }]}
+                style={[
+                  styles.contactIcon,
+                  { backgroundColor: tc('#e3edff', 'bg') },
+                ]}
               >
                 <Glyph
                   d="M4 5h11v8H8l-4 3z M9 16v1h7l4 3V9h-3"
-                  color={BLUE}
+                  color={tc(BLUE)}
                   size={20}
                 />
               </View>
@@ -245,11 +249,14 @@ export default function Help() {
               ]}
             >
               <View
-                style={[styles.contactIcon, { backgroundColor: '#fff1d6' }]}
+                style={[
+                  styles.contactIcon,
+                  { backgroundColor: tc('#fff1d6', 'bg') },
+                ]}
               >
                 <Glyph
                   d="M12 20h8 M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"
-                  color="#e08a00"
+                  color={tc('#e08a00')}
                   size={20}
                 />
               </View>
@@ -274,7 +281,7 @@ const card = {
   elevation: 1,
 } as const;
 
-const styles = StyleSheet.create({
+const styles = themedStyleSheet({
   screen: { flex: 1, backgroundColor: '#f2f6fc' },
   content: {
     paddingHorizontal: 20,

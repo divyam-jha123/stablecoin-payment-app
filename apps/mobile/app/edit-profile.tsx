@@ -34,6 +34,8 @@ import {
   profileOwner,
   profileStore,
 } from '../src/features/account/profile-details-store';
+import { tc, themedStyleSheet } from '../src/theme/themed';
+import { useScheme } from '../src/theme/color-scheme-store';
 
 const BLUE = '#1f6feb';
 
@@ -71,7 +73,7 @@ function Glyph({
     <Svg width={size} height={size} viewBox="0 0 24 24">
       <Path
         d={ICONS[name]}
-        stroke={color}
+        stroke={tc(color)}
         strokeWidth={strokeWidth}
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -94,7 +96,7 @@ type FieldIcon = keyof typeof TONES;
 function inputStyle(icon: FieldIcon, active: boolean) {
   return [
     styles.input,
-    active && { borderColor: TONES[icon].tint, borderWidth: 2 },
+    active && { borderColor: tc(TONES[icon].tint, 'border'), borderWidth: 2 },
   ];
 }
 
@@ -112,8 +114,13 @@ function Field({
   const tone = TONES[icon];
   return (
     <View style={styles.field}>
-      <View style={[styles.fieldIcon, { backgroundColor: tone.background }]}>
-        <Glyph name={icon} color={tone.tint} size={26} strokeWidth={2.2} />
+      <View
+        style={[
+          styles.fieldIcon,
+          { backgroundColor: tc(tone.background, 'bg') },
+        ]}
+      >
+        <Glyph name={icon} color={tc(tone.tint)} size={26} strokeWidth={2.2} />
       </View>
       <View style={styles.fieldBody}>
         <Text style={styles.fieldLabel}>{label}</Text>
@@ -242,10 +249,10 @@ function PhotoOptionsSheet({
               <View
                 style={[
                   styles.actionIcon,
-                  { backgroundColor: item.background },
+                  { backgroundColor: tc(item.background, 'bg') },
                 ]}
               >
-                <Glyph name={item.icon} color={item.tint} size={18} />
+                <Glyph name={item.icon} color={tc(item.tint)} size={18} />
               </View>
               <Text
                 style={[
@@ -310,6 +317,8 @@ function OptionList<T extends string | number>({
 }
 
 export default function EditProfile() {
+  // Redraw in the new colours when the theme switches.
+  useScheme();
   const { wallet } = useAccount();
   const owner = profileOwner(wallet.account?.address);
   const saved = useMemo(
@@ -417,7 +426,7 @@ export default function EditProfile() {
               }
               style={({ pressed }) => [styles.back, pressed && styles.pressed]}
             >
-              <Glyph name="chevronLeft" color={colors.ink} size={24} />
+              <Glyph name="chevronLeft" color={tc(colors.ink)} size={24} />
             </Pressable>
             <Text accessibilityRole="header" style={styles.title}>
               Edit Profile
@@ -450,7 +459,12 @@ export default function EditProfile() {
                   <View
                     style={[
                       styles.avatarFallback,
-                      { backgroundColor: profileAvatarColor(draft.name) },
+                      {
+                        backgroundColor: tc(
+                          profileAvatarColor(draft.name),
+                          'bg',
+                        ),
+                      },
                     ]}
                   >
                     <Text style={styles.avatarInitial}>{initial}</Text>
@@ -471,7 +485,7 @@ export default function EditProfile() {
                   pressed && styles.pressed,
                 ]}
               >
-                <Glyph name="camera" color="#ffffff" size={22} />
+                <Glyph name="camera" color={tc('#ffffff')} size={22} />
               </Pressable>
             </View>
           </View>
@@ -490,8 +504,8 @@ export default function EditProfile() {
               autoComplete="name"
               textContentType="name"
               placeholder="Your full name"
-              placeholderTextColor="#9aa6ba"
-              selectionColor={TONES.person.tint}
+              placeholderTextColor={tc('#9aa6ba')}
+              selectionColor={tc(TONES.person.tint)}
               {...focusProps('person')}
               style={inputStyle('person', focused === 'person')}
             />
@@ -517,7 +531,7 @@ export default function EditProfile() {
                 <Text numberOfLines={1} style={styles.inputText}>
                   {draft.email}
                 </Text>
-                <Glyph name="lock" color="#7d8aa3" size={22} />
+                <Glyph name="lock" color={tc('#7d8aa3')} size={22} />
               </Pressable>
             ) : (
               <TextInput
@@ -529,8 +543,8 @@ export default function EditProfile() {
                 autoComplete="email"
                 textContentType="emailAddress"
                 placeholder="name@example.com"
-                placeholderTextColor="#9aa6ba"
-                selectionColor={TONES.mail.tint}
+                placeholderTextColor={tc('#9aa6ba')}
+                selectionColor={tc(TONES.mail.tint)}
                 {...focusProps('mail')}
                 style={inputStyle('mail', focused === 'mail')}
               />
@@ -559,7 +573,11 @@ export default function EditProfile() {
               >
                 {formatDateOfBirth(draft.dateOfBirth) || 'Select date'}
               </Text>
-              <Glyph name="chevronDown" color={TONES.calendar.tint} size={22} />
+              <Glyph
+                name="chevronDown"
+                color={tc(TONES.calendar.tint)}
+                size={22}
+              />
             </Pressable>
           </Field>
 
@@ -574,7 +592,7 @@ export default function EditProfile() {
               ]}
             >
               <Text style={styles.inputText}>{draft.country}</Text>
-              <Glyph name="chevronDown" color={TONES.pin.tint} size={22} />
+              <Glyph name="chevronDown" color={tc(TONES.pin.tint)} size={22} />
             </Pressable>
           </Field>
         </ScrollView>
@@ -593,7 +611,7 @@ export default function EditProfile() {
           >
             <Text style={styles.saveText}>Save Changes</Text>
             <View style={styles.saveArrow}>
-              <Glyph name="arrow" color="#ffffff" size={24} />
+              <Glyph name="arrow" color={tc('#ffffff')} size={24} />
             </View>
           </Pressable>
         </View>
@@ -657,7 +675,7 @@ export default function EditProfile() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyleSheet({
   flex: { flex: 1 },
   screen: { flex: 1, backgroundColor: '#f5f8fd' },
   content: { paddingHorizontal: 20, paddingBottom: 20, gap: 18 },

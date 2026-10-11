@@ -1,12 +1,5 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Fragment, useState, useSyncExternalStore } from 'react';
 import Svg, { Path } from 'react-native-svg';
@@ -21,6 +14,8 @@ import { useSimulatedPayments } from '../src/features/payment/simulated-payment-
 import { type TransactionItem } from '../src/features/payment/simulated-payments';
 import { activityItems } from '../src/features/payment/received-transfers';
 import { useReceivedTransfers } from '../src/features/payment/received-transfers-store';
+import { tc, themedStyleSheet } from '../src/theme/themed';
+import { useScheme } from '../src/theme/color-scheme-store';
 
 const filters = ['All', 'Sent', 'Received', 'Travel', 'Bills'];
 
@@ -37,6 +32,8 @@ function groupByDay(transactions: readonly TransactionItem[]) {
 }
 
 export default function Activity() {
+  // Redraw in the new colours when the theme switches.
+  useScheme();
   // Opened from a notification, it can start on a filter such as Received.
   const params = useLocalSearchParams<{ filter?: string | string[] }>();
   const initialFilter = Array.isArray(params.filter)
@@ -97,7 +94,7 @@ export default function Activity() {
             <Svg width={22} height={22} viewBox="0 0 24 24">
               <Path
                 d="M4 5h16l-6 7.5V18l-4 2v-7.5z"
-                stroke={colors.ink}
+                stroke={tc(colors.ink)}
                 strokeWidth={2}
                 strokeLinejoin="round"
                 fill="none"
@@ -108,7 +105,7 @@ export default function Activity() {
         <TextInput
           accessibilityLabel="Search transactions"
           placeholder="Search by name, category or amount"
-          placeholderTextColor={colors.muted}
+          placeholderTextColor={tc(colors.muted)}
           value={search}
           onChangeText={setSearch}
           style={styles.search}
@@ -168,7 +165,7 @@ export default function Activity() {
         ) : (
           <View style={styles.empty}>
             <View style={styles.emptyIcon}>
-              <AppIcon name="activity" color={colors.accent} size={34} />
+              <AppIcon name="activity" color={tc(colors.accent)} size={34} />
             </View>
             <Text style={styles.emptyTitle}>
               {search || source.length > 0
@@ -193,7 +190,7 @@ export default function Activity() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyleSheet({
   screen: { flex: 1, backgroundColor: '#fff' },
   content: { paddingHorizontal: 24, paddingTop: 14, gap: 20, flexGrow: 1 },
   header: {
