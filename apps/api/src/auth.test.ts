@@ -1,10 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 import {
+  cleanDeviceName,
   clearAuthState,
   configureAuth,
   createChallenge,
   getSession,
+  listDevices,
+  revokeDevice,
   revokeSession,
   verifyChallenge,
 } from './auth.js';
@@ -154,5 +157,81 @@ describe('stateless wallet sessions', () => {
     expect(() => configureAuth({ sessionSecret: 'short' })).toThrow(
       'at least 32',
     );
+  });
+});
+
+describe('authorized devices', () => {
+  beforeEach(() => {
+    configureAuth({ sessionSecret: secret });
+    clearAuthState();
+  });
+
+  async function signInOn(device: unknown) {
+    const { challenge, signature } = await signIn();
+    return verifyChallenge(account.address, challenge.nonce, signature, device);
+  }
+
+  it('lists each signed-in device and marks which session is which', async () => {
+    const pixel = await signInOn('Google Pixel 8');
+    const iphone = await signInOn('iPhone');
+    const listed = listDevices(account.address);
+
+    expect(listed.map((entry) => entry.device).sort()).toEqual([
+      'Google Pixel 8',
+      'iPhone',
+    ]);
+    expect(getSession(`Bearer ${pixel.token}`)?.sid).toBe(
+      listed.find((entry) => entry.device === 'Google Pixel 8')?.id,
+    );
+    expect(getSession(`Bearer ${iphone.token}`)?.sid).toBe(
+      listed.find((entry) => entry.device === 'iPhone')?.id,
+    );
+  });
+
+  it('signs out only the removed device', async () => {
+    const kept = await signInOn('Google Pixel 8');
+    const removed = await signInOn('iPhone');
+    const id = getSession(`Bearer ${removed.token}`)!.sid!;
+
+    expect(revokeDevice(account.address, id)).toBe(true);
+    expect(getSession(`Bearer ${removed.token}`)).toBeNull();
+    expect(getSession(`Bearer ${kept.token}`)).not.toBeNull();
+    expect(listDevices(account.address).map((entry) => entry.device)).toEqual([
+      'Google Pixel 8',
+    ]);
+  });
+
+  it("refuses to remove another wallet's device or an unknown id", async () => {
+    const session = await signInOn('iPhone');
+    const id = getSession(`Bearer ${session.token}`)!.sid!;
+    const other = privateKeyToAccount(generatePrivateKey()).address;
+
+    expect(revokeDevice(other, id)).toBe(false);
+    expect(revokeDevice(account.address, 'missing')).toBe(false);
+    expect(getSession(`Bearer ${session.token}`)).not.toBeNull();
+  });
+
+  it('lists a device again after a restart once its session is checked', async () => {
+    const session = await signInOn('iPhone');
+    clearAuthState();
+    expect(listDevices(account.address)).toEqual([]);
+
+    getSession(`Bearer ${session.token}`);
+    expect(listDevices(account.address).map((entry) => entry.device)).toEqual([
+      'iPhone',
+    ]);
+  });
+
+  it('drops a device from the list on logout', async () => {
+    const session = await signInOn('iPhone');
+    revokeSession(`Bearer ${session.token}`);
+    expect(listDevices(account.address)).toEqual([]);
+  });
+
+  it('keeps device names short and printable', () => {
+    expect(cleanDeviceName('  Pixel\n\u0007 8  ')).toBe('Pixel 8');
+    expect(cleanDeviceName('x'.repeat(200))).toHaveLength(60);
+    expect(cleanDeviceName(42)).toBe('Unknown device');
+    expect(cleanDeviceName('   ')).toBe('Unknown device');
   });
 });

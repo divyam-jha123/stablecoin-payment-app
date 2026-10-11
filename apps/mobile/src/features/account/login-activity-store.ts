@@ -1,5 +1,4 @@
 import { useSyncExternalStore } from 'react';
-import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { uiPreviewEnabled } from '../../ui-preview';
 import { previewLoginActivity, previewLoginDevice } from '../../preview-data';
@@ -9,34 +8,12 @@ import {
   type LoginActivityEntry,
   type LoginActivityKind,
 } from './login-activity';
+import { thisDevice } from './device-name';
+
+export { thisDevice };
 
 export const loginActivityStore = createLoginActivityStore(AsyncStorage);
 void loginActivityStore.hydrate();
-
-function titleCase(value: string) {
-  return value ? value[0]!.toUpperCase() + value.slice(1) : value;
-}
-
-/** This phone's model and OS, such as "Google Pixel 8" and "Android 15". */
-export function thisDevice() {
-  if (Platform.OS === 'android') {
-    const { Brand, Model, Release } = Platform.constants;
-    const brand = titleCase(Brand ?? '');
-    const model = Model ?? 'Android phone';
-    return {
-      name: model.toLowerCase().startsWith(brand.toLowerCase())
-        ? model
-        : `${brand} ${model}`.trim(),
-      detail: `Android ${Release}`,
-    };
-  }
-  if (Platform.OS === 'ios')
-    return {
-      name: Platform.isPad ? 'iPad' : 'iPhone',
-      detail: `iOS ${Platform.Version}`,
-    };
-  return { name: 'This device', detail: Platform.OS };
-}
 
 /**
  * Notes a sign-in event for the signed-in wallet, or `address` when given.

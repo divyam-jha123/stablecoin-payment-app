@@ -6,6 +6,7 @@ import {
   type TransactionItem,
 } from './features/payment/simulated-payments';
 import type { LoginActivityEntry } from './features/account/login-activity';
+import type { AuthorizedDevice } from './features/account/session';
 import {
   buildNotifications,
   type AppNotification,
@@ -214,6 +215,31 @@ export const previewLoginDevice = {
 
 const previewMinute = 60_000;
 const previewNow = Date.now();
+
+/** Sample signed-in devices for Manage Authorized Devices in the UI preview. */
+export const previewAuthorizedDevices: readonly AuthorizedDevice[] = [
+  {
+    id: 'preview-this',
+    device: previewLoginDevice.name,
+    signedInAt: previewNow - 6 * 24 * 60 * previewMinute,
+    lastSeenAt: previewNow - 2 * previewMinute,
+    current: true,
+  },
+  {
+    id: 'preview-galaxy',
+    device: 'Samsung Galaxy S25',
+    signedInAt: previewNow - 3 * 24 * 60 * previewMinute,
+    lastSeenAt: previewNow - 5 * 60 * previewMinute,
+    current: false,
+  },
+  {
+    id: 'preview-ipad',
+    device: 'iPad',
+    signedInAt: previewNow - 5 * 24 * 60 * previewMinute,
+    lastSeenAt: previewNow - 2 * 24 * 60 * previewMinute,
+    current: false,
+  },
+];
 export const previewLoginActivity: readonly LoginActivityEntry[] = (
   [
     ['unlock', 2],

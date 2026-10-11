@@ -3,6 +3,8 @@ import { sendError, sendJson } from './http/responses.js';
 import { handleQrParse } from './routes/qr.js';
 import {
   handleAuthChallenge,
+  handleAuthDeviceRevoke,
+  handleAuthDevices,
   handleAuthLogout,
   handleAuthSession,
   handleAuthVerify,
@@ -84,6 +86,28 @@ export async function handleApiRequest(
       return;
     }
     handleAuthLogout(request, response);
+    return;
+  }
+
+  if (pathname === '/v1/auth/devices') {
+    if (request.method !== 'GET') {
+      sendError(response, 405, 'METHOD_NOT_ALLOWED', 'Method not allowed', {
+        Allow: 'GET',
+      });
+      return;
+    }
+    handleAuthDevices(request, response);
+    return;
+  }
+
+  if (pathname === '/v1/auth/devices/revoke') {
+    if (request.method !== 'POST') {
+      sendError(response, 405, 'METHOD_NOT_ALLOWED', 'Method not allowed', {
+        Allow: 'POST',
+      });
+      return;
+    }
+    await handleAuthDeviceRevoke(request, response);
     return;
   }
 
