@@ -18,6 +18,7 @@ function fixture({
   code = '0xef',
   amount = 1234567n,
   hashes = [hash] as unknown,
+  receiptStatus = '0x1',
 } = {}) {
   const request = vi.fn(
     async ({
@@ -30,6 +31,24 @@ function fixture({
       if (method === 'eth_chainId') return chain;
       if (method === 'eth_getCode') return code;
       if (method === 'tempo_fundAddress') return hashes;
+      if (method === 'eth_blockNumber') return '0x2';
+      if (method === 'eth_getTransactionReceipt')
+        return {
+          blockHash: `0x${'b'.repeat(64)}`,
+          blockNumber: '0x1',
+          contractAddress: null,
+          cumulativeGasUsed: '0x0',
+          effectiveGasPrice: '0x0',
+          from: address,
+          gasUsed: '0x0',
+          logs: [],
+          logsBloom: `0x${'0'.repeat(512)}`,
+          status: receiptStatus,
+          to: address,
+          transactionHash: params?.[0],
+          transactionIndex: '0x0',
+          type: '0x0',
+        };
       if (method === 'eth_call') {
         const call = params?.[0] as { data: string; to: string };
         expect(call.to.toLowerCase()).toBe(
@@ -121,6 +140,22 @@ describe('Tempo testnet balance and faucet', () => {
         .map(([call]) => call)
         .filter((call) => call.method === 'tempo_fundAddress'),
     ).toEqual([{ method: 'tempo_fundAddress', params: [address] }]);
+  });
+  it('waits for the faucet mints before reporting them', async () => {
+    const { service, request } = fixture();
+    await service.fund(address);
+    expect(
+      request.mock.calls.some(
+        ([call]) =>
+          call.method === 'eth_getTransactionReceipt' &&
+          call.params?.[0] === hash,
+      ),
+    ).toBe(true);
+  });
+  it('reports a reverted faucet mint as a failure', async () => {
+    await expect(
+      fixture({ receiptStatus: '0x0' }).service.fund(address),
+    ).rejects.toThrow(/faucet transaction failed/);
   });
   it.each([[], ['bad'], null])(
     'does not report malformed faucet results as accepted: %j',

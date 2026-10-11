@@ -27,7 +27,13 @@ import {
 } from '../src/components/payment-logos';
 import type { Address } from 'viem';
 import { walletStore } from '../src/features/account/metamask';
+import { tempoService } from '../src/features/account/tempo';
 import { simulatedPaymentStore } from '../src/features/payment/simulated-payment-store';
+import { paymentsForAddress } from '../src/features/payment/simulated-payments';
+import {
+  NOT_ENOUGH_TEST_FUNDS,
+  testFundsCheck,
+} from '../src/features/payment/test-funds';
 import { payOnChain } from '../src/features/payment/pay-onchain';
 import { walletError } from '../src/features/account/wallet-store';
 import { uiPreviewEnabled } from '../src/ui-preview';
@@ -646,25 +652,33 @@ export default function Processing() {
   // stay simulated. INR settlement is always simulated. Paying another
   // TravelPe user always moves pathUSD wallet to wallet, whatever token was
   // picked, so the balance shown on both phones changes.
-  const transfer = useRef<{ reference: string; hash: Promise<string> }>(
-    undefined,
-  );
+  // Every wallet-mode payment, simulated or not, first checks the wallet's
+  // test funds; retries and repeat payments reach here without Confirm.
+  const transfer = useRef<{
+    reference: string | undefined;
+    hash: Promise<string | undefined>;
+  }>(undefined);
   useEffect(() => {
     const owner = walletStore.getSnapshot().account?.address;
-    if (
-      !approved() ||
-      uiPreviewEnabled ||
-      (symbol !== 'pathUSD' && !recipientAddress) ||
-      !owner ||
-      transfer.current
-    )
-      return;
-    const reference = `TRV${Date.now().toString().slice(-12)}`;
-    const hash = payOnChain({
-      owner,
-      inrAmount,
-      reference,
-      ...(recipientAddress ? { recipient: recipientAddress } : {}),
+    if (!approved() || uiPreviewEnabled || !owner || transfer.current) return;
+    const onChain = symbol === 'pathUSD' || Boolean(recipientAddress);
+    const reference = onChain
+      ? `TRV${Date.now().toString().slice(-12)}`
+      : undefined;
+    const hash = tempoService.balance(owner).then((balance) => {
+      const payments = paymentsForAddress(
+        simulatedPaymentStore.getSnapshot(),
+        owner,
+      );
+      if (!testFundsCheck(balance, payments, inrAmount).enough)
+        throw new Error(NOT_ENOUGH_TEST_FUNDS);
+      if (!reference) return undefined;
+      return payOnChain({
+        owner,
+        inrAmount,
+        reference,
+        ...(recipientAddress ? { recipient: recipientAddress } : {}),
+      });
     });
     hash.catch(() => undefined);
     transfer.current = { reference, hash };
