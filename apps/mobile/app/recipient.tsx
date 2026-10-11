@@ -12,7 +12,6 @@ import Svg, { Circle } from 'react-native-svg';
 import * as Clipboard from 'expo-clipboard';
 import { vpaSchema } from '@traveller/shared';
 import { AppIcon, colors } from '../src/components/payment-ui';
-import { DashboardNav } from '../src/components/dashboard-nav';
 import { RecipientDetailsSheet } from '../src/components/recipient-details-sheet';
 import { RecipientAvatar } from '../src/components/recipient-avatar';
 import { homeTheme } from '../src/theme/home';
@@ -261,12 +260,32 @@ export default function Recipient() {
             </Text>
           </View>
         )}
+      </ScrollView>
+
+      <View style={styles.footer}>
         <Text style={styles.disclosure}>
           {uiPreviewEnabled
             ? 'Sample data for design preview only. No funds moved.'
             : 'INR settlement is simulated. Receipts show the Tempo testnet debit.'}
         </Text>
-      </ScrollView>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityHint={
+            vpa
+              ? `Enter an amount to pay ${vpa}`
+              : 'Opens the scanner to scan their QR'
+          }
+          disabled={!name}
+          onPress={pay}
+          style={({ pressed }) => [
+            styles.payButton,
+            !name && styles.disabled,
+            pressed && styles.pressed,
+          ]}
+        >
+          <Text style={styles.payLabel}>Pay</Text>
+        </Pressable>
+      </View>
 
       <RecipientDetailsSheet
         visible={detailsOpen}
@@ -282,9 +301,6 @@ export default function Recipient() {
         }}
         onClose={() => setDetailsOpen(false)}
       />
-      <View style={styles.navArea}>
-        <DashboardNav current="/payments" floating />
-      </View>
     </SafeAreaView>
   );
 }
@@ -390,9 +406,24 @@ const styles = themedStyleSheet({
     lineHeight: 18,
     textAlign: 'center',
   },
-  navArea: {
-    backgroundColor: homeTheme.colors.background,
+  footer: {
+    width: '100%',
+    maxWidth: homeTheme.layout.maxWidth,
+    alignSelf: 'center',
+    borderTopWidth: 1,
+    borderTopColor: homeTheme.colors.border,
     paddingHorizontal: homeTheme.layout.pageGutter,
-    paddingBottom: homeTheme.spacing.sm,
+    paddingTop: 10,
+    paddingBottom: 8,
+    gap: 8,
   },
+  payButton: {
+    minHeight: 54,
+    borderRadius: homeTheme.radius.pill,
+    backgroundColor: homeTheme.colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  payLabel: { color: '#ffffff', fontSize: 17, fontWeight: '700' },
+  disabled: { opacity: 0.5 },
 });
