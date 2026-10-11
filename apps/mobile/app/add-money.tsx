@@ -1,19 +1,17 @@
 import { useState } from 'react';
 import { router, Stack } from 'expo-router';
-import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppIcon, colors } from '../src/components/payment-ui';
-import { ILLUSTRATIVE_INR_PER_PATH_USD } from '../src/features/payment/amount';
+import {
+  ADD_MONEY_CURRENCIES,
+  addMoneyReceive,
+  type AddMoneyCurrency,
+} from '../src/features/payment/add-money-currency';
+import { tc, themedStyleSheet } from '../src/theme/themed';
+import { useScheme } from '../src/theme/color-scheme-store';
 
 const presets = [1000, 2000, 5000, 10000];
-const illustrativeRate = Number(ILLUSTRATIVE_INR_PER_PATH_USD);
 const methods = [
   { name: 'Bank Account', subtitle: 'UPI / Net Banking', icon: 'home' },
   {
@@ -29,13 +27,13 @@ const methods = [
 ] as const;
 
 export default function AddMoney() {
+  // Redraw in the new colours when the theme switches.
+  useScheme();
   const [amount, setAmount] = useState('5000');
   const [method, setMethod] = useState('Bank Account');
+  const [currency, setCurrency] = useState<AddMoneyCurrency>('USDC');
   const parsed = Number(amount);
-  const estimate =
-    Number.isFinite(parsed) && parsed > 0
-      ? (parsed / illustrativeRate).toFixed(2)
-      : '0.00';
+  const receive = addMoneyReceive(parsed, currency);
   return (
     <SafeAreaView style={styles.screen}>
       <Stack.Screen options={{ headerShown: false }} />
@@ -61,16 +59,33 @@ export default function AddMoney() {
           Design preview · fiat funding is not available
         </Text>
         <Text style={styles.sectionTitle}>Choose Currency</Text>
-        <View style={styles.currencies}>
-          <View style={styles.currencyActive}>
-            <Text style={styles.currencyActiveText}>◉ pathUSD</Text>
-          </View>
-          <View style={styles.currency}>
-            <Text style={styles.currencyText}>USDT</Text>
-          </View>
-          <View style={styles.currency}>
-            <Text style={styles.currencyText}>INR</Text>
-          </View>
+        <View accessibilityRole="radiogroup" style={styles.currencies}>
+          {ADD_MONEY_CURRENCIES.map((item) => {
+            const selected = currency === item;
+            return (
+              <Pressable
+                key={item}
+                accessibilityRole="radio"
+                accessibilityState={{ checked: selected }}
+                accessibilityLabel={item === 'INR' ? 'Indian Rupees' : item}
+                onPress={() => setCurrency(item)}
+                style={({ pressed }) => [
+                  styles.currency,
+                  selected && styles.currencyActive,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.currencyText,
+                    selected && styles.currencyActiveText,
+                  ]}
+                >
+                  {selected ? `◉ ${item}` : item}
+                </Text>
+              </Pressable>
+            );
+          })}
         </View>
         <View style={styles.presets}>
           {presets.map((value) => (
@@ -87,26 +102,31 @@ export default function AddMoney() {
               <Text style={styles.presetAmount}>
                 ₹{value.toLocaleString('en-IN')}
               </Text>
-              <Text style={styles.presetEstimate}>
-                {(value / illustrativeRate).toFixed(2)} pathUSD
+              <Text style={styles.presetEstimate} numberOfLines={1}>
+                {currency === 'INR' ? 'INR' : addMoneyReceive(value, currency)}
               </Text>
             </Pressable>
           ))}
         </View>
         <Text style={styles.sectionTitle}>Or enter amount</Text>
         <View style={styles.amountCard}>
-          <Text style={styles.rupee}>₹</Text>
-          <TextInput
-            accessibilityLabel="Amount in Indian rupees"
-            keyboardType="decimal-pad"
-            value={amount}
-            onChangeText={setAmount}
-            style={styles.amountInput}
-            placeholder="0"
-          />
-          <Text style={styles.currencyCode}>INR</Text>
+          <View style={styles.amountRow}>
+            <Text style={styles.rupee}>₹</Text>
+            <TextInput
+              accessibilityLabel="Amount in Indian rupees"
+              keyboardType="decimal-pad"
+              value={amount}
+              onChangeText={setAmount}
+              style={styles.amountInput}
+              placeholder="0"
+              placeholderTextColor={tc(colors.muted)}
+            />
+            <Text style={styles.currencyCode}>INR</Text>
+          </View>
           <Text style={styles.estimate}>
-            ≈ {estimate} pathUSD · illustrative rate
+            {currency === 'INR'
+              ? 'Added as Indian Rupees · no conversion'
+              : `≈ ${receive} · illustrative rate`}
           </Text>
         </View>
         <Text style={styles.sectionTitle}>Payment Method</Text>
@@ -123,7 +143,7 @@ export default function AddMoney() {
               ]}
             >
               <View style={styles.methodIcon}>
-                <AppIcon name={item.icon} color={colors.accent} />
+                <AppIcon name={item.icon} color={tc(colors.accent)} />
               </View>
               <View style={styles.methodCopy}>
                 <Text style={styles.methodTitle}>{item.name}</Text>
@@ -149,7 +169,7 @@ export default function AddMoney() {
           onPress={() =>
             router.push({
               pathname: '/review-add-money',
-              params: { amount, method },
+              params: { amount, method, currency },
             })
           }
           style={styles.button}
@@ -164,7 +184,7 @@ export default function AddMoney() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyleSheet({
   screen: { flex: 1, backgroundColor: '#fff' },
   content: {
     paddingHorizontal: 24,
@@ -191,15 +211,6 @@ const styles = StyleSheet.create({
   preview: { color: colors.muted, fontSize: 12, textAlign: 'center' },
   sectionTitle: { color: colors.ink, fontSize: 16, fontWeight: '700' },
   currencies: { flexDirection: 'row', gap: 8 },
-  currencyActive: {
-    flex: 1,
-    backgroundColor: colors.accent,
-    borderRadius: 11,
-    minHeight: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  currencyActiveText: { color: '#fff', fontWeight: '700', fontSize: 13 },
   currency: {
     flex: 1,
     backgroundColor: '#f5f8fd',
@@ -210,7 +221,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  currencyActive: {
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
+  },
   currencyText: { color: colors.ink, fontSize: 13 },
+  currencyActiveText: { color: '#fff', fontWeight: '700' },
+  pressed: { opacity: 0.75 },
   presets: { flexDirection: 'row', gap: 7 },
   preset: {
     flex: 1,
@@ -233,27 +250,23 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderRadius: 14,
     backgroundColor: '#f3f8ff',
-    minHeight: 92,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    flexWrap: 'wrap',
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+    gap: 6,
   },
+  amountRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   rupee: { color: colors.ink, fontSize: 30, fontWeight: '700' },
   amountInput: {
     color: colors.ink,
     fontSize: 30,
     fontWeight: '700',
     flex: 1,
-    minWidth: 100,
+    minWidth: 0,
+    // Android adds its own padding, which crowds the border.
+    paddingVertical: 0,
   },
   currencyCode: { color: colors.muted, fontSize: 13 },
-  estimate: {
-    color: colors.muted,
-    fontSize: 13,
-    width: '100%',
-    marginBottom: 8,
-  },
+  estimate: { color: colors.muted, fontSize: 13 },
   methods: { gap: 10 },
   method: {
     borderColor: '#b7cffa',

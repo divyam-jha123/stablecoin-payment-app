@@ -1,5 +1,6 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { AppIcon, ScanIcon, colors } from './payment-ui';
+import { tc, themedStyleSheet } from '../theme/themed';
 
 export function ReceiveActionButton({
   label,
@@ -29,9 +30,9 @@ export function ReceiveActionButton({
     >
       <View style={styles.content}>
         {icon === 'scan' ? (
-          <ScanIcon color={colors.accent} size={22} />
+          <ScanIcon color={tc(colors.accent)} size={22} />
         ) : (
-          <AppIcon name="share" color="#ffffff" size={21} />
+          <AppIcon name="share" color={tc('#ffffff')} size={21} />
         )}
         <Text style={[styles.label, outlined && styles.outlinedLabel]}>
           {label}
@@ -41,7 +42,7 @@ export function ReceiveActionButton({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyleSheet({
   button: {
     minHeight: 56,
     backgroundColor: colors.accent,

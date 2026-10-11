@@ -7,7 +7,7 @@
     "version": "0.1.0",
     "orientation": "portrait",
     "icon": "./assets/icons/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "primaryColor": "#005ae1",
     "backgroundColor": "#000000",
     "plugins": [
@@ -31,7 +31,7 @@
         {
           "photosPermission": "Allow TravelPe to read a payment QR code from your photos.",
           "cameraPermission": "Allow TravelPe to scan payment QR codes.",
-          "microphonePermission": false
+          "microphonePermission": "Allow TravelPe to use the microphone for voice search."
         }
       ],
       [
@@ -44,9 +44,19 @@
       [
         "expo-audio",
         {
-          "microphonePermission": false,
+          "microphonePermission": "Allow TravelPe to use the microphone for voice search.",
           "recordAudioAndroid": false,
           "enableBackgroundPlayback": false
+        }
+      ],
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Allow TravelPe to use the microphone for voice search.",
+          "speechRecognitionPermission": "Allow TravelPe to turn your voice into search text.",
+          "androidSpeechServicePackages": [
+            "com.google.android.googlequicksearchbox"
+          ]
         }
       ],
       [

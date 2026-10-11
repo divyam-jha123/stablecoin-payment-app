@@ -59,6 +59,8 @@ import {
 import { ScannerTokenSelectionSheet } from '../src/components/scanner-payment-panel';
 import { TokenEmblem } from '../src/components/payment-logos';
 import { PAYMENT_FINALITY_NOTICE } from '../src/features/legal/legal-documents';
+import { tc, themedStyleSheet } from '../src/theme/themed';
+import { useScheme } from '../src/theme/color-scheme-store';
 
 function firstParam(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
@@ -98,7 +100,7 @@ function Glyph({
     <Svg width={size} height={size} viewBox="0 0 24 24">
       <Path
         d={d}
-        stroke={color}
+        stroke={tc(color)}
         strokeWidth={strokeWidth}
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -205,7 +207,7 @@ function SlideToPay({
       >
         <Glyph
           d="M5 12h14 M13 6l6 6-6 6"
-          color={disabled ? '#8294af' : BLUE}
+          color={tc(disabled ? '#8294af' : BLUE)}
           size={24}
           strokeWidth={2.5}
         />
@@ -215,6 +217,8 @@ function SlideToPay({
 }
 
 export default function Confirmation() {
+  // Redraw in the new colours when the theme switches.
+  useScheme();
   const params = useLocalSearchParams<{
     inrAmount?: string | string[];
     merchantName?: string | string[];
@@ -447,7 +451,7 @@ export default function Confirmation() {
                 pressed && styles.buttonPressed,
               ]}
             >
-              <Glyph d="M15 18l-6-6 6-6" color={colors.ink} />
+              <Glyph d="M15 18l-6-6 6-6" color={tc(colors.ink)} />
             </Pressable>
             <Text accessibilityRole="header" style={styles.title}>
               Pay Merchant
@@ -472,13 +476,13 @@ export default function Confirmation() {
                   cx={12}
                   cy={12}
                   r={9.5}
-                  stroke={colors.ink}
+                  stroke={tc(colors.ink)}
                   strokeWidth={1.8}
                   fill="none"
                 />
                 <Path
                   d="M9.6 9.4a2.5 2.5 0 1 1 3.4 2.3c-.6.3-1 .8-1 1.5v.3 M12 16.6h.01"
-                  stroke={colors.ink}
+                  stroke={tc(colors.ink)}
                   strokeWidth={1.8}
                   strokeLinecap="round"
                   fill="none"
@@ -517,8 +521,8 @@ export default function Confirmation() {
                       .slice(0, MAX_AMOUNT_DIGITS),
                   )
                 }
-                selectionColor={BLUE}
-                cursorColor={BLUE}
+                selectionColor={tc(BLUE)}
+                cursorColor={tc(BLUE)}
                 style={styles.amountInput}
                 value={scannedAmountIsValid ? amount : groupRupees(amount)}
                 inputAccessoryViewID={AMOUNT_ACCESSORY_ID}
@@ -545,13 +549,13 @@ export default function Confirmation() {
                   cx={12}
                   cy={12}
                   r={10}
-                  stroke="#7d8aa3"
+                  stroke={tc('#7d8aa3')}
                   strokeWidth={1.6}
                   fill="none"
                 />
                 <Path
                   d="M12 8v.5M12 11v5"
-                  stroke="#7d8aa3"
+                  stroke={tc('#7d8aa3')}
                   strokeWidth={1.8}
                   strokeLinecap="round"
                 />
@@ -567,7 +571,7 @@ export default function Confirmation() {
           <View style={styles.noteCard}>
             <Glyph
               d="M11 4H5a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h13a2 2 0 0 0 2-2v-6 M18.5 2.5a2.1 2.1 0 0 1 3 3L12 15l-4 1 1-4z"
-              color="#4b5873"
+              color={tc('#4b5873')}
             />
             <View style={styles.noteCopy}>
               <Text style={styles.noteLabel}>Add a note</Text>
@@ -575,8 +579,8 @@ export default function Confirmation() {
                 accessibilityLabel="Payment note"
                 onChangeText={setNote}
                 placeholder="What's this payment for?"
-                placeholderTextColor="#9aa6ba"
-                selectionColor={BLUE}
+                placeholderTextColor={tc('#9aa6ba')}
+                selectionColor={tc(BLUE)}
                 style={styles.noteInput}
                 value={note}
               />
@@ -675,7 +679,7 @@ export default function Confirmation() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyleSheet({
   flex: { flex: 1 },
   screen: { backgroundColor: '#f2f5fa', flex: 1 },
   content: { paddingHorizontal: 20, paddingBottom: 20, gap: 14 },

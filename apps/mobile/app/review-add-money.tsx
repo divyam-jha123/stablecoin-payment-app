@@ -1,17 +1,30 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppIcon, colors } from '../src/components/payment-ui';
-import { ILLUSTRATIVE_INR_PER_PATH_USD } from '../src/features/payment/amount';
-
-const illustrativeRate = Number(ILLUSTRATIVE_INR_PER_PATH_USD);
+import {
+  addMoneyCurrency,
+  addMoneyRate,
+  addMoneyReceive,
+} from '../src/features/payment/add-money-currency';
+import { tc, themedStyleSheet } from '../src/theme/themed';
+import { useScheme } from '../src/theme/color-scheme-store';
 
 export default function ReviewAddMoney() {
-  const params = useLocalSearchParams<{ amount?: string; method?: string }>();
+  // Redraw in the new colours when the theme switches.
+  useScheme();
+  const params = useLocalSearchParams<{
+    amount?: string;
+    method?: string;
+    currency?: string;
+  }>();
+  const currency = addMoneyCurrency(
+    Array.isArray(params.currency) ? params.currency[0] : params.currency,
+  );
   const raw = Array.isArray(params.amount) ? params.amount[0] : params.amount;
   const amount = Number(raw);
   const valid = Number.isFinite(amount) && amount > 0;
-  const estimate = valid ? (amount / illustrativeRate).toFixed(2) : '0.00';
+  const receive = addMoneyReceive(amount, currency);
   const method = Array.isArray(params.method)
     ? params.method[0]
     : params.method;
@@ -41,17 +54,21 @@ export default function ReviewAddMoney() {
           <Text style={styles.amount}>
             ₹{valid ? amount.toLocaleString('en-IN') : '0'}
           </Text>
-          <Text style={styles.usdc}>≈ {estimate} pathUSD</Text>
+          <Text style={styles.usdc}>
+            {currency === 'INR' ? 'Indian Rupees' : `≈ ${receive}`}
+          </Text>
         </View>
         <View style={styles.rate}>
           <View style={styles.rateIcon}>
-            <AppIcon name="send" color={colors.accent} />
+            <AppIcon name="send" color={tc(colors.accent)} />
           </View>
           <View style={styles.rateCopy}>
-            <Text style={styles.label}>Illustrative exchange rate</Text>
-            <Text style={styles.rateValue}>
-              1 pathUSD ≈ ₹{ILLUSTRATIVE_INR_PER_PATH_USD}
+            <Text style={styles.label}>
+              {currency === 'INR'
+                ? 'Exchange rate'
+                : 'Illustrative exchange rate'}
             </Text>
+            <Text style={styles.rateValue}>{addMoneyRate(currency)}</Text>
           </View>
         </View>
         <View style={styles.card}>
@@ -73,7 +90,7 @@ export default function ReviewAddMoney() {
           <View style={styles.divider} />
           <View style={styles.row}>
             <Text style={styles.cardTitle}>Estimated receive</Text>
-            <Text style={styles.receive}>{estimate} pathUSD</Text>
+            <Text style={styles.receive}>{receive}</Text>
           </View>
         </View>
         <View style={styles.notice}>
@@ -102,7 +119,7 @@ export default function ReviewAddMoney() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyleSheet({
   screen: { flex: 1, backgroundColor: '#fff' },
   content: { padding: 16, gap: 12 },
   header: {

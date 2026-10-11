@@ -15,6 +15,7 @@ import {
   type ScannerPaymentAccount,
   type ScannerPaymentBalance,
 } from '../features/payment/scanner-accounts';
+import { tc, themedStyleSheet } from '../theme/themed';
 
 export interface ScannerPaymentPanelProps {
   selectedAccount: ScannerPaymentAccount;
@@ -28,18 +29,20 @@ export interface ScannerPaymentPanelProps {
 function TokenIcon({ account }: { account: ScannerPaymentAccount }) {
   if (account.symbol === 'USDC') {
     return (
-      <View style={[styles.tokenIcon, { backgroundColor: '#2775CA' }]}>
+      <View
+        style={[styles.tokenIcon, { backgroundColor: tc('#2775CA', 'bg') }]}
+      >
         <Svg width={28} height={28} viewBox="0 0 24 24" accessible={false}>
           <Path
             d="M6.5 6.8C4.9 8.3 4 10.5 4 13c0 2.5.9 4.7 2.5 6.2M17.5 6.8c1.6 1.5 2.5 3.7 2.5 6.2 0 2.5-.9 4.7-2.5 6.2"
-            stroke="#ffffff"
+            stroke={tc('#ffffff')}
             strokeWidth={2}
             strokeLinecap="round"
             fill="none"
           />
           <Path
             d="M12 4.5v15M14.5 9.5c0-1.4-1.1-2-2.5-2h-1c-1.1 0-2 .9-2 2 0 2.2 4.5 1.8 4.5 4 0 1.1-.9 2-2 2h-1.5c-1.4 0-2.5-.9-2.5-2"
-            stroke="#ffffff"
+            stroke={tc('#ffffff')}
             strokeWidth={1.8}
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -50,7 +53,9 @@ function TokenIcon({ account }: { account: ScannerPaymentAccount }) {
     );
   }
   return (
-    <View style={[styles.tokenIcon, { backgroundColor: account.color }]}>
+    <View
+      style={[styles.tokenIcon, { backgroundColor: tc(account.color, 'bg') }]}
+    >
       <Svg width={28} height={28} viewBox="0 0 24 24" accessible={false}>
         <Path
           d={
@@ -58,7 +63,7 @@ function TokenIcon({ account }: { account: ScannerPaymentAccount }) {
               ? 'M5 5h14M12 5v15M7 9h10M4 11c0 3 16 3 16 0'
               : 'M8 20V4h5a5 5 0 0 1 0 10H8'
           }
-          stroke="#ffffff"
+          stroke={tc('#ffffff')}
           strokeWidth={2}
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -118,7 +123,7 @@ export function ScannerPaymentPanel({
           </Text>
         </View>
         <View style={styles.chevron}>
-          <AppIcon name="chevron-down" size={18} color="#005ae1" />
+          <AppIcon name="chevron-down" size={18} color={tc('#005ae1')} />
         </View>
       </Pressable>
       <Pressable
@@ -139,7 +144,9 @@ export function ScannerPaymentPanel({
         ]}
       >
         <View style={styles.payButton}>
-          {loading ? <ActivityIndicator color="#ffffff" size="small" /> : null}
+          {loading ? (
+            <ActivityIndicator color={tc('#ffffff')} size="small" />
+          ) : null}
           <Text style={styles.payText}>Pay</Text>
         </View>
       </Pressable>
@@ -230,7 +237,7 @@ export function ScannerTokenSelectionSheet({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyleSheet({
   panel: {
     backgroundColor: colors.surface,
     borderTopLeftRadius: 32,

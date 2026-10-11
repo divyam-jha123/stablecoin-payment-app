@@ -11,6 +11,14 @@ import {
   type AppNotification,
 } from './features/notifications/notifications';
 
+const previewDay = 86_400_000;
+
+function previewTimeAgo(days: number, hours: number, minutes: number) {
+  const date = new Date(Date.now() - days * previewDay);
+  date.setHours(hours, minutes, 0, 0);
+  return date.getTime();
+}
+
 /** Illustrative fixtures for the explicitly enabled local UI preview only. */
 export const previewTransactions: readonly TransactionItem[] = [
   {
@@ -20,6 +28,7 @@ export const previewTransactions: readonly TransactionItem[] = [
     direction: 'Sent',
     amount: 480,
     time: 'Today · 11:24 AM',
+    createdAt: previewTimeAgo(0, 11, 24),
     token: 'USDC',
     brand: { mark: 'S', background: '#00704A', color: '#ffffff' },
   },
@@ -30,6 +39,7 @@ export const previewTransactions: readonly TransactionItem[] = [
     direction: 'Sent',
     amount: 320,
     time: 'Today · 09:12 AM',
+    createdAt: previewTimeAgo(0, 9, 12),
     token: 'USDC',
     brand: { mark: 'blinkit', background: '#F8CB46', color: '#0c831f' },
   },
@@ -40,6 +50,7 @@ export const previewTransactions: readonly TransactionItem[] = [
     direction: 'Received',
     amount: 1000,
     time: 'Today · 07:45 AM',
+    createdAt: previewTimeAgo(0, 7, 45),
     token: 'USDC',
   },
   {
@@ -49,6 +60,7 @@ export const previewTransactions: readonly TransactionItem[] = [
     direction: 'Sent',
     amount: 250,
     time: 'Yesterday · 10:18 PM',
+    createdAt: previewTimeAgo(1, 22, 18),
     token: 'USDC',
     brand: { mark: 'Uber', background: '#000000', color: '#ffffff' },
   },
@@ -59,12 +71,11 @@ export const previewTransactions: readonly TransactionItem[] = [
     direction: 'Sent',
     amount: 640,
     time: 'Yesterday · 08:11 PM',
+    createdAt: previewTimeAgo(1, 20, 11),
     token: 'USDC',
     brand: { mark: 'zomato', background: '#E23744', color: '#ffffff' },
   },
 ];
-
-const previewDay = 86_400_000;
 
 /** Days ago (with hour and minute) and INR amount of each sample payment. */
 const previewRecipientHistory: readonly (readonly [
@@ -97,12 +108,6 @@ const previewRecipientHistory: readonly (readonly [
   ['Starbucks', 'starbucks@hdfcbank', [[10, 10, 10, '480']]],
   ['Archita', 'archita@okhdfcbank', [[12, 21, 0, '1000']]],
 ];
-
-function previewTimeAgo(days: number, hours: number, minutes: number) {
-  const date = new Date(Date.now() - days * previewDay);
-  date.setHours(hours, minutes, 0, 0);
-  return date.getTime();
-}
 
 /** Sample people and merchants for Recent recipients in the UI preview. */
 export const previewRecipients: readonly Recipient[] =
@@ -181,14 +186,67 @@ const previewInrBalance = 12450.75;
 
 export const previewDashboard = {
   balance: '148.32',
+  /** USDC held, to two places, after simulated payments. */
+  tokenAmount: '148.32',
   displayBalance: previewInr(previewInrBalance),
-  displayEquivalent: '≈ 148.32 USDC',
+  displayEquivalent: '≈ 148.32 USDC (MetaMask)',
   spent: previewInr(
     sent.reduce((total, transaction) => total + transaction.amount, 0),
   ),
   payments: sent.length,
   networkFees: '0.004',
+  /** Gas the traveller would have paid without gasless payments. */
+  feesSaved: previewInr(120),
 };
+
+/**
+ * Sample USDT holding for the Home currency switcher; it matches the USDT
+ * demo account on the payment token sheet.
+ */
+export const previewUsdt = {
+  tokenAmount: '100.00',
+  displayBalance: previewInr(8300),
+  displayEquivalent: '≈ 100.00 USDT (MetaMask)',
+};
+
+/**
+ * Newest-first feed for Payments: sample people and merchants paid, money
+ * received, and payments simulated on this device.
+ */
+export function previewPaymentsFeed(
+  payments: readonly SimulatedPayment[],
+): TransactionItem[] {
+  // Samples sit at fixed times of day, so payments made on this device always
+  // lead, as on the preview dashboard.
+  const samples = previewReceiptPayments.map((payment) => ({
+    createdAt: payment.createdAt,
+    // Sample merchants keep their brand mark and category.
+    item:
+      previewTransactions.find((item) => item.id === payment.id) ??
+      toTransactionItem(payment),
+  }));
+  const topup = previewTransactions.find((item) => item.id === 'topup');
+  if (topup) samples.push({ createdAt: previewTimeAgo(0, 7, 45), item: topup });
+  return [
+    ...[...payments]
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .map(toTransactionItem),
+    ...samples
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .map(({ item }) => item),
+  ];
+}
+
+/** Brand mark of a sample merchant, so every screen draws the same avatar. */
+export function previewBrand(name: string): TransactionItem['brand'] {
+  const key = name.trim().toLowerCase();
+  return previewTransactions.find(
+    (item) => item.brand && item.name.toLowerCase() === key,
+  )?.brand;
+}
+
+/** Sample INR held in the app for the Payments currency tiles. */
+export const previewInrHolding = '1,000.00';
 
 /** Sample tap-to-pay state for the Profile card in the UI preview. */
 export const previewTapToPay = {
@@ -288,12 +346,14 @@ export function previewDashboardWith(payments: readonly SimulatedPayment[]) {
     ...payments.map(toTransactionItem),
     ...previewTransactions,
   ];
+  const tokenAmount = Number(
+    simulatedBalance(previewDashboard.balance, payments),
+  ).toFixed(2);
   return {
     ...previewDashboard,
+    tokenAmount,
     displayBalance: previewInr(Math.max(0, previewInrBalance - simulatedSpent)),
-    displayEquivalent: `≈ ${Number(
-      simulatedBalance(previewDashboard.balance, payments),
-    ).toFixed(2)} USDC`,
+    displayEquivalent: `≈ ${tokenAmount} USDC (MetaMask)`,
     spent: previewInr(sentTotal + simulatedSpent),
     payments: sent.length + payments.length,
     transactions,

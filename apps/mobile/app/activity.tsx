@@ -1,15 +1,7 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Fragment, useState, useSyncExternalStore } from 'react';
-import Svg, { Path } from 'react-native-svg';
 import { AppIcon, colors } from '../src/components/payment-ui';
 import { DashboardNav } from '../src/components/dashboard-nav';
 
@@ -21,8 +13,16 @@ import { useSimulatedPayments } from '../src/features/payment/simulated-payment-
 import { type TransactionItem } from '../src/features/payment/simulated-payments';
 import { activityItems } from '../src/features/payment/received-transfers';
 import { useReceivedTransfers } from '../src/features/payment/received-transfers-store';
+import { tc, themedStyleSheet } from '../src/theme/themed';
+import { useScheme } from '../src/theme/color-scheme-store';
+import {
+  ActivityCalendarSheet,
+  CalendarIcon,
+  calendarDayLabel,
+} from '../src/components/activity-calendar';
+import { activeDayKeys, dayKey } from '../src/features/payment/activity-dates';
 
-const filters = ['All', 'Sent', 'Received', 'Travel', 'Bills'];
+const filters = ['All', 'Sent', 'Received'];
 
 /** Groups transactions by their day label, keeping list order. */
 function groupByDay(transactions: readonly TransactionItem[]) {
@@ -37,6 +37,8 @@ function groupByDay(transactions: readonly TransactionItem[]) {
 }
 
 export default function Activity() {
+  // Redraw in the new colours when the theme switches.
+  useScheme();
   // Opened from a notification, it can start on a filter such as Received.
   const params = useLocalSearchParams<{ filter?: string | string[] }>();
   const initialFilter = Array.isArray(params.filter)
@@ -46,7 +48,9 @@ export default function Activity() {
     initialFilter && filters.includes(initialFilter) ? initialFilter : 'All',
   );
   const [search, setSearch] = useState('');
-  const [filtersOpen, setFiltersOpen] = useState(true);
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  // Midnight of the day picked on the calendar; null shows every date.
+  const [day, setDay] = useState<number | null>(null);
   const query = search.trim().toLowerCase();
   const wallet = useSyncExternalStore(
     walletStore.subscribe,
@@ -62,8 +66,12 @@ export default function Activity() {
   const source = uiPreviewEnabled
     ? previewDashboardWith(payments).transactions
     : activityItems(payments, received);
+  const pickedDay = day === null ? null : dayKey(day);
   const transactions = source.filter(
     (transaction) =>
+      (pickedDay === null ||
+        (transaction.createdAt !== undefined &&
+          dayKey(transaction.createdAt) === pickedDay)) &&
       (filter === 'All' ||
         transaction.direction === filter ||
         transaction.category === filter) &&
@@ -89,50 +97,64 @@ export default function Activity() {
           </Text>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={filtersOpen ? 'Hide filters' : 'Show filters'}
-            accessibilityState={{ expanded: filtersOpen }}
-            onPress={() => setFiltersOpen((open) => !open)}
-            style={[styles.filterButton, filtersOpen && styles.filterButtonOn]}
+            accessibilityLabel={
+              day === null
+                ? 'Pick a date'
+                : `Pick a date, showing ${calendarDayLabel(day)}`
+            }
+            onPress={() => setCalendarOpen(true)}
+            style={[styles.calendarButton, day !== null && styles.calendarOn]}
           >
-            <Svg width={22} height={22} viewBox="0 0 24 24">
-              <Path
-                d="M4 5h16l-6 7.5V18l-4 2v-7.5z"
-                stroke={colors.ink}
-                strokeWidth={2}
-                strokeLinejoin="round"
-                fill="none"
-              />
-            </Svg>
+            <CalendarIcon size={26} />
           </Pressable>
         </View>
         <TextInput
           accessibilityLabel="Search transactions"
           placeholder="Search by name, category or amount"
-          placeholderTextColor={colors.muted}
+          placeholderTextColor={tc(colors.muted)}
           value={search}
           onChangeText={setSearch}
           style={styles.search}
         />
-        {filtersOpen ? (
-          <View style={styles.filters}>
-            {filters.map((item) => (
-              <Pressable
-                key={item}
-                accessibilityRole="button"
-                accessibilityState={{ selected: filter === item }}
-                onPress={() => setFilter(item)}
-                style={[styles.filter, filter === item && styles.selected]}
+        <View style={styles.filters}>
+          {filters.map((item) => (
+            <Pressable
+              key={item}
+              accessibilityRole="button"
+              accessibilityState={{ selected: filter === item }}
+              onPress={() => setFilter(item)}
+              style={[styles.filter, filter === item && styles.selected]}
+            >
+              <Text
+                style={[
+                  styles.filterText,
+                  filter === item && styles.selectedText,
+                ]}
               >
-                <Text
-                  style={[
-                    styles.filterText,
-                    filter === item && styles.selectedText,
-                  ]}
-                >
-                  {item}
-                </Text>
-              </Pressable>
-            ))}
+                {item}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+        {day !== null ? (
+          <View style={styles.dayChip}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Change date"
+              onPress={() => setCalendarOpen(true)}
+              style={styles.dayChipLabel}
+            >
+              <CalendarIcon size={18} />
+              <Text style={styles.dayChipText}>{calendarDayLabel(day)}</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Show all dates"
+              hitSlop={8}
+              onPress={() => setDay(null)}
+            >
+              <Text style={styles.dayChipClear}>Clear</Text>
+            </Pressable>
           </View>
         ) : null}
         {transactions.length > 0 ? (
@@ -168,17 +190,21 @@ export default function Activity() {
         ) : (
           <View style={styles.empty}>
             <View style={styles.emptyIcon}>
-              <AppIcon name="activity" color={colors.accent} size={34} />
+              <AppIcon name="activity" color={tc(colors.accent)} size={34} />
             </View>
             <Text style={styles.emptyTitle}>
-              {search || source.length > 0
-                ? 'No matching transactions'
-                : 'No transactions yet'}
+              {day !== null && !search && filter === 'All'
+                ? 'Nothing on this day'
+                : search || source.length > 0
+                  ? 'No matching transactions'
+                  : 'No transactions yet'}
             </Text>
             <Text style={styles.emptyText}>
-              {search || source.length > 0
-                ? 'Try another search term or filter.'
-                : 'Your payment activity will appear here after you pay or get paid.'}
+              {day !== null && !search && filter === 'All'
+                ? 'No payments were sent or received on this date. Pick another day.'
+                : search || source.length > 0
+                  ? 'Try another search term or filter.'
+                  : 'Your payment activity will appear here after you pay or get paid.'}
             </Text>
           </View>
         )}
@@ -188,12 +214,19 @@ export default function Activity() {
             : 'Your test balance is read from Tempo Moderato.'}
         </Text>
       </ScrollView>
+      <ActivityCalendarSheet
+        visible={calendarOpen}
+        selected={day}
+        activeDays={activeDayKeys(source)}
+        onSelect={setDay}
+        onClose={() => setCalendarOpen(false)}
+      />
       <DashboardNav />
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyleSheet({
   screen: { flex: 1, backgroundColor: '#fff' },
   content: { paddingHorizontal: 24, paddingTop: 14, gap: 20, flexGrow: 1 },
   header: {
@@ -210,16 +243,34 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  title: { color: colors.ink, fontSize: 26, fontWeight: '800' },
-  filterButton: {
+  calendarButton: {
     height: 48,
     width: 48,
     borderRadius: 14,
-    backgroundColor: '#f2f4f8',
+    backgroundColor: '#edf2fd',
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#081332',
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 2,
   },
-  filterButtonOn: { backgroundColor: '#e6eefc' },
+  calendarOn: { borderWidth: 1.5, borderColor: colors.accent },
+  dayChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#e6eefc',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    minHeight: 46,
+    marginTop: -6,
+  },
+  dayChipLabel: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  dayChipText: { color: colors.ink, fontSize: 15, fontWeight: '700' },
+  dayChipClear: { color: colors.accent, fontSize: 14, fontWeight: '700' },
+  title: { color: colors.ink, fontSize: 26, fontWeight: '800' },
   search: {
     backgroundColor: '#edf2fd',
     borderRadius: 24,

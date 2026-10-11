@@ -1,12 +1,5 @@
 import { useSyncExternalStore } from 'react';
-import {
-  Alert,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
@@ -34,6 +27,8 @@ import { parsePaymentRequest } from '../src/features/payment/payment-authorizati
 import { openPaymentPin } from '../src/features/payment/open-payment-pin';
 import { useReceiptShare } from '../src/components/share-receipt-card';
 import { uiPreviewEnabled } from '../src/ui-preview';
+import { tc, themedStyleSheet } from '../src/theme/themed';
+import { useScheme } from '../src/theme/color-scheme-store';
 
 function firstParam(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
@@ -84,7 +79,7 @@ function Row({
             hitSlop={12}
             onPress={onCopy}
           >
-            <AppIcon name="copy" size={20} color={colors.accent} />
+            <AppIcon name="copy" size={20} color={tc(colors.accent)} />
           </Pressable>
         ) : null}
       </View>
@@ -94,6 +89,8 @@ function Row({
 
 /** One past payment, opened from a recipient's payment history. */
 export default function Receipt() {
+  // Redraw in the new colours when the theme switches.
+  useScheme();
   const params = useLocalSearchParams<{ id?: string | string[] }>();
   const id = firstParam(params.id);
   const payments = useSyncExternalStore(
@@ -158,9 +155,9 @@ export default function Receipt() {
           ]}
         >
           <Svg width={24} height={24} viewBox="0 0 24 24">
-            <Circle cx={5} cy={12} r={2} fill={colors.ink} />
-            <Circle cx={12} cy={12} r={2} fill={colors.ink} />
-            <Circle cx={19} cy={12} r={2} fill={colors.ink} />
+            <Circle cx={5} cy={12} r={2} fill={tc(colors.ink, 'auto')} />
+            <Circle cx={12} cy={12} r={2} fill={tc(colors.ink, 'auto')} />
+            <Circle cx={19} cy={12} r={2} fill={tc(colors.ink, 'auto')} />
           </Svg>
         </Pressable>
       </View>
@@ -174,7 +171,7 @@ export default function Receipt() {
         />
       ) : (
         <View style={styles.missing}>
-          <AppIcon name="wallet" color={colors.accent} size={40} />
+          <AppIcon name="wallet" color={tc(colors.accent)} size={40} />
           <Text style={styles.name}>Receipt not found</Text>
           <Text style={styles.missingCopy}>
             This payment is not saved on this device.
@@ -226,7 +223,12 @@ function ReceiptBody({
           <View
             style={[
               styles.avatar,
-              { backgroundColor: profileAvatarColor(payment.merchantName) },
+              {
+                backgroundColor: tc(
+                  profileAvatarColor(payment.merchantName),
+                  'bg',
+                ),
+              },
             ]}
           >
             <Text style={styles.initial}>
@@ -249,7 +251,7 @@ function ReceiptBody({
         <Text style={styles.amountLabel}>Merchant amount</Text>
         <View style={styles.statusRow}>
           <View style={styles.checkBadge}>
-            <AppIcon name="check" size={20} color="#ffffff" />
+            <AppIcon name="check" size={20} color={tc('#ffffff')} />
           </View>
           <Text style={styles.statusText}>Payment completed</Text>
         </View>
@@ -311,7 +313,7 @@ function ReceiptBody({
             pressed && styles.pressed,
           ]}
         >
-          <AppIcon name="help" size={22} color={colors.accent} />
+          <AppIcon name="help" size={22} color={tc(colors.accent)} />
           <Text style={styles.actionText}>Get help</Text>
         </Pressable>
         <Pressable
@@ -325,7 +327,7 @@ function ReceiptBody({
             pressed && styles.pressed,
           ]}
         >
-          <AppIcon name="share" size={22} color={colors.accent} />
+          <AppIcon name="share" size={22} color={tc(colors.accent)} />
           <Text style={styles.actionText}>
             {sharing ? 'Preparing…' : 'Share receipt'}
           </Text>
@@ -335,7 +337,7 @@ function ReceiptBody({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyleSheet({
   screen: { flex: 1, backgroundColor: homeTheme.colors.background },
   header: {
     flexDirection: 'row',

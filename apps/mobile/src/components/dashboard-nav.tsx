@@ -1,12 +1,7 @@
 import { router, usePathname, type Href } from 'expo-router';
-import {
-  Pressable,
-  StyleSheet,
-  Text,
-  useWindowDimensions,
-  View,
-} from 'react-native';
+import { Pressable, Text, useWindowDimensions, View } from 'react-native';
 import { AppIcon, colors, ScanIcon, ui } from './payment-ui';
+import { tc, themedStyleSheet } from '../theme/themed';
 
 const tabs = [
   { label: 'Home', href: '/home', icon: 'home' },
@@ -60,7 +55,7 @@ export function DashboardNav({
               <>
                 <AppIcon
                   name={tab.icon}
-                  color={selected ? colors.accent : '#37445c'}
+                  color={tc(selected ? colors.accent : '#37445c')}
                   size={30}
                 />
                 <Text style={[styles.label, selected && styles.active]}>
@@ -78,7 +73,7 @@ export function DashboardNav({
                   },
                 ]}
               >
-                <ScanIcon color="#fff" size={32} />
+                <ScanIcon color={tc('#fff')} size={32} />
               </View>
             )}
           </Pressable>
@@ -88,7 +83,7 @@ export function DashboardNav({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyleSheet({
   bar: {
     backgroundColor: '#fff',
     flexDirection: 'row',
