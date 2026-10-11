@@ -159,11 +159,16 @@ export function ScannerTokenSelectionSheet({
   selectedAccount,
   onSelect,
   onClose,
+  balances,
+  hint = 'Demo balances for this hackathon. No real funds move.',
 }: {
   visible: boolean;
   selectedAccount: ScannerPaymentAccount;
   onSelect: (account: ScannerPaymentAccount) => void;
   onClose: () => void;
+  /** Real balances by token; without them the sample balances show. */
+  balances?: Record<string, ScannerPaymentBalance>;
+  hint?: string;
 }) {
   const insets = useSafeAreaInsets();
   return (
@@ -194,35 +199,36 @@ export function ScannerTokenSelectionSheet({
           <Text accessibilityRole="header" style={styles.selectionTitle}>
             Payment token
           </Text>
-          <Text style={styles.selectionHint}>
-            Demo balances for this hackathon. No real funds move.
-          </Text>
+          <Text style={styles.selectionHint}>{hint}</Text>
           <ScrollView contentContainerStyle={styles.tokenList}>
-            {SCANNER_DEMO_ACCOUNTS.map(({ account, balance }) => (
-              <Pressable
-                key={account.symbol}
-                accessibilityRole="radio"
-                accessibilityState={{
-                  checked: selectedAccount.symbol === account.symbol,
-                }}
-                onPress={() => onSelect(account)}
-                style={({ pressed }) => [
-                  styles.tokenOption,
-                  selectedAccount.symbol === account.symbol &&
-                    styles.selectedOption,
-                  pressed && styles.pressed,
-                ]}
-              >
-                <TokenIcon account={account} />
-                <View style={styles.accountCopy}>
-                  <Text style={styles.symbol}>{account.symbol}</Text>
-                  <Text style={styles.tokenBalance}>
-                    {account.name} · {balance.tokens}
-                  </Text>
-                </View>
-                <Text style={styles.optionAmount}>₹ {balance.inr}</Text>
-              </Pressable>
-            ))}
+            {SCANNER_DEMO_ACCOUNTS.map(({ account, balance: sample }) => {
+              const balance = balances?.[account.symbol] ?? sample;
+              return (
+                <Pressable
+                  key={account.symbol}
+                  accessibilityRole="radio"
+                  accessibilityState={{
+                    checked: selectedAccount.symbol === account.symbol,
+                  }}
+                  onPress={() => onSelect(account)}
+                  style={({ pressed }) => [
+                    styles.tokenOption,
+                    selectedAccount.symbol === account.symbol &&
+                      styles.selectedOption,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <TokenIcon account={account} />
+                  <View style={styles.accountCopy}>
+                    <Text style={styles.symbol}>{account.symbol}</Text>
+                    <Text style={styles.tokenBalance}>
+                      {account.name} · {balance.tokens}
+                    </Text>
+                  </View>
+                  <Text style={styles.optionAmount}>₹ {balance.inr}</Text>
+                </Pressable>
+              );
+            })}
           </ScrollView>
           <Pressable
             accessibilityRole="button"

@@ -56,6 +56,8 @@ import {
   SCANNER_DEMO_ACCOUNTS,
   getScannerDemoAccount,
 } from '../src/features/payment/scanner-accounts';
+import { simulatedBalance } from '../src/features/payment/simulated-payments';
+import { useSimulatedPayments } from '../src/features/payment/simulated-payment-store';
 import { ScannerTokenSelectionSheet } from '../src/components/scanner-payment-panel';
 import { TokenEmblem } from '../src/components/payment-logos';
 import { PAYMENT_FINALITY_NOTICE } from '../src/features/legal/legal-documents';
@@ -326,22 +328,25 @@ export default function Confirmation() {
   const balance = useQuery({
     queryKey: ['tempo-pathUSD', address, wallet.account?.chainId],
     queryFn: () => tempoService.balance(address!),
-    enabled: Boolean(
-      !selectedDemoEntry &&
-      !uiPreviewEnabled &&
-      address &&
-      onTempo &&
-      !wallet.busy,
-    ),
+    enabled: Boolean(!uiPreviewEnabled && address && onTempo && !wallet.busy),
     retry: false,
     staleTime: 0,
   });
 
+  const payments = useSimulatedPayments(uiPreviewEnabled ? null : address);
+  // Wallet mode spends real pathUSD test funds, less simulated payments, as
+  // on Home; the preview uses the picked sample account.
+  const spendable =
+    balance.data === undefined
+      ? undefined
+      : simulatedBalance(balance.data, payments);
   const funds = useMemo(() => {
     if (!estimate) return null;
     const requiredAtomic = estimate.totalPathUsdAtomic;
     const required = formatPathUsdAtomic(requiredAtomic);
-    const availableBalance = selectedDemoEntry?.balance.tokens ?? balance.data;
+    const availableBalance = uiPreviewEnabled
+      ? selectedDemoEntry.balance.tokens
+      : spendable;
     if (availableBalance === undefined) return { required, enough: null };
     try {
       return {
@@ -351,7 +356,7 @@ export default function Confirmation() {
     } catch {
       return { required, enough: null };
     }
-  }, [estimate, balance.data, selectedDemoEntry]);
+  }, [estimate, spendable, selectedDemoEntry]);
 
   if (!detailsAreValid) {
     return (
@@ -379,8 +384,43 @@ export default function Confirmation() {
     amountResult.success &&
     // The UI preview keeps Pay available while a screen is under review.
     (uiPreviewEnabled || !estimateIsExpired) &&
-    (selectedDemoEntry || funds?.enough === true),
+    funds?.enough === true,
   );
+  const fundsError =
+    !amountResult.success || !funds
+      ? null
+      : funds.enough === false
+        ? `Not enough test funds. You need ${funds.required} ${paymentSymbol}. Add test funds from Home.`
+        : !uiPreviewEnabled && balance.isError
+          ? 'Could not check your balance. Go back and try again.'
+          : null;
+  // Wallet mode reads only pathUSD; other tokens show a dash, never a
+  // sample number.
+  const pathUsdBalance = balance.isError
+    ? { tokens: 'Unavailable', inr: '—' }
+    : spendable === undefined
+      ? { tokens: 'Checking…', inr: '—' }
+      : {
+          tokens: spendable,
+          inr: (
+            Number(spendable) * Number(ILLUSTRATIVE_INR_PER_PATH_USD)
+          ).toLocaleString('en-IN', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          }),
+        };
+  const walletBalances = {
+    pathUSD: pathUsdBalance,
+    USDC: { tokens: '—', inr: '—' },
+    USDT: { tokens: '—', inr: '—' },
+  };
+  const balanceLabel = uiPreviewEnabled
+    ? `Balance: ${selectedDemoEntry.balance.tokens} ${paymentSymbol} (₹${selectedDemoEntry.balance.inr})`
+    : balance.isError
+      ? 'Balance: unavailable'
+      : spendable === undefined
+        ? 'Balance: checking…'
+        : `Balance: ${spendable} pathUSD test funds`;
 
   const amountError =
     amountTouched && !amountResult.success
@@ -593,10 +633,7 @@ export default function Confirmation() {
               <TokenEmblem symbol={paymentSymbol} size={50} />
               <View style={styles.accountCopy}>
                 <Text style={styles.accountSymbol}>{paymentSymbol}</Text>
-                <Text style={styles.accountBalance}>
-                  Balance: {selectedDemoEntry.balance.tokens} {paymentSymbol} (₹
-                  {selectedDemoEntry.balance.inr})
-                </Text>
+                <Text style={styles.accountBalance}>{balanceLabel}</Text>
               </View>
               <Pressable
                 accessibilityRole="button"
@@ -610,6 +647,11 @@ export default function Confirmation() {
                 <Text style={styles.changeText}>Change</Text>
               </Pressable>
             </View>
+            {fundsError ? (
+              <Text accessibilityRole="alert" style={styles.errorText}>
+                {fundsError}
+              </Text>
+            ) : null}
           </View>
 
           <Text style={styles.sectionLabel}>Transaction Details</Text>
@@ -665,6 +707,12 @@ export default function Confirmation() {
 
       <ScannerTokenSelectionSheet
         visible={tokenSheetOpen}
+        {...(uiPreviewEnabled
+          ? {}
+          : {
+              balances: walletBalances,
+              hint: 'Every token is paid from your pathUSD test funds on Tempo testnet.',
+            })}
         selectedAccount={selectedDemoEntry.account}
         onClose={() => setTokenSheetOpen(false)}
         onSelect={(account) => {

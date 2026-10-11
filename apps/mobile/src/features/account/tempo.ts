@@ -93,6 +93,30 @@ export function createTempoService(
           'The faucet returned no valid transaction hashes. Refresh the balance before retrying.',
         );
       }
+      // The faucet answers before its mints are mined; a balance read right
+      // away still shows the old amount. Wait for them so the refetch after
+      // this sees the new funds.
+      const receipts = await Promise.allSettled(
+        hashes.map((hash) =>
+          client.waitForTransactionReceipt({
+            hash,
+            checkReplacement: false,
+            pollingInterval: 1_000,
+            timeout: 30_000,
+          }),
+        ),
+      );
+      if (
+        receipts.some(
+          (receipt) =>
+            receipt.status === 'fulfilled' &&
+            receipt.value.status !== 'success',
+        )
+      ) {
+        throw new Error('The faucet transaction failed on Tempo.');
+      }
+      // A slow block is not a failure: the regular balance refresh picks the
+      // funds up once they land.
       return hashes;
     },
   };
