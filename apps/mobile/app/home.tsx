@@ -326,7 +326,15 @@ export default function Home() {
             error={connecting.error}
           />
         ) : (
-          <>
+            <>
+              
+            <HomeSearchBar
+              disabled={navigatingDisabled}
+              onPress={() => router.push('/search')}
+              onVoice={() =>
+                router.push({ pathname: '/search', params: { voice: '1' } })
+              }
+            />
             <HomeBalanceCard
               balance={selectedToken.balance}
               equivalent={selectedToken.equivalent}
@@ -356,13 +364,6 @@ export default function Home() {
                 {notice.text}
               </Text>
             )}
-            <HomeSearchBar
-              disabled={navigatingDisabled}
-              onPress={() => router.push('/search')}
-              onVoice={() =>
-                router.push({ pathname: '/search', params: { voice: '1' } })
-              }
-            />
             <HomeQuickActions
               {...paymentActions}
               onScan={() => router.push('/scanner')}
