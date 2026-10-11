@@ -4,7 +4,7 @@
     "slug": "travelpe",
     "description": "Scan any UPI QR in India and pay with a USD stablecoin on the Tempo testnet. INR settlement is simulated.",
     "scheme": ["travellerpay", "com.travellerpay.hackathon"],
-    "version": "1.1.0",
+    "version": "1.1.1",
     "orientation": "portrait",
     "icon": "./assets/icons/icon.png",
     "userInterfaceStyle": "automatic",
