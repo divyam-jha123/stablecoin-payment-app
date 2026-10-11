@@ -1,4 +1,10 @@
-import { Fragment, useRef, useSyncExternalStore } from 'react';
+import {
+  Fragment,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -7,15 +13,17 @@ import * as Clipboard from 'expo-clipboard';
 import { vpaSchema } from '@traveller/shared';
 import { AppIcon, colors } from '../src/components/payment-ui';
 import { DashboardNav } from '../src/components/dashboard-nav';
+import { RecipientDetailsSheet } from '../src/components/recipient-details-sheet';
+import { RecipientAvatar } from '../src/components/recipient-avatar';
 import { homeTheme } from '../src/theme/home';
 import { walletStore } from '../src/features/account/metamask';
-import {
-  profileAvatarColor,
-  profileInitial,
-} from '../src/features/account/profile-details';
 import { useSimulatedPayments } from '../src/features/payment/simulated-payment-store';
 import { recipientPayments } from '../src/features/payment/simulated-payments';
-import { previewInr, previewReceiptPayments } from '../src/preview-data';
+import {
+  previewBrand,
+  previewInr,
+  previewReceiptPayments,
+} from '../src/preview-data';
 import { uiPreviewEnabled } from '../src/ui-preview';
 import { tc, themedStyleSheet } from '../src/theme/themed';
 import { useScheme } from '../src/theme/color-scheme-store';
@@ -82,11 +90,27 @@ export default function Recipient() {
         { name, vpa },
       )
     : [];
+  // Same picture as the Recent payments row that opened this screen.
+  const brand = uiPreviewEnabled ? previewBrand(name) : undefined;
   const now = Date.now();
 
   // Like a chat, open on the newest payment at the bottom.
   const scroll = useRef<ScrollView>(null);
   const scrolled = useRef(false);
+
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    if (!copied) return;
+    const timer = setTimeout(() => setCopied(false), 2000);
+    return () => clearTimeout(timer);
+  }, [copied]);
+
+  function copyVpa() {
+    if (!vpa) return;
+    void Clipboard.setStringAsync(vpa);
+    setCopied(true);
+  }
 
   function pay() {
     if (vpa)
@@ -99,6 +123,7 @@ export default function Recipient() {
 
   function openMenu() {
     Alert.alert(name || 'Recipient', vpa ?? undefined, [
+      { text: 'View details', onPress: () => setDetailsOpen(true) },
       ...(name ? [{ text: `Pay ${name}`, onPress: pay }] : []),
       ...(vpa
         ? [
@@ -131,22 +156,17 @@ export default function Recipient() {
         >
           <AppIcon name="chevron-left" size={28} />
         </Pressable>
-        <View
-          style={[
-            styles.avatar,
-            { backgroundColor: tc(profileAvatarColor(name || '?'), 'bg') },
-          ]}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`${name || 'Unknown recipient'}, view details`}
+          onPress={() => setDetailsOpen(true)}
+          style={({ pressed }) => [styles.profile, pressed && styles.pressed]}
         >
-          <Text style={styles.initial}>{profileInitial(name)}</Text>
-        </View>
-        <Text
-          accessibilityRole="header"
-          accessibilityHint={vpa ? `UPI ID ${vpa}` : undefined}
-          numberOfLines={2}
-          style={styles.name}
-        >
-          {name || 'Unknown recipient'}
-        </Text>
+          <RecipientAvatar name={name} brand={brand} size={52} />
+          <Text numberOfLines={2} style={styles.name}>
+            {name || 'Unknown recipient'}
+          </Text>
+        </Pressable>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="More options"
@@ -248,6 +268,20 @@ export default function Recipient() {
         </Text>
       </ScrollView>
 
+      <RecipientDetailsSheet
+        visible={detailsOpen}
+        name={name}
+        vpa={vpa}
+        brand={brand}
+        history={history}
+        copied={copied}
+        onCopyVpa={copyVpa}
+        onPay={() => {
+          setDetailsOpen(false);
+          pay();
+        }}
+        onClose={() => setDetailsOpen(false)}
+      />
       <View style={styles.navArea}>
         <DashboardNav current="/payments" floating />
       </View>
@@ -271,14 +305,13 @@ const styles = themedStyleSheet({
     justifyContent: 'center',
   },
   pressed: { opacity: 0.7 },
-  avatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+  profile: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 10,
   },
-  initial: { color: '#ffffff', fontSize: 24, fontWeight: '500' },
   name: {
     flex: 1,
     minWidth: 0,

@@ -34,6 +34,8 @@ export type TransactionItem = {
   amount: number;
   /** Day label, then time, separated by " · " (for example "Today · 9:12 AM"). */
   time: string;
+  /** When it happened (ms since epoch), for the Activity date filter. */
+  createdAt?: number;
   /** Token debited or credited; the list shows the INR amount in it. */
   token?: string;
   /** Brand mark for sample merchants. Others show their first letter. */
@@ -200,6 +202,7 @@ export function toTransactionItem(payment: SimulatedPayment): TransactionItem {
     direction: 'Sent',
     amount: Number(payment.inrAmount),
     time: formatPaymentTime(payment.createdAt),
+    createdAt: payment.createdAt,
     token: payment.token,
   };
 }

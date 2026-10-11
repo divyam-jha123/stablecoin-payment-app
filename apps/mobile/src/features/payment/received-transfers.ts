@@ -211,6 +211,7 @@ export function toReceivedItem(transfer: ReceivedTransfer): TransactionItem {
     direction: 'Received',
     amount: receivedInr(transfer),
     time: formatPaymentTime(transfer.createdAt),
+    createdAt: transfer.createdAt,
     token: 'pathUSD',
   };
 }

@@ -26,6 +26,7 @@ import {
 import {
   previewDashboardWith,
   previewInrHolding,
+  previewPaymentsFeed,
   previewUsdt,
   previewReceiptPayments,
 } from '../src/preview-data';
@@ -159,11 +160,12 @@ export default function Payments() {
   const selectedToken =
     tokenOptions.find((option) => option.symbol === tokenSymbol) ??
     tokenOptions[0]!;
+  // People and merchants paid, newest first, next to money received.
   const recent = (
     uiPreviewEnabled
-      ? previewDashboard.transactions
+      ? previewPaymentsFeed(payments)
       : activityItems(payments, received)
-  ).slice(0, 3);
+  ).slice(0, 4);
 
   if (mode === 'receive') return <Redirect href="/receive" />;
 

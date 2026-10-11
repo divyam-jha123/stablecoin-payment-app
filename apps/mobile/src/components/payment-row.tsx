@@ -2,6 +2,7 @@ import { Pressable, Text, View } from 'react-native';
 import { AppIcon } from './payment-ui';
 import { previewInr } from '../preview-data';
 import type { TransactionItem } from '../features/payment/simulated-payments';
+import { RecipientAvatar } from './recipient-avatar';
 import { homeTheme as theme } from '../theme/home';
 import { tc, themedStyleSheet } from '../theme/themed';
 
@@ -24,19 +25,23 @@ export function PaymentRow({
       onPress={onPress}
       style={({ pressed }) => [styles.row, pressed && styles.pressed]}
     >
-      <View style={styles.icon}>
-        <AppIcon
-          name={received ? 'download' : 'store'}
-          color={tc(theme.colors.primary)}
-          size={22}
+      {received ? (
+        <View style={styles.icon}>
+          <AppIcon name="download" color={tc(theme.colors.primary)} size={22} />
+        </View>
+      ) : (
+        <RecipientAvatar
+          name={transaction.name}
+          brand={transaction.brand}
+          size={44}
         />
-      </View>
+      )}
       <View style={styles.copy}>
         <Text style={styles.name} numberOfLines={1}>
           {transaction.name}
         </Text>
         <Text style={styles.detail} numberOfLines={1}>
-          {day} • {transaction.category}
+          {day} • {received ? transaction.category : 'UPI'}
         </Text>
       </View>
       <Text style={[styles.amount, received && styles.received]}>
