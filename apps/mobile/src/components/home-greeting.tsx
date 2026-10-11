@@ -1,7 +1,8 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { AppIcon } from './payment-ui';
 import { ProfileAvatar } from './profile-avatar';
 import { homeTheme as theme } from '../theme/home';
+import { tc, themedStyleSheet } from '../theme/themed';
 
 export function HomeGreeting({
   name,
@@ -47,7 +48,7 @@ export function HomeGreeting({
         ]}
       >
         <View>
-          <AppIcon name="bell" color={theme.colors.text} size={23} />
+          <AppIcon name="bell" color={tc(theme.colors.text)} size={23} />
           {unread && <View style={styles.unreadDot} />}
         </View>
       </Pressable>
@@ -55,7 +56,7 @@ export function HomeGreeting({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyleSheet({
   row: {
     flexDirection: 'row',
     alignItems: 'center',

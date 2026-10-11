@@ -4,9 +4,9 @@ import {
   type NativeSyntheticEvent,
   Pressable,
   ScrollView,
-  StyleSheet,
   View,
 } from 'react-native';
+import { themedStyleSheet } from '../theme/themed';
 
 export type HomeAd = {
   key: string;
@@ -118,7 +118,7 @@ export function HomeAdCarousel({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyleSheet({
   root: { gap: 8 },
   frame: {
     width: '100%',

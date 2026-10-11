@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { uiPreviewEnabled } from '../ui-preview';
+import { themedStyleSheet } from '../theme/themed';
 
 export type PreviewFlowAction = {
   label: string;
@@ -76,7 +77,7 @@ export function PreviewFlowBar({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyleSheet({
   overlay: {
     bottom: 0,
     left: 0,

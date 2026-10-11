@@ -1,7 +1,9 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppIcon, colors } from '../src/components/payment-ui';
+import { tc, themedStyleSheet } from '../src/theme/themed';
+import { useScheme } from '../src/theme/color-scheme-store';
 
 /**
  * "Set your payment PIN" intro. Shown after Google signup, or
@@ -9,6 +11,8 @@ import { AppIcon, colors } from '../src/components/payment-ui';
  * payment details pass through to the PIN entry screen.
  */
 export default function PinSetup() {
+  // Redraw in the new colours when the theme switches.
+  useScheme();
   const params = useLocalSearchParams<Record<string, string>>();
   // During onboarding there is nowhere sensible to go back to.
   const canGoBack = params.next !== undefined && params.next !== 'onboarding';
@@ -25,7 +29,7 @@ export default function PinSetup() {
             onPress={() => router.back()}
             style={({ pressed }) => [styles.back, pressed && styles.pressed]}
           >
-            <AppIcon name="chevron-left" size={22} color={colors.ink} />
+            <AppIcon name="chevron-left" size={22} color={tc(colors.ink)} />
           </Pressable>
         ) : null}
         <Text style={styles.brand}>TravelPe</Text>
@@ -33,7 +37,7 @@ export default function PinSetup() {
 
       <View style={styles.content}>
         <View style={styles.badge}>
-          <AppIcon name="lock" size={64} color="#0a5ce8" />
+          <AppIcon name="lock" size={64} color={tc('#0a5ce8')} />
         </View>
         <Text accessibilityRole="header" style={styles.title}>
           Set your payment PIN
@@ -62,7 +66,7 @@ export default function PinSetup() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyleSheet({
   screen: { flex: 1, backgroundColor: '#ffffff' },
   header: {
     height: 56,

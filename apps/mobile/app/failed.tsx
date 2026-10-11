@@ -5,7 +5,6 @@ import {
   Alert,
   Image,
   Pressable,
-  StyleSheet,
   Text,
   View,
 } from 'react-native';
@@ -16,6 +15,8 @@ import { previewSamplePayment } from '../src/preview-data';
 import { uiPreviewEnabled } from '../src/ui-preview';
 import { parsePaymentRequest } from '../src/features/payment/payment-authorization';
 import { openPaymentPin } from '../src/features/payment/open-payment-pin';
+import { tc, themedStyleSheet } from '../src/theme/themed';
+import { useScheme } from '../src/theme/color-scheme-store';
 
 // Metro bundles this static illustration at build time.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -35,6 +36,8 @@ function firstParam(value: string | string[] | undefined): string | undefined {
 }
 
 export default function Failed() {
+  // Redraw in the new colours when the theme switches.
+  useScheme();
   const params = useLocalSearchParams<{
     merchantName?: string | string[];
     merchantVpa?: string | string[];
@@ -110,7 +113,7 @@ export default function Failed() {
             pressed && styles.pressed,
           ]}
         >
-          <AppIcon name="help" size={22} color={colors.ink} />
+          <AppIcon name="help" size={22} color={tc(colors.ink)} />
         </Pressable>
       </View>
 
@@ -158,9 +161,9 @@ export default function Failed() {
           ]}
         >
           {retrying ? (
-            <ActivityIndicator size="small" color="#ffffff" />
+            <ActivityIndicator size="small" color={tc('#ffffff')} />
           ) : (
-            <AppIcon name="retry" size={18} color="#ffffff" />
+            <AppIcon name="retry" size={18} color={tc('#ffffff')} />
           )}
           <Text style={styles.buttonText}>
             {retrying ? 'Trying again…' : 'Try again'}
@@ -188,7 +191,7 @@ export default function Failed() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyleSheet({
   screen: { flex: 1, backgroundColor: '#ffffff' },
   topBar: {
     flexDirection: 'row',

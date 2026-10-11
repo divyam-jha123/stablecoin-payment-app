@@ -10,6 +10,7 @@ import {
   hasReturningUser,
 } from '../features/account/returning-user';
 import { SplashBackdrop, SPLASH_DURATION_MS } from './splash-backdrop';
+import { themedStyleSheet } from '../theme/themed';
 
 /** The phone's native unlock prompt appears over the splash after it finishes. */
 export function AppLock() {
@@ -166,7 +167,7 @@ export function AppLock() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyleSheet({
   overlay: {
     ...StyleSheet.absoluteFill,
     zIndex: 1000,

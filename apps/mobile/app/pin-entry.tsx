@@ -29,6 +29,8 @@ import {
   paymentApprovals,
   paymentParams,
 } from '../src/features/payment/payment-authorization';
+import { tc, themedStyleSheet } from '../src/theme/themed';
+import { useScheme } from '../src/theme/color-scheme-store';
 
 // Short pause after the last digit so the fourth box visibly fills before
 // the PIN is checked or the next step appears.
@@ -68,6 +70,8 @@ function failureMessage(check: Exclude<PinCheck, { ok: true }>) {
 }
 
 export default function PinEntry() {
+  // Redraw in the new colours when the theme switches.
+  useScheme();
   const params = useLocalSearchParams<{
     mode?: string;
     next?: string;
@@ -252,7 +256,7 @@ export default function PinEntry() {
           onPress={() => router.back()}
           style={({ pressed }) => [styles.back, pressed && styles.pressed]}
         >
-          <AppIcon name="chevron-left" size={22} color={colors.ink} />
+          <AppIcon name="chevron-left" size={22} color={tc(colors.ink)} />
         </Pressable>
         <Text accessibilityRole="header" style={styles.title}>
           {TITLES[mode]}
@@ -333,7 +337,7 @@ export default function PinEntry() {
           {busy ? (
             <ActivityIndicator
               accessibilityLabel="Checking PIN"
-              color="#0a5ce8"
+              color={tc('#0a5ce8')}
               style={styles.busy}
             />
           ) : null}
@@ -360,7 +364,7 @@ export default function PinEntry() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyleSheet({
   screen: { flex: 1, backgroundColor: '#ffffff' },
   header: {
     height: 56,

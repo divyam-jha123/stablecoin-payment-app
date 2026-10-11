@@ -6,7 +6,6 @@ import {
   AppState,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   View,
 } from 'react-native';
@@ -25,11 +24,21 @@ import { useAccount } from '../src/features/account/use-account';
 import { walletStore } from '../src/features/account/metamask';
 import { TEMPO_CHAIN, tempoService } from '../src/features/account/tempo';
 import { walletError } from '../src/features/account/wallet-store';
-import { previewDashboardWith, previewRecipients } from '../src/preview-data';
+import {
+  previewDashboardWith,
+  previewRecipients,
+  previewUsdt,
+} from '../src/preview-data';
 import { PreviewTransactions } from '../src/components/preview-transactions';
 import { uiPreviewEnabled } from '../src/ui-preview';
 import { HomeBalanceCard } from '../src/components/home-balance-card';
+import {
+  HomeTokenSheet,
+  type HomeTokenOption,
+} from '../src/components/home-token-sheet';
 import { HomeQuickActions } from '../src/components/home-quick-actions';
+import { HomeSearchBar } from '../src/components/home-search-bar';
+import { HomeMonthSummary } from '../src/components/home-month-summary';
 import { HomeGreeting } from '../src/components/home-greeting';
 import { HomeConnectWalletCard } from '../src/components/home-connect-wallet-card';
 import {
@@ -52,6 +61,8 @@ import {
   simulatedBalance,
 } from '../src/features/payment/simulated-payments';
 import { RecentRecipients } from '../src/components/recent-recipients';
+import { tc, themedStyleSheet } from '../src/theme/themed';
+import { useScheme } from '../src/theme/color-scheme-store';
 
 // Metro bundles this static Figma asset at build time.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -60,8 +71,12 @@ const merchantBanner = require('../assets/figma/home-merchant-banner.webp');
 const pinAd = require('../assets/ads/pin-ad.webp');
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const historyAd = require('../assets/ads/history-ad.webp');
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const rewardsAd = require('../assets/ads/rewards-ad.webp');
 
 export default function Home() {
+  // Redraw in the new colours when the theme switches.
+  useScheme();
   const { wallet, onTempo, session, foreground } = useAccount();
   const address = wallet.account?.address;
   const {
@@ -97,6 +112,10 @@ export default function Home() {
     .reduce((total, payment) => total + Number(payment.inrAmount), 0)
     .toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
   const [balanceVisible, setBalanceVisible] = useState(false);
+  const [homeToken, setHomeToken] = useState(
+    uiPreviewEnabled ? 'USDC' : 'pathUSD',
+  );
+  const [tokenSheetOpen, setTokenSheetOpen] = useState(false);
   useFocusEffect(
     useCallback(() => {
       setBalanceVisible(false);
@@ -202,6 +221,57 @@ export default function Home() {
     }
   }
 
+  const liveBalance = balance.isError
+    ? 'Unavailable'
+    : balance.data === undefined
+      ? 'Checking…'
+      : simulatedBalance(balance.data, payments);
+  // Wallet mode reads only pathUSD; USDC and USDT show a dash until the app
+  // can read their balances, never a sample number.
+  const tokenOptions: (HomeTokenOption & {
+    balance: string;
+    equivalent: string;
+  })[] = uiPreviewEnabled
+    ? [
+        {
+          symbol: 'USDC',
+          name: 'USD Coin',
+          amount: previewDashboard.tokenAmount,
+          detail: previewDashboard.displayBalance,
+          balance: previewDashboard.displayBalance,
+          equivalent: previewDashboard.displayEquivalent,
+        },
+        {
+          symbol: 'USDT',
+          name: 'Tether',
+          amount: previewUsdt.tokenAmount,
+          detail: previewUsdt.displayBalance,
+          balance: previewUsdt.displayBalance,
+          equivalent: previewUsdt.displayEquivalent,
+        },
+      ]
+    : [
+        {
+          symbol: 'pathUSD',
+          name: 'Path USD',
+          amount: liveBalance,
+          detail: 'Tempo testnet',
+          balance: liveBalance,
+          equivalent: 'Tempo Moderato · test funds',
+        },
+        ...(['USDC', 'USDT'] as const).map((symbol) => ({
+          symbol,
+          name: symbol === 'USDC' ? 'USD Coin' : 'Tether',
+          amount: '—',
+          detail: 'Not available yet',
+          balance: '—',
+          equivalent: `${symbol} balance not available yet`,
+        })),
+      ];
+  const selectedToken =
+    tokenOptions.find((option) => option.symbol === homeToken) ??
+    tokenOptions[0]!;
+
   const paymentActions = {
     onAddMoney: () =>
       uiPreviewEnabled ? router.push('/add-money') : void fund(),
@@ -231,7 +301,7 @@ export default function Home() {
   if (!authorized && !connectingWallet)
     return (
       <PaymentScreen>
-        <ActivityIndicator color={colors.ink} />
+        <ActivityIndicator color={tc(colors.ink)} />
         <Text style={ui.body}>Checking your sign-in…</Text>
       </PaymentScreen>
     );
@@ -261,35 +331,21 @@ export default function Home() {
         ) : (
           <>
             <HomeBalanceCard
-              {...paymentActions}
-              balance={
-                uiPreviewEnabled
-                  ? previewDashboard.displayBalance
-                  : balance.isError
-                    ? 'Unavailable'
-                    : balance.data === undefined
-                      ? 'Checking…'
-                      : simulatedBalance(balance.data, payments)
-              }
-              equivalent={
-                uiPreviewEnabled
-                  ? previewDashboard.displayEquivalent
-                  : 'Tempo Moderato · test funds'
-              }
-              currency={uiPreviewEnabled ? 'USDC' : 'pathUSD'}
+              balance={selectedToken.balance}
+              equivalent={selectedToken.equivalent}
+              currency={selectedToken.symbol}
               visible={balanceVisible}
               onToggleVisibility={() =>
                 setBalanceVisible((visible) => !visible)
               }
-              onCurrencyPress={() =>
-                Alert.alert(
-                  'Currency',
-                  uiPreviewEnabled
-                    ? 'USDC is selected for this design preview. Currency switching is not available yet.'
-                    : 'This wallet uses pathUSD on Tempo Moderato testnet.',
-                )
+              onCurrencyPress={() => setTokenSheetOpen(true)}
+              gasless={uiPreviewEnabled || onTempo}
+              // Only a signed-in MetaMask wallet; the preview mirrors one.
+              onWallet={
+                uiPreviewEnabled || (address && walletSignedIn)
+                  ? () => router.push('/profile')
+                  : undefined
               }
-              onActivity={() => router.push('/activity')}
               monthlyChange={uiPreviewEnabled ? '12.4%' : undefined}
             />
             {!uiPreviewEnabled && balance.isError && (
@@ -298,20 +354,29 @@ export default function Home() {
                 your connection; your balance updates automatically.
               </Text>
             )}
-            {notice?.address === address && (
+            {notice && notice.address === address && (
               <Text accessibilityLiveRegion="polite" style={ui.caption}>
-                {notice?.text}
+                {notice.text}
               </Text>
             )}
-            <View
-              style={uiPreviewEnabled ? styles.quickActionsSpacing : undefined}
-            >
-              <HomeQuickActions
-                {...paymentActions}
-                onScan={() => router.push('/scanner')}
-                fundingHint={uiPreviewEnabled ? 'From bank' : 'Test faucet'}
-              />
-            </View>
+            <HomeSearchBar
+              disabled={navigatingDisabled}
+              onPress={() => router.push('/search')}
+              onVoice={() =>
+                router.push({ pathname: '/search', params: { voice: '1' } })
+              }
+            />
+            <HomeQuickActions
+              {...paymentActions}
+              onScan={() => router.push('/scanner')}
+              fundingLabel={
+                funding
+                  ? 'Requesting…'
+                  : cooldown
+                    ? `Wait ${cooldown}s`
+                    : 'Top Up'
+              }
+            />
           </>
         )}
         <HomeAdCarousel
@@ -365,48 +430,36 @@ export default function Home() {
                 />
               ),
             },
+            {
+              key: 'rewards',
+              accessibilityLabel:
+                'TravelPe Rewards. Earn on every payment: cashback, exclusive offers and travel benefits.',
+              // There is no rewards programme yet, so the banner says so.
+              onPress: () =>
+                Alert.alert(
+                  'TravelPe Rewards',
+                  'Rewards are coming soon. No cashback is earned yet.',
+                ),
+              content: (
+                <Image
+                  source={rewardsAd}
+                  resizeMode="cover"
+                  style={styles.bannerImage}
+                />
+              ),
+            },
           ]}
         />
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={
-            uiPreviewEnabled
-              ? `Sample monthly activity: ${previewDashboard.spent} spent, ${previewDashboard.payments} payments, ${previewDashboard.networkFees} pathUSD network fees. View activity.`
-              : `This month: ${monthSpent} spent, ${monthPayments.length} payments. View activity.`
+        <HomeMonthSummary
+          spent={uiPreviewEnabled ? previewDashboard.spent : monthSpent}
+          payments={
+            uiPreviewEnabled ? previewDashboard.payments : monthPayments.length
           }
+          // Fees are not tracked for live payments yet, so wallet mode shows a dash.
+          fees={uiPreviewEnabled ? `${previewDashboard.networkFees} USDC` : '—'}
+          saved={uiPreviewEnabled ? previewDashboard.feesSaved : undefined}
           onPress={() => router.push('/activity')}
-          style={styles.monthBar}
-        >
-          <View style={styles.monthHeading}>
-            <View style={styles.chartIcon}>
-              <View style={[styles.chartColumn, { height: 10 }]} />
-              <View style={[styles.chartColumn, { height: 18 }]} />
-              <View style={[styles.chartColumn, { height: 14 }]} />
-            </View>
-            <Text style={styles.monthTitle}>This Month</Text>
-          </View>
-          <View style={styles.monthMetric}>
-            <Text style={styles.monthValue}>
-              {uiPreviewEnabled ? previewDashboard.spent : monthSpent}
-            </Text>
-            <Text style={styles.monthLabel}>Spent</Text>
-          </View>
-          <View style={styles.monthMetric}>
-            <Text style={styles.monthValue}>
-              {uiPreviewEnabled
-                ? previewDashboard.payments
-                : monthPayments.length}
-            </Text>
-            <Text style={styles.monthLabel}>Payments</Text>
-          </View>
-          <View style={styles.monthMetric}>
-            <Text style={styles.monthValue}>
-              {uiPreviewEnabled ? previewDashboard.networkFees : '—'}
-            </Text>
-            <Text style={styles.monthLabel}>Network fees</Text>
-          </View>
-          <AppIcon name="arrow" size={14} color={colors.muted} />
-        </Pressable>
+        />
         {recipients.length > 0 && (
           <RecentRecipients
             recipients={recipients}
@@ -443,7 +496,7 @@ export default function Home() {
             <PreviewTransactions transactions={recentActivity.slice(0, 3)} />
           ) : (
             <View style={styles.emptyActivity}>
-              <AppIcon name="activity" color={colors.accent} size={30} />
+              <AppIcon name="activity" color={tc(colors.accent)} size={30} />
               <Text style={styles.emptyTitle}>No payments yet</Text>
               <Text style={styles.emptyCopy}>
                 Your transactions will appear here after you pay or get paid.
@@ -472,6 +525,16 @@ export default function Home() {
             : 'Tempo testnet · pathUSD has no monetary value. INR settlement is simulated.'}
         </Text>
       </ScrollView>
+      <HomeTokenSheet
+        visible={tokenSheetOpen}
+        options={tokenOptions}
+        selected={selectedToken.symbol}
+        onSelect={(symbol) => {
+          setHomeToken(symbol);
+          setTokenSheetOpen(false);
+        }}
+        onClose={() => setTokenSheetOpen(false)}
+      />
       <View style={styles.navArea}>
         <DashboardNav disabled={navigatingDisabled} floating />
       </View>
@@ -479,7 +542,7 @@ export default function Home() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyleSheet({
   screen: { flex: 1, backgroundColor: homeTheme.colors.background },
   scroll: { flex: 1, backgroundColor: homeTheme.colors.background },
   content: {
@@ -491,7 +554,6 @@ const styles = StyleSheet.create({
     paddingBottom: homeTheme.spacing.section,
     gap: homeTheme.spacing.lg,
   },
-  quickActionsSpacing: { marginTop: -28 },
   navArea: {
     backgroundColor: homeTheme.colors.background,
     paddingHorizontal: homeTheme.layout.pageGutter,
@@ -515,50 +577,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   activitySection: { gap: 8 },
-  monthBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    minHeight: 48,
-    paddingHorizontal: 8,
-    paddingVertical: 8,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#6ea4ff',
-    backgroundColor: '#fff',
-  },
-  monthHeading: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    flex: 1.4,
-    minWidth: 0,
-  },
-  chartIcon: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 2,
-    padding: 3,
-    backgroundColor: '#e8f4ff',
-    borderRadius: 5,
-  },
-  chartColumn: { width: 3, borderRadius: 2, backgroundColor: '#0088ff' },
-  monthTitle: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: colors.ink,
-    flexShrink: 1,
-  },
-  monthMetric: {
-    flex: 1,
-    minWidth: 0,
-    borderLeftWidth: 1,
-    borderLeftColor: '#dce8ff',
-    paddingLeft: 6,
-    gap: 2,
-  },
-  monthValue: { fontSize: 13, fontWeight: '700', color: colors.ink },
-  monthLabel: { fontSize: 9, color: colors.muted },
   sectionRow: {
     flexDirection: 'row',
     alignItems: 'center',

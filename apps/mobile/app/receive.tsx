@@ -11,7 +11,6 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   View,
@@ -38,6 +37,8 @@ import {
   requiredPathUsdAtomic,
 } from '../src/features/payment/amount';
 import { uiPreviewEnabled } from '../src/ui-preview';
+import { tc, themedStyleSheet } from '../src/theme/themed';
+import { useScheme } from '../src/theme/color-scheme-store';
 
 const CURRENCIES: TravelPeCurrency[] = ['USDC', 'USDT', 'pathUSD'];
 
@@ -281,7 +282,7 @@ function ReceivePaymentScreen() {
                 maxLength={12}
                 onChangeText={setAmount}
                 placeholder="0.00"
-                placeholderTextColor="#77849b"
+                placeholderTextColor={tc('#77849b')}
                 style={[styles.input, amountError && styles.inputError]}
                 value={amount}
               />
@@ -301,7 +302,7 @@ function ReceivePaymentScreen() {
                 maxLength={120}
                 onChangeText={setNote}
                 placeholder="What is this for?"
-                placeholderTextColor="#77849b"
+                placeholderTextColor={tc('#77849b')}
                 style={[styles.input, noteError && styles.inputError]}
                 value={note}
               />
@@ -382,7 +383,7 @@ function ReceivePaymentScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyleSheet({
   flex: { flex: 1 },
   screen: { flex: 1, backgroundColor: '#ffffff' },
   content: {
@@ -504,6 +505,8 @@ const styles = StyleSheet.create({
 
 // Paying and receiving need a wallet: Google-only visitors connect one first.
 export default function ReceivePayment() {
+  // Redraw in the new colours when the theme switches.
+  useScheme();
   const needsWallet = useNeedsWallet(useAccount());
   return needsWallet ? (
     <ConnectWalletGate message="Link MetaMask to show your receive QR and get paid in stablecoins." />
