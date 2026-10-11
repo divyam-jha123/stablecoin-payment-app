@@ -209,7 +209,8 @@ export function toTransactionItem(payment: SimulatedPayment): TransactionItem {
 
 export type Recipient = { id: string; name: string; vpa: string | null };
 
-function recipientKey(payment: SimulatedPayment) {
+/** One key per UPI ID, or per merchant name when no UPI ID was kept. */
+export function recipientKey(payment: SimulatedPayment) {
   return (
     payment.merchantVpa?.toLowerCase() ??
     `name:${payment.merchantName.trim().toLowerCase()}`

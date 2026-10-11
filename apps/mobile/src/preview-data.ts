@@ -110,6 +110,18 @@ const previewRecipientHistory: readonly (readonly [
   ['Archita', 'archita@okhdfcbank', [[12, 21, 0, '1000']]],
 ];
 
+/**
+ * Sample category and city per UPI ID for the Payments merchant cards. Wallet
+ * mode has no source for these, so its cards show the payment count instead.
+ */
+export const previewMerchantDetails: Readonly<Record<string, string>> = {
+  'cafelotus@upi': 'Café · Pune',
+  'starbucks@hdfcbank': 'Café · Pune',
+  'blinkit@ybl': 'Groceries · Pune',
+  'uber@axisbank': 'Transport · Pune',
+  'zomato@hdfcbank': 'Food & Dining · Pune',
+};
+
 /** Sample people and merchants for Recent recipients in the UI preview. */
 export const previewRecipients: readonly Recipient[] =
   previewRecipientHistory.map(([name, vpa]) => ({
